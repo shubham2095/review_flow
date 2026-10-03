@@ -215,9 +215,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top;
     final firstName = name.trim().split(' ').first;
-    final initial = firstName.isEmpty ? 'R' : firstName[0].toUpperCase();
     final locCount = data.locations.length;
 
     return ClipRRect(
@@ -227,7 +225,7 @@ class _Header extends StatelessWidget {
       ),
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.fromLTRB(20, top + 14, 20, 26),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 26),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [_brand, _brandDeep],
@@ -250,49 +248,7 @@ class _Header extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'E',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Eydia',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const Spacer(),
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white.withValues(alpha: 0.25),
-                      child: Text(
-                        initial,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 4),
                 Text(
                   _date.toUpperCase(),
                   style: GoogleFonts.plusJakartaSans(

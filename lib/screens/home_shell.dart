@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
+import '../theme/brand.dart';
+import '../widgets/app_drawer.dart';
+import '../widgets/app_top_bar.dart';
 import 'dashboard_screen.dart';
+import 'reviews_screen.dart';
 import 'web_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -13,33 +20,108 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _index = 0;
+  String _name = '';
+  String _email = '';
+
+  static const _titles = ['Dashboard', 'Reviews', 'Web'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMe();
+  }
+
+  Future<void> _loadMe() async {
+    try {
+      final me = await ApiService.instance.get('/me');
+      if (!mounted) return;
+      setState(() {
+        _name = (me['name'] ?? '').toString();
+        _email = (me['email'] ?? '').toString();
+      });
+    } catch (_) {
+      // Naam nahi aaya to header mein default text dikhega.
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout karna hai?'),
+        content: const Text('Aapka session is phone se khatam ho jayega.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await AuthService.logout();
+    if (mounted) widget.onSignedOut();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: [
-          DashboardScreen(onSignedOut: widget.onSignedOut),
-          WebScreen(onSignedOut: widget.onSignedOut),
-        ],
+    final initial = _name.trim().isEmpty ? 'E' : _name.trim()[0].toUpperCase();
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: brand,
+        statusBarIconBrightness: Brightness.light,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.language_outlined),
-            selectedIcon: Icon(Icons.language),
-            label: 'Web',
-          ),
-        ],
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: surface,
+        appBar: AppTopBar(
+          title: _titles[_index],
+          initial: initial,
+          onAvatarTap: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        drawer: AppDrawer(
+          name: _name,
+          email: _email,
+          selectedIndex: _index,
+          onSelect: (i) => setState(() => _index = i),
+          onLogout: _confirmLogout,
+        ),
+        body: IndexedStack(
+          index: _index,
+          children: [
+            DashboardScreen(onSignedOut: widget.onSignedOut),
+            ReviewsScreen(onSignedOut: widget.onSignedOut),
+            WebScreen(onSignedOut: widget.onSignedOut),
+          ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.rate_review_outlined),
+              selectedIcon: Icon(Icons.rate_review),
+              label: 'Reviews',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.language_outlined),
+              selectedIcon: Icon(Icons.language),
+              label: 'Web',
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -50,6 +50,19 @@ class ApiService {
     return _decode(res);
   }
 
+  Future<List<dynamic>> getList(String path) async {
+    final token = await _requireToken();
+    final res = await http.get(
+      Uri.parse('$kApiBase$path'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (res.statusCode >= 400) _decode(res);
+    return jsonDecode(res.body) as List<dynamic>;
+  }
+
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
