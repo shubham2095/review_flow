@@ -7,6 +7,7 @@ import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
 import 'dashboard_screen.dart';
+import 'leads_screen.dart';
 import 'reviews_screen.dart';
 import 'web_screen.dart';
 
@@ -25,7 +26,7 @@ class _HomeShellState extends State<HomeShell> {
   String _name = '';
   String _email = '';
 
-  static const _titles = ['Dashboard', 'Reviews', 'Web'];
+  static const _titles = ['Dashboard', 'Reviews', 'Leads', 'Web'];
 
   @override
   void initState() {
@@ -98,6 +99,7 @@ class _HomeShellState extends State<HomeShell> {
           children: [
             DashboardScreen(onSignedOut: widget.onSignedOut),
             ReviewsScreen(onSignedOut: widget.onSignedOut),
+            LeadsScreen(onSignedOut: widget.onSignedOut),
             WebScreen(onSignedOut: widget.onSignedOut),
           ],
         ),
@@ -114,6 +116,11 @@ class _HomeShellState extends State<HomeShell> {
               icon: Icon(Icons.rate_review_outlined),
               selectedIcon: Icon(Icons.rate_review),
               label: 'Reviews',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.groups_outlined),
+              selectedIcon: Icon(Icons.groups),
+              label: 'Leads',
             ),
             NavigationDestination(
               icon: Icon(Icons.language_outlined),
