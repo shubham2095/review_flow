@@ -38,6 +38,18 @@ class ApiService {
     await prefs.remove(_tokenKey);
   }
 
+  Future<Map<String, dynamic>> get(String path) async {
+    final token = await _requireToken();
+    final res = await http.get(
+      Uri.parse('$kApiBase$path'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    return _decode(res);
+  }
+
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
@@ -49,11 +61,7 @@ class ApiService {
     };
 
     if (auth) {
-      final token = await readToken();
-      if (token == null) {
-        throw ApiException('Login nahi hai');
-      }
-      headers['Authorization'] = 'Bearer $token';
+      headers['Authorization'] = 'Bearer ${await _requireToken()}';
     }
 
     final res = await http.post(
@@ -61,7 +69,18 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body ?? {}),
     );
+    return _decode(res);
+  }
 
+  Future<String> _requireToken() async {
+    final token = await readToken();
+    if (token == null) {
+      throw ApiException('Login nahi hai', statusCode: 401);
+    }
+    return token;
+  }
+
+  Map<String, dynamic> _decode(http.Response res) {
     final data = res.body.isEmpty
         ? <String, dynamic>{}
         : jsonDecode(res.body) as Map<String, dynamic>;

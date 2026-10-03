@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -6,10 +7,27 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
+// Login form ke submit par email/password app ko bhejta hai. Form normal tarike se submit hota
+// rehta hai (web session ke liye), ye sirf parallel mein token lene ke liye hai.
+const String _captureLoginJs = r'''
+(function () {
+  if (window.__rfCaptureHooked) return;
+  window.__rfCaptureHooked = true;
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    var pw = form.querySelector('input[type=password]');
+    var em = form.querySelector('input[type=email], input[name=email]');
+    if (!pw || !em) return;
+    NativeLogin.postMessage(JSON.stringify({ email: em.value, password: pw.value }));
+  }, true);
+})();
+''';
+
 class WebScreen extends StatefulWidget {
-  const WebScreen({super.key, required this.onSignedOut});
+  const WebScreen({super.key, required this.onSignedOut, this.onLoggedIn});
 
   final VoidCallback onSignedOut;
+  final VoidCallback? onLoggedIn;
 
   @override
   State<WebScreen> createState() => _WebScreenState();
@@ -25,10 +43,21 @@ class _WebScreenState extends State<WebScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel(
+        'NativeLogin',
+        onMessageReceived: (message) => _saveEmailToken(message.message),
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) => setState(() => _progress = progress),
-          onPageFinished: (_) => setState(() => _progress = 100),
+          onPageFinished: (url) {
+            setState(() => _progress = 100);
+            if (Uri.parse(url).path == '/login') {
+              unawaited(_controller.runJavaScript(_captureLoginJs));
+            } else {
+              unawaited(_notifyIfLoggedIn());
+            }
+          },
           onNavigationRequest: (request) {
             final uri = Uri.parse(request.url);
             if (uri.host == Uri.parse(kAppUrl).host && uri.path == '/auth/google') {
@@ -63,6 +92,26 @@ class _WebScreenState extends State<WebScreen> {
       _showError('Session load fail: $e');
     } catch (e) {
       _showError('Network error: $e');
+    }
+  }
+
+  Future<void> _notifyIfLoggedIn() async {
+    final onLoggedIn = widget.onLoggedIn;
+    if (onLoggedIn == null) return;
+    if (await ApiService.instance.readToken() != null && mounted) {
+      onLoggedIn();
+    }
+  }
+
+  Future<void> _saveEmailToken(String raw) async {
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      await AuthService.loginWithEmail(
+        data['email'] as String,
+        data['password'] as String,
+      );
+    } catch (_) {
+      // Web login apne aap chalta hai; token na mile to chupchap skip karo.
     }
   }
 

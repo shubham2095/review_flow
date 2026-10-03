@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'screens/auth_gate.dart';
@@ -18,11 +19,12 @@ class ReviewFlowApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'review-flow',
+      title: 'Eydia',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4C6FFF)),
         useMaterial3: true,
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(),
       ),
       home: const AuthGate(),
     );
