@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/insights_models.dart';
 import '../services/api_service.dart';
@@ -76,6 +80,27 @@ class _InsightsScreenState extends State<InsightsScreen> {
     _load();
   }
 
+  Future<void> _downloadCsv() async {
+    final end = DateTime.now();
+    final start = end.subtract(Duration(days: _days));
+    final query = StringBuffer('start=${_fmt(start)}&end=${_fmt(end)}');
+    if (_locationId != null) query.write('&location=$_locationId');
+
+    try {
+      final bytes = await ApiService.instance.getBytes('/insights/download?$query');
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/insights_${_fmt(end)}.csv');
+      await file.writeAsBytes(bytes);
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(file.path, mimeType: 'text/csv')], subject: 'Insights ${_fmt(start)} to ${_fmt(end)}'),
+      );
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = _data;
@@ -114,6 +139,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
                       locationId: _locationId,
                       onLocation: _setLocation,
                     ),
+                    if (data.hasGoogle) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _downloadCsv,
+                        icon: const Icon(Icons.download_rounded, size: 18),
+                        label: const Text('Download CSV'),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     if (!data.hasGoogle)
                       const _InfoCard(

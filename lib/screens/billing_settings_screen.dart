@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -30,6 +33,7 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
   final _currency = TextEditingController();
   bool _roundTotal = false;
   String _nextNumber = '';
+  String? _logo;
   bool _loading = true;
   bool _busy = false;
 
@@ -76,6 +80,7 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
         _defaultGst.text = _s(j['default_gst']);
         _currency.text = _s(j['currency']);
         _roundTotal = j['round_total'] == true;
+        _logo = _s(j['logo']).isEmpty ? null : _s(j['logo']);
         _nextNumber = '${_s(j['invoice_prefix'])}-${_s(j['next_invoice_number']).padLeft(4, '0')}';
       });
     } on ApiException catch (e) {
@@ -88,6 +93,38 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _pickLogo() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      imageQuality: 90,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    final mime = picked.mimeType ?? 'image/png';
+    if (mounted) setState(() => _logo = 'data:$mime;base64,${base64Encode(bytes)}');
+  }
+
+  Widget _logoPreview() {
+    final logo = _logo;
+    if (logo == null) {
+      return Text('No logo set', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted));
+    }
+    final image = logo.startsWith('data:')
+        ? Image.memory(base64Decode(logo.split(',').last), height: 64, fit: BoxFit.contain)
+        : Image.network(logo, height: 64, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Text('🖼️'));
+    return Row(
+      children: [
+        image,
+        const Spacer(),
+        TextButton(
+          onPressed: () => setState(() => _logo = null),
+          child: const Text('Remove', style: TextStyle(color: bad)),
+        ),
+      ],
+    );
   }
 
   Future<void> _save() async {
@@ -112,6 +149,7 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
         'default_gst': double.tryParse(_defaultGst.text.trim()),
         'currency': _currency.text.trim(),
         'round_total': _roundTotal,
+        'logo': _logo,
       });
       _snack('Billing settings saved ✅');
       _load();
@@ -197,6 +235,15 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
                     title: const Text('Round total to nearest rupee'),
                     value: _roundTotal,
                     onChanged: (v) => setState(() => _roundTotal = v),
+                  ),
+                ]),
+                _section('Logo (shown on invoices)', [
+                  _logoPreview(),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _pickLogo,
+                    icon: const Icon(Icons.image_rounded, size: 18),
+                    label: Text(_logo == null ? 'Choose logo' : 'Change logo'),
                   ),
                 ]),
                 _section('Bank details', [

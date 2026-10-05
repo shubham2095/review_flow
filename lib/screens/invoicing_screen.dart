@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/invoice_models.dart';
+import '../services/invoice_pdf.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
@@ -309,6 +310,7 @@ class _InvoiceDetailSheet extends StatefulWidget {
 
 class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
   InvoiceDetail? _detail;
+  Map<String, dynamic>? _raw;
   String? _error;
   bool _busy = false;
 
@@ -321,7 +323,12 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
   Future<void> _load() async {
     try {
       final json = await ApiService.instance.get('/invoicing/invoices/${widget.invoiceId}');
-      if (mounted) setState(() => _detail = InvoiceDetail.fromJson(json));
+      if (mounted) {
+        setState(() {
+          _raw = json;
+          _detail = InvoiceDetail.fromJson(json);
+        });
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     }
@@ -426,6 +433,24 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                   _TotalRow(label: 'Subtotal', value: _money(d.subtotal)),
                   _TotalRow(label: 'GST', value: _money(d.gstTotal)),
                   _TotalRow(label: 'Total', value: _money(d.total), bold: true),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    onPressed: _raw == null
+                        ? null
+                        : () async {
+                            try {
+                              await shareInvoicePdf(_raw!);
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Could not create PDF: $e')),
+                                );
+                              }
+                            }
+                          },
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                    label: const Text('Download PDF'),
+                  ),
                   const SizedBox(height: 18),
                   if (d.status == 'DRAFT')
                     FilledButton.icon(

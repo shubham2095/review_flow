@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/invoice_models.dart';
 import '../services/api_service.dart';
@@ -466,9 +469,16 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
 class _ChatMessage {
   _ChatMessage(this.text, {required this.fromUser});
 
+  factory _ChatMessage.fromJson(Map<String, dynamic> j) =>
+      _ChatMessage(j['text']?.toString() ?? '', fromUser: j['fromUser'] == true);
+
   final String text;
   final bool fromUser;
+
+  Map<String, dynamic> toJson() => {'text': text, 'fromUser': fromUser};
 }
+
+const _chatHistoryKey = 'ai_mode_history';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key, required this.onSignedOut});
@@ -486,10 +496,46 @@ class _AiChatScreenState extends State<AiChatScreen> {
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  @override
   void dispose() {
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _restore() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_chatHistoryKey);
+      if (raw == null || !mounted) return;
+      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      setState(() => _messages.addAll(list.map(_ChatMessage.fromJson)));
+      _jumpToEnd();
+    } catch (_) {
+      // Corrupt history ko ignore karte hain, chat khaali se shuru hogi.
+    }
+  }
+
+  Future<void> _persist() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_chatHistoryKey, jsonEncode(_messages.map((m) => m.toJson()).toList()));
+    } catch (_) {
+      // Save fail hone par chat chalti rahegi, sirf history save nahi hogi.
+    }
+  }
+
+  Future<void> _clear() async {
+    setState(_messages.clear);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_chatHistoryKey);
+    } catch (_) {}
   }
 
   Future<void> _send([String? preset]) async {
@@ -513,6 +559,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       if (mounted) setState(() => _messages.add(_ChatMessage(e.message, fromUser: false)));
     } finally {
       if (mounted) setState(() => _busy = false);
+      await _persist();
       _jumpToEnd();
     }
   }
@@ -547,7 +594,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
           if (_messages.isNotEmpty)
             IconButton(
               tooltip: 'Clear chat',
-              onPressed: () => setState(_messages.clear),
+              onPressed: _clear,
               icon: const Icon(Icons.delete_sweep_rounded),
             ),
         ],

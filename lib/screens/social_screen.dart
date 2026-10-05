@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/social_models.dart';
 import '../services/api_service.dart';
@@ -319,12 +322,25 @@ class _ComposeSheetState extends State<_ComposeSheet> {
   String _platform = 'FACEBOOK';
   late int _clientId = widget.clients.first.id;
   DateTime? _scheduledAt;
+  String? _imageData;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     _body.addListener(() => setState(() {}));
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1080,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    final mime = picked.mimeType ?? 'image/jpeg';
+    if (mounted) setState(() => _imageData = 'data:$mime;base64,${base64Encode(bytes)}');
   }
 
   @override
@@ -391,6 +407,7 @@ class _ComposeSheetState extends State<_ComposeSheet> {
         'client_id': _clientId,
         'platform': _platform,
         'body': text,
+        if (_imageData != null) 'media_data': _imageData,
         if (_scheduledAt != null) 'scheduled_at': _scheduledAt!.toIso8601String(),
       });
       if (!mounted) return;
@@ -483,6 +500,33 @@ class _ComposeSheetState extends State<_ComposeSheet> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            if (_imageData == null)
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _pickImage,
+                icon: const Icon(Icons.image_rounded, size: 18),
+                label: const Text('Add image (optional)'),
+              )
+            else
+              Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.memory(
+                      base64Decode(_imageData!.split(',').last),
+                      height: 160,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  IconButton.filled(
+                    tooltip: 'Remove image',
+                    onPressed: () => setState(() => _imageData = null),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _busy ? null : _aiCaption,

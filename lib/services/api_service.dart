@@ -50,6 +50,16 @@ class ApiService {
     return _decode(res);
   }
 
+  Future<List<int>> getBytes(String path) async {
+    final token = await _requireToken();
+    final res = await http.get(
+      Uri.parse('$kApiBase$path'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (res.statusCode >= 400) _decode(res);
+    return res.bodyBytes;
+  }
+
   Future<List<dynamic>> getList(String path) async {
     final token = await _requireToken();
     final res = await http.get(

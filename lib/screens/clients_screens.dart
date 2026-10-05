@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -227,6 +228,38 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     }
   }
 
+  /// Google/Meta OAuth web par hi chalta hai. Pehle browser mein session banate hain,
+  /// phir user "Continue" dabaye to connect page browser mein khulta hai.
+  Future<void> _connect(String provider, String label) async {
+    try {
+      final res = await ApiService.instance.post('/web-session');
+      await launchUrl(Uri.parse(res['login_url'] as String), mode: LaunchMode.externalApplication);
+    } on ApiException catch (e) {
+      _snack(e.message);
+      return;
+    }
+    if (!mounted) return;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Connect $label'),
+        content: const Text(
+          'Sign-in has opened in your browser. Once that page has loaded, tap Continue.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue')),
+        ],
+      ),
+    );
+    if (proceed != true) return;
+    await launchUrl(
+      Uri.parse('$kAppUrl/clients/${widget.clientId}/$provider/connect'),
+      mode: LaunchMode.externalApplication,
+    );
+    _snack('After connecting in the browser, pull down to refresh.');
+  }
+
   Future<void> _addLocation() async {
     final title = TextEditingController();
     final address = TextEditingController();
@@ -341,13 +374,15 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                               _ConnRow(
                                 label: 'Google Business Profile',
                                 connected: googleOn,
-                                note: googleOn ? 'Connected' : 'Connect from the web app',
+                                note: googleOn ? 'Connected' : 'Not connected',
+                                onConnect: googleOn ? null : () => _connect('google', 'Google Business Profile'),
                               ),
                               const SizedBox(height: 8),
                               _ConnRow(
                                 label: 'Meta (Facebook / Instagram)',
                                 connected: metaOn,
-                                note: metaOn ? 'Connected' : 'Connect from the web app',
+                                note: metaOn ? 'Connected' : 'Not connected',
+                                onConnect: metaOn ? null : () => _connect('meta', 'Meta'),
                               ),
                             ],
                           ),
@@ -484,11 +519,12 @@ class _Card extends StatelessWidget {
 }
 
 class _ConnRow extends StatelessWidget {
-  const _ConnRow({required this.label, required this.connected, required this.note});
+  const _ConnRow({required this.label, required this.connected, required this.note, this.onConnect});
 
   final String label;
   final bool connected;
   final String note;
+  final VoidCallback? onConnect;
 
   @override
   Widget build(BuildContext context) {
@@ -506,6 +542,11 @@ class _ConnRow extends StatelessWidget {
             ],
           ),
         ),
+        if (onConnect != null)
+          FilledButton.tonal(
+            onPressed: onConnect,
+            child: const Text('Connect'),
+          ),
       ],
     );
   }

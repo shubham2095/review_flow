@@ -13,6 +13,7 @@ import 'billing_settings_screen.dart';
 import 'clients_screens.dart';
 import 'profile_screen.dart';
 import 'services_screen.dart';
+import 'whatsapp_ads_screens.dart';
 import 'customers_screen.dart';
 import 'expenses_screen.dart';
 import 'invoicing_screen.dart';
@@ -55,6 +56,8 @@ class _HomeShellState extends State<HomeShell> {
     'Services',
     'Billing settings',
     'Profile',
+    'WhatsApp',
+    'Ads Reports',
     'Web',
   ];
 
@@ -144,6 +147,8 @@ class _HomeShellState extends State<HomeShell> {
             ServicesScreen(onSignedOut: widget.onSignedOut),
             BillingSettingsScreen(onSignedOut: widget.onSignedOut),
             ProfileScreen(onSignedOut: widget.onSignedOut),
+            WhatsappScreen(onSignedOut: widget.onSignedOut),
+            AdsReportsScreen(onSignedOut: widget.onSignedOut),
             WebScreen(onSignedOut: widget.onSignedOut),
           ],
         ),
