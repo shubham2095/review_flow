@@ -7,8 +7,10 @@ import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
 import 'dashboard_screen.dart';
+import 'insights_screen.dart';
 import 'leads_screen.dart';
 import 'reviews_screen.dart';
+import 'social_screen.dart';
 import 'web_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -26,7 +28,8 @@ class _HomeShellState extends State<HomeShell> {
   String _name = '';
   String _email = '';
 
-  static const _titles = ['Dashboard', 'Reviews', 'Leads', 'Web'];
+  // Bottom bar ke 5 tabs (0-4). Web (5) sirf drawer se khulta hai.
+  static const _titles = ['Dashboard', 'Reviews', 'Leads', 'Social', 'Insights', 'Web'];
 
   @override
   void initState() {
@@ -51,8 +54,8 @@ class _HomeShellState extends State<HomeShell> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Logout karna hai?'),
-        content: const Text('Aapka session is phone se khatam ho jayega.'),
+        title: const Text('Log out?'),
+        content: const Text('Your session will end on this phone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -73,6 +76,8 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final initial = _name.trim().isEmpty ? 'E' : _name.trim()[0].toUpperCase();
+    // Web (index 5) par bottom bar mein koi tab highlight nahi hoga, isliye 4 ko clamp karte hain.
+    final bottomIndex = _index > 4 ? 4 : _index;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -100,11 +105,13 @@ class _HomeShellState extends State<HomeShell> {
             DashboardScreen(onSignedOut: widget.onSignedOut),
             ReviewsScreen(onSignedOut: widget.onSignedOut),
             LeadsScreen(onSignedOut: widget.onSignedOut),
+            SocialScreen(onSignedOut: widget.onSignedOut),
+            InsightsScreen(onSignedOut: widget.onSignedOut),
             WebScreen(onSignedOut: widget.onSignedOut),
           ],
         ),
         bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
+          selectedIndex: bottomIndex,
           onDestinationSelected: (i) => setState(() => _index = i),
           destinations: const [
             NavigationDestination(
@@ -123,9 +130,14 @@ class _HomeShellState extends State<HomeShell> {
               label: 'Leads',
             ),
             NavigationDestination(
-              icon: Icon(Icons.language_outlined),
-              selectedIcon: Icon(Icons.language),
-              label: 'Web',
+              icon: Icon(Icons.campaign_outlined),
+              selectedIcon: Icon(Icons.campaign),
+              label: 'Social',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.insights_outlined),
+              selectedIcon: Icon(Icons.insights),
+              label: 'Insights',
             ),
           ],
         ),

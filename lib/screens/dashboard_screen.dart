@@ -91,13 +91,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const Text('😕', style: TextStyle(fontSize: 40)),
                         const SizedBox(height: 8),
                         Text(
-                          'Data load nahi hua\n${snapshot.error}',
+                          'Could not load data\n${snapshot.error}',
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
                           onPressed: _refresh,
-                          child: const Text('Dobara try karo'),
+                          child: const Text('Try again'),
                         ),
                       ],
                     ),
@@ -152,7 +152,7 @@ class _DashboardBody extends StatelessWidget {
         const SizedBox(height: 20),
         _FadeIn(delay: 220, child: _StatsRow(data: data)),
         if (data.doNext.isNotEmpty) ...[
-          const _SectionTitle(emoji: '🎯', text: 'Aaj kya karna hai'),
+          const _SectionTitle(emoji: '🎯', text: "Today's actions"),
           for (var i = 0; i < data.doNext.length; i++)
             _FadeIn(
               delay: 300 + i * 90,

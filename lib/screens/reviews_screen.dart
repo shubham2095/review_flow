@@ -92,7 +92,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               final locations = snapshot.requireData;
               if (locations.isEmpty) {
                 return const _CenteredList(
-                  child: Text('📭  Koi location nahi mili'),
+                  child: Text('📭  No locations found'),
                 );
               }
               return ListView.builder(
@@ -274,7 +274,7 @@ class _ErrorBox extends StatelessWidget {
           const SizedBox(height: 8),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),
-          FilledButton(onPressed: onRetry, child: const Text('Dobara try karo')),
+          FilledButton(onPressed: onRetry, child: const Text('Try again')),
         ],
       ),
     );

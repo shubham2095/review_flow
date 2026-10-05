@@ -62,15 +62,15 @@ class _LeadsScreenState extends State<LeadsScreen> {
       ),
       builder: (_) => _LeadSheet(lead: lead, stages: _board!.stages),
     );
-    if (result == 'moved') _snack('Lead ka stage badal gaya ✅');
-    if (result == 'deleted') _snack('Lead delete ho gaya 🗑️');
+    if (result == 'moved') _snack('Lead stage updated ✅');
+    if (result == 'deleted') _snack('Lead deleted 🗑️');
     if (result != null) _load();
   }
 
   Future<void> _addLead() async {
     final board = _board;
     if (board == null || board.clients.isEmpty) {
-      _snack('Pehle koi client add karo');
+      _snack('Add a client first');
       return;
     }
     final result = await showModalBottomSheet<String>(
@@ -83,7 +83,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
       builder: (_) => _AddLeadSheet(clients: board.clients),
     );
     if (result == 'added') {
-      _snack('Naya lead add ho gaya 🎯');
+      _snack('New lead added 🎯');
       _load();
     }
   }
@@ -102,7 +102,7 @@ class _LeadsScreenState extends State<LeadsScreen> {
               foregroundColor: Colors.white,
               icon: const Icon(Icons.person_add_alt_1_rounded),
               label: Text(
-                'Naya lead',
+                'New lead',
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
               ),
             ),
@@ -124,9 +124,9 @@ class _LeadsScreenState extends State<LeadsScreen> {
                                 children: [
                                   const Text('😕', style: TextStyle(fontSize: 40)),
                                   const SizedBox(height: 8),
-                                  Text(_error ?? 'Leads load nahi hue', textAlign: TextAlign.center),
+                                  Text(_error ?? 'Could not load leads', textAlign: TextAlign.center),
                                   const SizedBox(height: 16),
-                                  FilledButton(onPressed: _load, child: const Text('Dobara try karo')),
+                                  FilledButton(onPressed: _load, child: const Text('Try again')),
                                 ],
                               ),
                             ),
@@ -170,7 +170,7 @@ class _Board extends StatelessWidget {
             children: [
               _StatTile(emoji: '🎯', value: '$total', label: 'Total', color: brand),
               const SizedBox(width: 8),
-              _StatTile(emoji: '🆕', value: '$newCount', label: 'Naye', color: stageColors['NEW']!),
+              _StatTile(emoji: '🆕', value: '$newCount', label: 'New', color: stageColors['NEW']!),
               const SizedBox(width: 8),
               _StatTile(emoji: '🎉', value: '$converted', label: 'Converted', color: good),
               const SizedBox(width: 8),
@@ -180,7 +180,7 @@ class _Board extends StatelessWidget {
         ),
         Expanded(
           child: total == 0
-              ? const Center(child: Text('📭  Abhi koi lead nahi hai. Naya lead add karo.'))
+              ? const Center(child: Text('📭  No leads yet. Add a new lead.'))
               : ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -280,7 +280,7 @@ class _StageColumn extends StatelessWidget {
             child: leads.isEmpty
                 ? Center(
                     child: Text(
-                      'Koi lead nahi',
+                      'No leads',
                       style: GoogleFonts.plusJakartaSans(color: muted, fontSize: 12),
                     ),
                   )
@@ -424,8 +424,8 @@ class _LeadSheetState extends State<_LeadSheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Lead delete karna hai?'),
-        content: Text('"${widget.lead.name}" ka record hamesha ke liye hat jayega.'),
+        title: const Text('Delete this lead?'),
+        content: Text('"${widget.lead.name}" will be permanently removed.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
@@ -487,7 +487,7 @@ class _LeadSheetState extends State<_LeadSheet> {
           ],
           const SizedBox(height: 18),
           Text(
-            'Stage badlo',
+            'Change stage',
             style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
           ),
           const SizedBox(height: 10),
@@ -560,7 +560,7 @@ class _AddLeadSheetState extends State<_AddLeadSheet> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) {
-      _message('Naam zaroori hai');
+      _message('Name is required');
       return;
     }
     setState(() => _busy = true);
@@ -606,11 +606,11 @@ class _AddLeadSheetState extends State<_AddLeadSheet> {
             ),
             const SizedBox(height: 16),
             Text(
-              '🎯 Naya lead',
+              '🎯 New lead',
               style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
             ),
             const SizedBox(height: 16),
-            TextField(controller: _name, decoration: _dec('Naam *')),
+            TextField(controller: _name, decoration: _dec('Name *')),
             const SizedBox(height: 12),
             TextField(
               controller: _phone,

@@ -81,7 +81,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
     try {
       final res = await ApiService.instance.post('/reviews/${widget.location.id}/sync');
       final synced = res['synced'] ?? 0;
-      _snack(res['message']?.toString() ?? '$synced reviews sync hue ✅');
+      _snack(res['message']?.toString() ?? '$synced reviews synced ✅');
       await _loadPage(reset: true);
     } on ApiException catch (e) {
       _snack(e.message);
@@ -101,9 +101,9 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
       builder: (_) => _ReplySheet(review: review),
     );
     if (result == 'sent') {
-      _snack('Reply Google par bhej diya gaya ✅');
+      _snack('Reply sent to Google ✅');
     } else if (result == 'saved') {
-      _snack('Reply save ho gaya (Google par post nahi hua)');
+      _snack('Reply saved (not posted to Google)');
     }
     if (result != null) _loadPage(reset: true);
   }
@@ -146,7 +146,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
                     ),
                   )
                 : IconButton(
-                    tooltip: 'Google se sync karo',
+                    tooltip: 'Sync with Google',
                     icon: const Icon(Icons.sync_rounded),
                     onPressed: _sync,
                   ),
@@ -162,7 +162,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
               const SizedBox(height: 14),
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'all', label: Text('Sab')),
+                  ButtonSegment(value: 'all', label: Text('All')),
                   ButtonSegment(value: 'unreplied', label: Text('Unreplied')),
                   ButtonSegment(value: 'negative', label: Text('Negative')),
                 ],
@@ -181,7 +181,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
               if (_reviews.isEmpty && !_loading)
                 const Padding(
                   padding: EdgeInsets.all(32),
-                  child: Center(child: Text('📭  Is filter mein koi review nahi')),
+                  child: Center(child: Text('📭  No reviews for this filter')),
                 ),
               for (final r in _reviews)
                 Padding(
@@ -200,7 +200,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
                 Center(
                   child: OutlinedButton(
                     onPressed: () => _loadPage(),
-                    child: const Text('Aur reviews load karo'),
+                    child: const Text('Load more reviews'),
                   ),
                 ),
             ],
@@ -343,7 +343,7 @@ class _ReviewCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                '✅ Aapka reply: ${review.replied ? review.replyText : ''}',
+                '✅ Your reply: ${review.replied ? review.replyText : ''}',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
               ),
             )
@@ -417,7 +417,7 @@ class _ReplySheetState extends State<_ReplySheet> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) {
-      _message('Reply khali nahi ho sakta');
+      _message('Reply cannot be empty');
       return;
     }
     setState(() => _busy = true);
@@ -455,7 +455,7 @@ class _ReplySheetState extends State<_ReplySheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            '💬 ${widget.review.reviewerName} ko reply',
+            '💬 Reply to ${widget.review.reviewerName}',
             style: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.w800,
               fontSize: 17,
@@ -477,7 +477,7 @@ class _ReplySheetState extends State<_ReplySheet> {
             maxLines: 5,
             minLines: 3,
             decoration: InputDecoration(
-              hintText: 'Apna reply likho ya AI draft use karo…',
+              hintText: 'Write your reply or use an AI draft…',
               filled: true,
               fillColor: surface,
               border: OutlineInputBorder(

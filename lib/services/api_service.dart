@@ -110,7 +110,7 @@ class ApiService {
   Future<String> _requireToken() async {
     final token = await readToken();
     if (token == null) {
-      throw ApiException('Login nahi hai', statusCode: 401);
+      throw ApiException('Not logged in', statusCode: 401);
     }
     return token;
   }

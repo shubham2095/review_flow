@@ -66,7 +66,7 @@ class LeadBoard {
 }
 
 const stageLabels = {
-  'NEW': 'Naye leads',
+  'NEW': 'New leads',
   'CONTACTED': 'Contacted',
   'FOLLOW_UP': 'Follow up',
   'APPOINTMENT': 'Appointment',

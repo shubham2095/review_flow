@@ -89,7 +89,7 @@ class _WebScreenState extends State<WebScreen> {
         await _signOut();
         return;
       }
-      _showError('Session load fail: $e');
+      _showError('Could not load session: $e');
     } catch (e) {
       _showError('Network error: $e');
     }
