@@ -26,8 +26,8 @@ class AppDrawer extends StatelessWidget {
     return Drawer(
       backgroundColor: Colors.white,
       width: MediaQuery.sizeOf(context).width * 0.8,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           _DrawerHeader(name: name, email: email, initial: initial),
           const SizedBox(height: 12),
@@ -68,13 +68,48 @@ class AppDrawer extends StatelessWidget {
             onTap: () => onSelect(4),
           ),
           _NavItem(
-            icon: Icons.language_rounded,
-            label: 'Web modules',
-            subtitle: 'Invoices, billing and more',
+            icon: Icons.group_add_rounded,
+            label: 'Team',
+            subtitle: 'Add, edit and remove members',
             selected: selectedIndex == 5,
             onTap: () => onSelect(5),
           ),
-          const Spacer(),
+          _NavItem(
+            icon: Icons.receipt_long_rounded,
+            label: 'Invoices',
+            subtitle: 'Create, send and track invoices',
+            selected: selectedIndex == 6,
+            onTap: () => onSelect(6),
+          ),
+          _NavItem(
+            icon: Icons.photo_library_rounded,
+            label: 'Posts & Photos',
+            subtitle: 'Google posts, offers and photos',
+            selected: selectedIndex == 7,
+            onTap: () => onSelect(7),
+          ),
+          _NavItem(
+            icon: Icons.people_alt_rounded,
+            label: 'Customers',
+            subtitle: 'Billing customers and GSTIN',
+            selected: selectedIndex == 8,
+            onTap: () => onSelect(8),
+          ),
+          _NavItem(
+            icon: Icons.account_balance_wallet_rounded,
+            label: 'Expenses',
+            subtitle: 'Track spending by method',
+            selected: selectedIndex == 9,
+            onTap: () => onSelect(9),
+          ),
+          _NavItem(
+            icon: Icons.language_rounded,
+            label: 'Web modules',
+            subtitle: 'Services, billing settings and more',
+            selected: selectedIndex == 10,
+            onTap: () => onSelect(10),
+          ),
+          const SizedBox(height: 12),
           const Divider(indent: 20, endIndent: 20, height: 24),
           _NavItem(
             icon: Icons.logout_rounded,

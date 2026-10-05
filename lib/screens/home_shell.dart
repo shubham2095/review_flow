@@ -8,9 +8,14 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
 import 'dashboard_screen.dart';
 import 'insights_screen.dart';
+import 'customers_screen.dart';
+import 'expenses_screen.dart';
+import 'invoicing_screen.dart';
 import 'leads_screen.dart';
+import 'posts_photos_screen.dart';
 import 'reviews_screen.dart';
 import 'social_screen.dart';
+import 'team_screen.dart';
 import 'web_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -29,7 +34,19 @@ class _HomeShellState extends State<HomeShell> {
   String _email = '';
 
   // Bottom bar ke 5 tabs (0-4). Web (5) sirf drawer se khulta hai.
-  static const _titles = ['Dashboard', 'Reviews', 'Leads', 'Social', 'Insights', 'Web'];
+  static const _titles = [
+    'Dashboard',
+    'Reviews',
+    'Leads',
+    'Social',
+    'Insights',
+    'Team',
+    'Invoices',
+    'Posts & Photos',
+    'Customers',
+    'Expenses',
+    'Web',
+  ];
 
   @override
   void initState() {
@@ -107,6 +124,11 @@ class _HomeShellState extends State<HomeShell> {
             LeadsScreen(onSignedOut: widget.onSignedOut),
             SocialScreen(onSignedOut: widget.onSignedOut),
             InsightsScreen(onSignedOut: widget.onSignedOut),
+            TeamScreen(onSignedOut: widget.onSignedOut),
+            InvoicingScreen(onSignedOut: widget.onSignedOut),
+            PostsPhotosScreen(onSignedOut: widget.onSignedOut),
+            CustomersScreen(onSignedOut: widget.onSignedOut),
+            ExpensesScreen(onSignedOut: widget.onSignedOut),
             WebScreen(onSignedOut: widget.onSignedOut),
           ],
         ),
