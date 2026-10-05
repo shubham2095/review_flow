@@ -260,6 +260,16 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     _snack('After connecting in the browser, pull down to refresh.');
   }
 
+  Future<void> _disconnect(String provider) async {
+    try {
+      await ApiService.instance.delete('/clients/${widget.clientId}/$provider/disconnect');
+      _snack('Disconnected');
+      _load();
+    } on ApiException catch (e) {
+      _snack(e.message);
+    }
+  }
+
   Future<void> _addLocation() async {
     final title = TextEditingController();
     final address = TextEditingController();
@@ -376,6 +386,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                                 connected: googleOn,
                                 note: googleOn ? 'Connected' : 'Not connected',
                                 onConnect: googleOn ? null : () => _connect('google', 'Google Business Profile'),
+                                onDisconnect: googleOn ? () => _disconnect('google') : null,
                               ),
                               const SizedBox(height: 8),
                               _ConnRow(
@@ -383,6 +394,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                                 connected: metaOn,
                                 note: metaOn ? 'Connected' : 'Not connected',
                                 onConnect: metaOn ? null : () => _connect('meta', 'Meta'),
+                                onDisconnect: metaOn ? () => _disconnect('meta') : null,
                               ),
                             ],
                           ),
@@ -519,12 +531,19 @@ class _Card extends StatelessWidget {
 }
 
 class _ConnRow extends StatelessWidget {
-  const _ConnRow({required this.label, required this.connected, required this.note, this.onConnect});
+  const _ConnRow({
+    required this.label,
+    required this.connected,
+    required this.note,
+    this.onConnect,
+    this.onDisconnect,
+  });
 
   final String label;
   final bool connected;
   final String note;
   final VoidCallback? onConnect;
+  final VoidCallback? onDisconnect;
 
   @override
   Widget build(BuildContext context) {
@@ -546,6 +565,11 @@ class _ConnRow extends StatelessWidget {
           FilledButton.tonal(
             onPressed: onConnect,
             child: const Text('Connect'),
+          ),
+        if (onDisconnect != null)
+          TextButton(
+            onPressed: onDisconnect,
+            child: const Text('Disconnect', style: TextStyle(color: bad)),
           ),
       ],
     );

@@ -8,9 +8,13 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
 import 'dashboard_screen.dart';
 import 'insights_screen.dart';
+import 'ai_media_screen.dart';
 import 'ai_tools_screen.dart';
+import 'billing_screen.dart';
+import 'tally_screen.dart';
 import 'billing_settings_screen.dart';
 import 'clients_screens.dart';
+import 'credits_screen.dart';
 import 'profile_screen.dart';
 import 'services_screen.dart';
 import 'whatsapp_ads_screens.dart';
@@ -58,6 +62,10 @@ class _HomeShellState extends State<HomeShell> {
     'Profile',
     'WhatsApp',
     'Ads Reports',
+    'Credits',
+    'Plans & billing',
+    'Tally export',
+    'AI media',
     'Web',
   ];
 
@@ -149,6 +157,10 @@ class _HomeShellState extends State<HomeShell> {
             ProfileScreen(onSignedOut: widget.onSignedOut),
             WhatsappScreen(onSignedOut: widget.onSignedOut),
             AdsReportsScreen(onSignedOut: widget.onSignedOut),
+            CreditsScreen(onSignedOut: widget.onSignedOut),
+            BillingScreen(onSignedOut: widget.onSignedOut),
+            TallyScreen(onSignedOut: widget.onSignedOut),
+            AiMediaScreen(onSignedOut: widget.onSignedOut),
             WebScreen(onSignedOut: widget.onSignedOut),
           ],
         ),

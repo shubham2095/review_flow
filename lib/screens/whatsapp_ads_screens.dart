@@ -73,17 +73,17 @@ class _WhatsappScreenState extends State<WhatsappScreen> {
   }
 
   Future<void> _compose() async {
-    final sent = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => const _WhatsappSheet(),
     );
-    if (sent == true) {
-      if (mounted) _snackOn(context, 'Message queued ✅');
-      _load();
+    if (result != null && mounted) {
+      _snackOn(context, result == 'sent' ? 'Message sent ✅' : 'Saved as queued (WhatsApp not connected)');
     }
+    if (result != null) _load();
   }
 
   @override
@@ -111,7 +111,7 @@ class _WhatsappScreenState extends State<WhatsappScreen> {
                 border: Border.all(color: warn.withValues(alpha: 0.3)),
               ),
               child: Text(
-                'Messages are saved and queued. Real WhatsApp delivery (Cloud API) is not connected yet.',
+                'Messages are sent through WhatsApp Cloud API. Use an approved template name. Plain text works only inside the 24-hour customer window.',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
               ),
             ),
@@ -214,12 +214,12 @@ class _WhatsappSheetState extends State<_WhatsappSheet> {
     }
     setState(() => _busy = true);
     try {
-      await ApiService.instance.post('/whatsapp', body: {
+      final res = await ApiService.instance.post('/whatsapp', body: {
         'to_phone': _phone.text.trim(),
         'template': _template.text.trim(),
         if (_body.text.trim().isNotEmpty) 'body': _body.text.trim(),
       });
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(res['status']?.toString() ?? 'sent');
     } on ApiException catch (e) {
       if (mounted) _snackOn(context, e.message);
     } finally {

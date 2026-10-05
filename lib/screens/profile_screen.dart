@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _newPassword = TextEditingController();
   String _email = '';
   String _role = '';
+  bool _verified = false;
   bool _loading = true;
   bool _busy = false;
 
@@ -44,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  String _s(dynamic v) => v?.toString() ?? '';
+
   Future<void> _load() async {
     try {
       final me = await ApiService.instance.get('/me');
@@ -53,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _phone.text = (me['phone'] ?? '').toString();
         _email = (me['email'] ?? '').toString();
         _role = (me['role'] ?? '').toString();
+        _verified = me['email_verified'] == true;
       });
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -92,6 +96,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _snack(e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _sendVerification() async {
+    try {
+      final res = await ApiService.instance.post('/email/send-verification');
+      _snack(_s(res['message']).isEmpty ? 'Verification link sent' : _s(res['message']));
+    } on ApiException catch (e) {
+      _snack(e.message);
+    }
+  }
+
+  Future<void> _changeEmail() async {
+    final controller = TextEditingController();
+    final newEmail = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change email'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(labelText: 'New email'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (newEmail == null || newEmail.isEmpty) return;
+    try {
+      await ApiService.instance.post('/email/change', body: {'email': newEmail});
+      if (mounted) {
+        setState(() {
+          _email = newEmail;
+          _verified = false;
+        });
+      }
+      _snack('Email updated. Please verify your new email.');
+    } on ApiException catch (e) {
+      _snack(e.message);
     }
   }
 
@@ -213,6 +259,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       TextField(controller: _current, obscureText: true, decoration: _dec('Current password')),
                       const SizedBox(height: 12),
                       TextField(controller: _newPassword, obscureText: true, decoration: _dec('New password')),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: cardDecoration(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Email verification',
+                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink)),
+                      const SizedBox(height: 6),
+                      Text(
+                        _verified ? '✅ Your email is verified.' : '⚠️ Your email is not verified yet.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                      ),
+                      const SizedBox(height: 10),
+                      if (!_verified)
+                        OutlinedButton(onPressed: _sendVerification, child: const Text('Send verification email')),
+                      const SizedBox(height: 8),
+                      OutlinedButton(onPressed: _changeEmail, child: const Text('Change email')),
                     ],
                   ),
                 ),
