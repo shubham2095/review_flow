@@ -9,6 +9,10 @@ import '../widgets/app_top_bar.dart';
 import 'dashboard_screen.dart';
 import 'insights_screen.dart';
 import 'ai_tools_screen.dart';
+import 'billing_settings_screen.dart';
+import 'clients_screens.dart';
+import 'profile_screen.dart';
+import 'services_screen.dart';
 import 'customers_screen.dart';
 import 'expenses_screen.dart';
 import 'invoicing_screen.dart';
@@ -47,6 +51,10 @@ class _HomeShellState extends State<HomeShell> {
     'Customers',
     'Expenses',
     'AI Tools',
+    'Clients',
+    'Services',
+    'Billing settings',
+    'Profile',
     'Web',
   ];
 
@@ -132,6 +140,10 @@ class _HomeShellState extends State<HomeShell> {
             CustomersScreen(onSignedOut: widget.onSignedOut),
             ExpensesScreen(onSignedOut: widget.onSignedOut),
             AiToolsScreen(onSignedOut: widget.onSignedOut),
+            ClientsScreen(onSignedOut: widget.onSignedOut),
+            ServicesScreen(onSignedOut: widget.onSignedOut),
+            BillingSettingsScreen(onSignedOut: widget.onSignedOut),
+            ProfileScreen(onSignedOut: widget.onSignedOut),
             WebScreen(onSignedOut: widget.onSignedOut),
           ],
         ),
