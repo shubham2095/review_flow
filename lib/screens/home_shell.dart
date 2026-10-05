@@ -8,6 +8,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
 import 'dashboard_screen.dart';
 import 'insights_screen.dart';
+import 'ai_tools_screen.dart';
 import 'customers_screen.dart';
 import 'expenses_screen.dart';
 import 'invoicing_screen.dart';
@@ -45,6 +46,7 @@ class _HomeShellState extends State<HomeShell> {
     'Posts & Photos',
     'Customers',
     'Expenses',
+    'AI Tools',
     'Web',
   ];
 
@@ -129,6 +131,7 @@ class _HomeShellState extends State<HomeShell> {
             PostsPhotosScreen(onSignedOut: widget.onSignedOut),
             CustomersScreen(onSignedOut: widget.onSignedOut),
             ExpensesScreen(onSignedOut: widget.onSignedOut),
+            AiToolsScreen(onSignedOut: widget.onSignedOut),
             WebScreen(onSignedOut: widget.onSignedOut),
           ],
         ),
