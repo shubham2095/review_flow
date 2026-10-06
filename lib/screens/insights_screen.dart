@@ -62,7 +62,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
       }
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load insights: $e');
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -211,7 +211,8 @@ class _Filters extends StatelessWidget {
         if (locations.length > 1) ...[
           const SizedBox(height: 12),
           DropdownButtonFormField<int?>(
-            initialValue: locationId,
+              isExpanded: true,
+              initialValue: locationId,
             decoration: InputDecoration(
               labelText: 'Location',
               filled: true,

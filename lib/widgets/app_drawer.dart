@@ -11,6 +11,7 @@ class AppDrawer extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.onLogout,
+    this.isAdmin = false,
   });
 
   final String name;
@@ -18,6 +19,7 @@ class AppDrawer extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onLogout;
+  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,37 @@ class AppDrawer extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           _DrawerHeader(name: name, email: email, initial: initial),
+          if (isAdmin)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              child: InkWell(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onSelect(21);
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [brand, brandDeep]),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.admin_panel_settings_rounded, color: Colors.white),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Super admin: open Admin panel',
+                          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           _SectionLabel('MAIN MENU'),
           _NavItem(
@@ -179,13 +212,14 @@ class AppDrawer extends StatelessWidget {
             selected: selectedIndex == 20,
             onTap: () => onSelect(20),
           ),
-          _NavItem(
-            icon: Icons.language_rounded,
-            label: 'Web modules',
-            subtitle: 'Admin panel and other web pages',
-            selected: selectedIndex == 21,
-            onTap: () => onSelect(21),
-          ),
+          if (isAdmin)
+            _NavItem(
+              icon: Icons.admin_panel_settings_rounded,
+              label: 'Admin panel',
+              subtitle: 'Users, plans, credit packs and top-up',
+              selected: selectedIndex == 21,
+              onTap: () => onSelect(21),
+            ),
           const SizedBox(height: 12),
           const Divider(indent: 20, endIndent: 20, height: 24),
           _NavItem(

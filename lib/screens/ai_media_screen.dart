@@ -92,7 +92,7 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
       final res = await ApiService.instance.post('/ai-media/generate', body: {'prompt': prompt});
       final media = (res['media'] as Map?)?.cast<String, dynamic>();
       if (media != null && mounted) setState(() => _items.insert(0, media));
-      _snack(res['success'] == true ? 'Image generated ✅' : 'Image generated with fallback (AI was busy)');
+      _snack(res['success'] == true ? 'Image generated â' : 'Image generated with fallback (AI was busy)');
     } on ApiException catch (e) {
       _snack(e.message);
     } finally {
@@ -143,7 +143,7 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
                     ? ListView(children: const [
                         Padding(
                           padding: EdgeInsets.all(32),
-                          child: Center(child: Text('🎨  No AI images yet. Tap Generate to create one.')),
+                          child: Center(child: Text('🖼️  No AI images yet. Tap Generate to create one.')),
                         ),
                       ])
                     : GridView.builder(

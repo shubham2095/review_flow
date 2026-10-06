@@ -44,7 +44,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
       }
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load customers: $e');
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

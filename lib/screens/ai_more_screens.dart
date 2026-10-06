@@ -219,7 +219,8 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 DropdownButtonFormField<int>(
-                  initialValue: _locationId,
+              isExpanded: true,
+              initialValue: _locationId,
                   decoration: InputDecoration(
                     labelText: 'Your business',
                     filled: true,
@@ -400,7 +401,8 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     DropdownButtonFormField<int>(
-                      initialValue: _clientId,
+              isExpanded: true,
+              initialValue: _clientId,
                       decoration: InputDecoration(
                         labelText: 'Your client',
                         filled: true,

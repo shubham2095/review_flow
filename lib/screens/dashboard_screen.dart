@@ -88,7 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('😕', style: TextStyle(fontSize: 40)),
+                        const Text('📭', style: TextStyle(fontSize: 40)),
                         const SizedBox(height: 8),
                         Text(
                           'Could not load data\n${snapshot.error}',
@@ -152,7 +152,7 @@ class _DashboardBody extends StatelessWidget {
         const SizedBox(height: 20),
         _FadeIn(delay: 220, child: _StatsRow(data: data)),
         if (data.doNext.isNotEmpty) ...[
-          const _SectionTitle(emoji: '🎯', text: "Today's actions"),
+          const _SectionTitle(emoji: '✅', text: "Today's actions"),
           for (var i = 0; i < data.doNext.length; i++)
             _FadeIn(
               delay: 300 + i * 90,
@@ -176,7 +176,7 @@ class _DashboardBody extends StatelessWidget {
           ),
         ],
         if (data.recentReviews.isNotEmpty) ...[
-          const _SectionTitle(emoji: '⭐', text: 'Recent reviews'),
+          const _SectionTitle(emoji: '💬', text: 'Recent reviews'),
           for (var i = 0; i < data.recentReviews.length; i++)
             _FadeIn(
               delay: 480 + i * 80,
@@ -276,13 +276,13 @@ class _Header extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     _HeaderChip(
-                      icon: data.hasGoogle ? '🟢' : '🔌',
+                      icon: data.hasGoogle ? '🔗' : '⚠️',
                       text: data.hasGoogle
                           ? 'Google connected'
                           : 'Google not connected',
                     ),
                     _HeaderChip(
-                      icon: '🏢',
+                      icon: '📍',
                       text: '$locCount ${locCount == 1 ? 'location' : 'locations'}',
                     ),
                   ],
@@ -468,7 +468,7 @@ class _StatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      _StatData('💬', 'Total reviews', data.totalReviews.toDouble(), 0, const Color(0xFF4C6FFF)),
+      _StatData('⭐', 'Total reviews', data.totalReviews.toDouble(), 0, const Color(0xFF4C6FFF)),
       _StatData('⭐', 'Avg rating', data.avgRating, 1, const Color(0xFFF59E0B)),
       _StatData('✅', 'Replied', data.replied.toDouble(), 0, const Color(0xFF22C55E)),
       _StatData('⏳', 'Unreplied', data.unreplied.toDouble(), 0, const Color(0xFFEF4444)),
@@ -753,7 +753,7 @@ class _ReviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initial = review.reviewerName.isEmpty
-        ? '?'
+        ? '💬'
         : review.reviewerName[0].toUpperCase();
     final avatarColor = healthColor(review.starRating * 20);
 

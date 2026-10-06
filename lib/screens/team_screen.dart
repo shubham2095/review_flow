@@ -49,7 +49,7 @@ class _TeamScreenState extends State<TeamScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load team: $e');
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -390,6 +390,7 @@ class _MemberSheetState extends State<_MemberSheet> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _role,
               decoration: _dec('Role'),
               items: [

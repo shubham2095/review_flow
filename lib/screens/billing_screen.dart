@@ -26,7 +26,7 @@ String _date(dynamic v) {
   return t.length >= 10 ? t.substring(0, 10) : t;
 }
 
-String _rupees(double v) => '₹${v.toStringAsFixed(2)}';
+String _rupees(double v) => '?${v.toStringAsFixed(2)}';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key, required this.onSignedOut});
@@ -134,7 +134,7 @@ class _BillingScreenState extends State<BillingScreen> {
           'razorpay_signature': r.signature,
           'plan': _pendingPlanCode,
         });
-        _snack('Plan activated ✅');
+        _snack('Plan activated â');
       } else {
         await ApiService.instance.post('/billing/credit-verify', body: {
           'razorpay_order_id': r.orderId,
@@ -142,7 +142,7 @@ class _BillingScreenState extends State<BillingScreen> {
           'razorpay_signature': r.signature,
           'package': _pendingPackageId,
         });
-        _snack('Credits added ✅');
+        _snack('Credits added â');
       }
     } on ApiException catch (e) {
       _snack(e.message);

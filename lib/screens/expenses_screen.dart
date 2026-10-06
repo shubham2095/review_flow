@@ -45,7 +45,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       }
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load expenses: $e');
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -372,6 +372,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
             TextField(controller: _category, decoration: _dec('Category (optional)')),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _method,
               decoration: _dec('Payment method'),
               items: [

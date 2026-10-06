@@ -169,7 +169,7 @@ class _TallyScreenState extends State<TallyScreen> {
               padding: const EdgeInsets.all(14),
               decoration: cardDecoration(),
               child: Text(
-                'How to import: open TallyPrime, go to Gateway of Tally → Import Data → Vouchers, then select the downloaded .xml file.',
+                'How to import: open TallyPrime, go to Gateway of Tally ? Import Data ? Vouchers, then select the downloaded .xml file.',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
               ),
             ),

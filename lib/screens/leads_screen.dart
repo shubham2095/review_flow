@@ -625,6 +625,7 @@ class _AddLeadSheetState extends State<_AddLeadSheet> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _source,
               decoration: _dec('Source'),
               items: [
@@ -636,7 +637,8 @@ class _AddLeadSheetState extends State<_AddLeadSheet> {
             if (widget.clients.length > 1) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                initialValue: _clientId,
+              isExpanded: true,
+              initialValue: _clientId,
                 decoration: _dec('Client'),
                 items: [
                   for (final c in widget.clients)

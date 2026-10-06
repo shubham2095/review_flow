@@ -101,7 +101,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
       builder: (_) => _ReplySheet(review: review),
     );
     if (result == 'sent') {
-      _snack('Reply sent to Google ✅');
+      _snack('Reply sent to Google â');
     } else if (result == 'saved') {
       _snack('Reply saved (not posted to Google)');
     }
@@ -253,7 +253,7 @@ class _StatsStrip extends StatelessWidget {
         const SizedBox(width: 8),
         item('⏳', '${stats.unreplied}', 'Unreplied', stats.unreplied > 0 ? warn : good),
         const SizedBox(width: 8),
-        item('⚠️', '${stats.negative}', 'Negative', stats.negative > 0 ? bad : good),
+        item('👎', '${stats.negative}', 'Negative', stats.negative > 0 ? bad : good),
       ],
     );
   }
@@ -343,7 +343,7 @@ class _ReviewCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                '✅ Your reply: ${review.replied ? review.replyText : ''}',
+                '💬 Your reply: ${review.replied ? review.replyText : ''}',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
               ),
             )
@@ -455,7 +455,7 @@ class _ReplySheetState extends State<_ReplySheet> {
           ),
           const SizedBox(height: 16),
           Text(
-            '💬 Reply to ${widget.review.reviewerName}',
+            '↩️ Reply to ${widget.review.reviewerName}',
             style: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.w800,
               fontSize: 17,

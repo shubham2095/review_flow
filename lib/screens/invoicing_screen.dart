@@ -74,7 +74,7 @@ class _InvoicingScreenState extends State<InvoicingScreen> {
       }
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load invoices: $e');
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -443,7 +443,7 @@ class _InvoiceDetailSheetState extends State<_InvoiceDetailSheet> {
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Could not create PDF: $e')),
+                                  SnackBar(content: Text(friendlyException(e).message)),
                                 );
                               }
                             }
@@ -669,7 +669,8 @@ class _CreateInvoiceScreenState extends State<_CreateInvoiceScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   children: [
                     DropdownButtonFormField<int>(
-                      initialValue: _clientId,
+              isExpanded: true,
+              initialValue: _clientId,
                       decoration: _dec('Customer'),
                       items: [
                         for (final c in _customers) DropdownMenuItem(value: c.id, child: Text(c.name)),

@@ -176,7 +176,7 @@ class BulletList extends StatelessWidget {
 }
 
 void showToolError(BuildContext context, Object e) {
-  final text = e is ApiException ? e.message : 'Something went wrong: $e';
+  final text = e is ApiException ? e.message : friendlyException(e).message;
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 }
 
@@ -424,7 +424,8 @@ class _AuditScreenState extends State<AuditScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     DropdownButtonFormField<int>(
-                      initialValue: _clientId,
+              isExpanded: true,
+              initialValue: _clientId,
                       decoration: InputDecoration(
                         labelText: 'Client',
                         filled: true,

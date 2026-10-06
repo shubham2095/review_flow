@@ -600,6 +600,7 @@ class _AdReportSheetState extends State<_AdReportSheet> {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<int>(
+              isExpanded: true,
               initialValue: _clientId,
               decoration: _dec('Client'),
               items: [for (final c in widget.clients) DropdownMenuItem(value: c.id, child: Text(c.name))],

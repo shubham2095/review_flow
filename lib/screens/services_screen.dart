@@ -275,6 +275,7 @@ class _ServiceSheetState extends State<_ServiceSheet> {
             TextField(controller: _name, decoration: _dec('Service name *')),
             const SizedBox(height: 12),
             DropdownButtonFormField<int?>(
+              isExpanded: true,
               initialValue: _categoryId,
               decoration: _dec('Category'),
               items: [

@@ -82,7 +82,7 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
       }
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load posts: $e');
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -701,7 +701,8 @@ class _PostSheetState extends State<_PostSheet> {
             const SizedBox(height: 14),
             if (!_isEdit) ...[
               DropdownButtonFormField<int>(
-                initialValue: _locationId,
+              isExpanded: true,
+              initialValue: _locationId,
                 decoration: _dec('Location'),
                 items: [
                   for (final l in widget.locations) DropdownMenuItem(value: l.id, child: Text(l.title)),
@@ -841,7 +842,8 @@ class _PhotoSheetState extends State<_PhotoSheet> {
           ),
           const SizedBox(height: 14),
           DropdownButtonFormField<int>(
-            initialValue: _locationId,
+              isExpanded: true,
+              initialValue: _locationId,
             decoration: InputDecoration(
               labelText: 'Location',
               filled: true,

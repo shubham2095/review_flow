@@ -92,7 +92,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               final locations = snapshot.requireData;
               if (locations.isEmpty) {
                 return const _CenteredList(
-                  child: Text('📭  No locations found'),
+                  child: Text('📍  No locations found'),
                 );
               }
               return ListView.builder(
@@ -188,7 +188,7 @@ class _LocationCard extends StatelessWidget {
                     color: star,
                   ),
                   _MiniStat(
-                    emoji: '💬',
+                    emoji: '⭐',
                     value: '${loc.totalReviews} reviews',
                     color: brand,
                   ),
@@ -198,7 +198,7 @@ class _LocationCard extends StatelessWidget {
                     color: loc.unrepliedCount > 0 ? warn : good,
                   ),
                   _MiniStat(
-                    emoji: '⚠️',
+                    emoji: '💬',
                     value: '${loc.negativeCount} negative',
                     color: loc.negativeCount > 0 ? bad : good,
                   ),
@@ -270,7 +270,7 @@ class _ErrorBox extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('😕', style: TextStyle(fontSize: 40)),
+          const Text('📭', style: TextStyle(fontSize: 40)),
           const SizedBox(height: 8),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),

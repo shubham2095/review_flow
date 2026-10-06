@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import 'home_shell.dart';
-import 'web_screen.dart';
+import 'login_screen.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -55,9 +55,8 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    return WebScreen(
+    return LoginScreen(
       key: ValueKey('login$_sessionId'),
-      onSignedOut: _signedOut,
       onLoggedIn: _loggedIn,
     );
   }

@@ -93,7 +93,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     ? ListView(children: const [
                         Padding(
                           padding: EdgeInsets.all(32),
-                          child: Center(child: Text('🏢  No clients yet. Add your first client.')),
+                          child: Center(child: Text('📭  No clients yet. Add your first client.')),
                         ),
                       ])
                     : ListView.builder(
@@ -304,7 +304,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         'title': titleText,
         if (addressText.isNotEmpty) 'address': addressText,
       });
-      _snack('Location added ✅');
+      _snack('Location added â');
       _load();
     } on ApiException catch (e) {
       _snack(e.message);
@@ -414,7 +414,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                               for (final l in locations)
                                 ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading: const Text('📍', style: TextStyle(fontSize: 18)),
+                                  leading: const Text('🏪', style: TextStyle(fontSize: 18)),
                                   title: Text(_s(l['title']),
                                       style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink)),
                                   subtitle: Text(_s(l['address']),

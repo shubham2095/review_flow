@@ -21,6 +21,15 @@ class AuthService {
     await ApiService.instance.saveToken(data['token'] as String);
   }
 
+  static Future<void> register(String name, String email, String password) async {
+    final data = await ApiService.instance.post(
+      '/register',
+      body: {'name': name, 'email': email, 'password': password},
+      auth: false,
+    );
+    await ApiService.instance.saveToken(data['token'] as String);
+  }
+
   static Future<String> googleIdToken() async {
     final account = await GoogleSignIn.instance.authenticate();
     final idToken = account.authentication.idToken;

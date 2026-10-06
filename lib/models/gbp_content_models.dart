@@ -87,7 +87,7 @@ const postTypeLabels = {
 };
 
 const postTypeEmoji = {
-  'UPDATE': '📰',
+  'UPDATE': '📢',
   'OFFER': '🏷️',
   'EVENT': '🎉',
 };

@@ -464,7 +464,8 @@ class _ComposeSheetState extends State<_ComposeSheet> {
             if (widget.clients.length > 1) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-                initialValue: _clientId,
+              isExpanded: true,
+              initialValue: _clientId,
                 decoration: InputDecoration(
                   labelText: 'Client',
                   filled: true,
