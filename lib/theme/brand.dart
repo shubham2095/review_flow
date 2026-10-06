@@ -13,12 +13,13 @@ const star = Color(0xFFF59E0B);
 BoxDecoration cardDecoration() {
   return BoxDecoration(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(20),
+    borderRadius: BorderRadius.circular(22),
+    border: Border.all(color: const Color(0xFFEEF1F7)),
     boxShadow: [
       BoxShadow(
-        color: const Color(0xFF141E3C).withValues(alpha: 0.05),
-        blurRadius: 18,
-        offset: const Offset(0, 6),
+        color: const Color(0xFF141E3C).withValues(alpha: 0.04),
+        blurRadius: 24,
+        offset: const Offset(0, 8),
       ),
     ],
   );

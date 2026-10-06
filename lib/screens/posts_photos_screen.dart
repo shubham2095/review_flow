@@ -820,6 +820,21 @@ class _PhotoSheetState extends State<_PhotoSheet> {
     }
   }
 
+  Future<void> _suggestCaption() async {
+    final business = widget.locations.firstWhere((l) => l.id == _locationId).title;
+    setState(() => _busy = true);
+    try {
+      final res = await ApiService.instance.post('/gbp-content/generate-caption', body: {
+        'business': business,
+      });
+      if (mounted) _caption.text = (res['caption'] ?? '').toString();
+    } on ApiException catch (e) {
+      _message(e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -866,7 +881,15 @@ class _PhotoSheetState extends State<_PhotoSheet> {
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
             ),
           ),
-          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _busy ? null : _suggestCaption,
+              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: const Text('Suggest caption with AI'),
+            ),
+          ),
+          const SizedBox(height: 4),
           FilledButton(
             onPressed: _busy ? null : _upload,
             child: _busy

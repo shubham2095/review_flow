@@ -52,6 +52,19 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     }
   }
 
+  Future<void> _openSettings() async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => const _ReviewSettingsSheet(),
+    );
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Review settings saved ✅')));
+    }
+  }
+
   void _openLocation(LocationSummary loc) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -84,7 +97,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               if (snapshot.hasError) {
                 return _CenteredList(
                   child: _ErrorBox(
-                    message: '${snapshot.error}',
+                    message: friendlyException(snapshot.error!).message,
                     onRetry: _refresh,
                   ),
                 );
@@ -97,18 +110,196 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               }
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                itemCount: locations.length,
-                itemBuilder: (_, i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: _LocationCard(
-                    loc: locations[i],
-                    onTap: () => _openLocation(locations[i]),
-                  ),
-                ),
+                itemCount: locations.length + 1,
+                itemBuilder: (_, i) {
+                  if (i == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _SettingsCard(onTap: _openSettings),
+                    );
+                  }
+                  final loc = locations[i - 1];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _LocationCard(
+                      loc: loc,
+                      onTap: () => _openLocation(loc),
+                    ),
+                  );
+                },
               );
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: cardDecoration(),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: brand.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(Icons.tune_rounded, color: brand),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Review settings',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Auto-reply and WhatsApp alerts',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewSettingsSheet extends StatefulWidget {
+  const _ReviewSettingsSheet();
+
+  @override
+  State<_ReviewSettingsSheet> createState() => _ReviewSettingsSheetState();
+}
+
+class _ReviewSettingsSheetState extends State<_ReviewSettingsSheet> {
+  bool _loading = true;
+  bool _busy = false;
+  bool _autoReply = false;
+  bool _waNotify = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await ApiService.instance.get('/subscription');
+      if (!mounted) return;
+      setState(() {
+        _autoReply = j['auto_reply'] == true;
+        _waNotify = j['wa_notify'] == true;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    try {
+      await ApiService.instance.post('/reviews/settings', body: {
+        'auto_reply': _autoReply,
+        'wa_notify': _waNotify,
+      });
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyException(e).message)));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Review settings',
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+          ),
+          const SizedBox(height: 8),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(_error!, textAlign: TextAlign.center),
+            )
+          else ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Auto-reply to reviews'),
+              subtitle: const Text('AI replies to new reviews automatically'),
+              value: _autoReply,
+              onChanged: _busy ? null : (v) => setState(() => _autoReply = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('WhatsApp alerts'),
+              subtitle: const Text('Get a WhatsApp message for new reviews'),
+              value: _waNotify,
+              onChanged: _busy ? null : (v) => setState(() => _waNotify = v),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _busy ? null : _save,
+              child: _busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Save settings'),
+            ),
+          ],
+        ],
       ),
     );
   }

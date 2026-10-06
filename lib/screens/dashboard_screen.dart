@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/dashboard_data.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../theme/brand.dart';
 import '../widgets/health_ring.dart';
 
 const _brand = Color(0xFF4C6FFF);
@@ -25,6 +26,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late Future<_Payload> _future;
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -61,6 +63,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _sync() async {
+    setState(() => _syncing = true);
+    try {
+      final res = await ApiService.instance.post('/dashboard/sync');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Synced ${res['synced'] ?? 0} reviews ✅')),
+      );
+      await _refresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyException(e).message)));
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Status bar brand color ka rahega, taaki header ke saath seamless lage.
@@ -88,11 +108,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('📭', style: TextStyle(fontSize: 40)),
+                        const Text('😕', style: TextStyle(fontSize: 40)),
                         const SizedBox(height: 8),
                         Text(
-                          'Could not load data\n${snapshot.error}',
+                          'Could not load your dashboard',
+                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: _ink),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          friendlyException(snapshot.error!).message,
                           textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _muted),
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
@@ -105,7 +131,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               }
               final payload = snapshot.requireData;
-              return _DashboardBody(data: payload.data, name: payload.name);
+              return _DashboardBody(
+                data: payload.data,
+                name: payload.name,
+                syncing: _syncing,
+                onSync: _sync,
+              );
             },
           ),
         ),
@@ -133,10 +164,17 @@ class _CenteredList extends StatelessWidget {
 }
 
 class _DashboardBody extends StatelessWidget {
-  const _DashboardBody({required this.data, required this.name});
+  const _DashboardBody({
+    required this.data,
+    required this.name,
+    required this.syncing,
+    required this.onSync,
+  });
 
   final DashboardData data;
   final String name;
+  final bool syncing;
+  final VoidCallback onSync;
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +189,25 @@ class _DashboardBody extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         _FadeIn(delay: 220, child: _StatsRow(data: data)),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: syncing ? null : onSync,
+          icon: syncing
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _brand),
+                )
+              : const Icon(Icons.sync_rounded),
+          label: Text(syncing ? 'Syncing reviews…' : 'Sync reviews now'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _brand,
+            minimumSize: const Size.fromHeight(46),
+            side: const BorderSide(color: _brand, width: 1.2),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            textStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+          ),
+        ),
         if (data.doNext.isNotEmpty) ...[
           const _SectionTitle(emoji: '✅', text: "Today's actions"),
           for (var i = 0; i < data.doNext.length; i++)
@@ -479,7 +536,7 @@ class _StatsRow extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1.7,
+      mainAxisExtent: 112,
       children: [for (final s in items) _StatCard(stat: s)],
     );
   }
@@ -529,18 +586,22 @@ class _StatCard extends StatelessWidget {
               ),
             ],
           ),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: stat.value),
-            duration: const Duration(milliseconds: 1100),
-            curve: Curves.easeOutCubic,
-            builder: (_, v, _) => Text(
-              stat.decimals > 0
-                  ? v.toStringAsFixed(stat.decimals)
-                  : v.round().toString(),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: _ink,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: stat.value),
+              duration: const Duration(milliseconds: 1100),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, _) => Text(
+                stat.decimals > 0
+                    ? v.toStringAsFixed(stat.decimals)
+                    : v.round().toString(),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
+                ),
               ),
             ),
           ),
@@ -559,14 +620,31 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 24, 4, 10),
-      child: Text(
-        '$emoji  $text',
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 17,
-          fontWeight: FontWeight.w800,
-          color: _ink,
-        ),
+      padding: const EdgeInsets.fromLTRB(4, 26, 4, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_brand, _brandDeep],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '$emoji  $text',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: _ink,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -864,16 +942,4 @@ class _FadeInState extends State<_FadeIn> {
   }
 }
 
-BoxDecoration _cardDecoration() {
-  return BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(20),
-    boxShadow: [
-      BoxShadow(
-        color: const Color(0xFF141E3C).withValues(alpha: 0.05),
-        blurRadius: 18,
-        offset: const Offset(0, 6),
-      ),
-    ],
-  );
-}
+BoxDecoration _cardDecoration() => cardDecoration();

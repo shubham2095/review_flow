@@ -69,16 +69,43 @@ class _ServicesScreenState extends State<ServicesScreen> {
     if (changed == true) _load();
   }
 
+  Future<void> _openCategories() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => const _CategoriesSheet(),
+    );
+    if (mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: surface,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openSheet(),
-        backgroundColor: brand,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: Text('Add service', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'service-categories',
+            tooltip: 'Manage categories',
+            onPressed: _openCategories,
+            backgroundColor: Colors.white,
+            foregroundColor: brand,
+            child: const Icon(Icons.category_rounded),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'add-service',
+            onPressed: () => _openSheet(),
+            backgroundColor: brand,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add_rounded),
+            label: Text('Add service', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         color: brand,
@@ -160,6 +187,165 @@ class _ServicesScreenState extends State<ServicesScreen> {
                           );
                         },
                       ),
+      ),
+    );
+  }
+}
+
+class _CategoriesSheet extends StatefulWidget {
+  const _CategoriesSheet();
+
+  @override
+  State<_CategoriesSheet> createState() => _CategoriesSheetState();
+}
+
+class _CategoriesSheetState extends State<_CategoriesSheet> {
+  final _name = TextEditingController();
+  List<Map<String, dynamic>> _categories = [];
+  bool _loading = true;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _message(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await ApiService.instance.getList('/invoicing/categories');
+      if (!mounted) return;
+      setState(() {
+        _categories = list.cast<Map<String, dynamic>>();
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _add() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      _message('Category name is required');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ApiService.instance.post('/invoicing/categories', body: {'name': name});
+      _name.clear();
+      await _load();
+    } catch (e) {
+      _message(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _delete(Map<String, dynamic> c) async {
+    setState(() => _busy = true);
+    try {
+      await ApiService.instance.delete('/invoicing/categories/${c['id']}');
+      await _load();
+    } catch (e) {
+      _message(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Service categories',
+            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _name,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(hintText: 'New category name'),
+                  onSubmitted: (_) => _add(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: _busy ? null : _add,
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 50)),
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(_error!, textAlign: TextAlign.center),
+            )
+          else if (_categories.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text('No categories yet', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(color: muted)),
+            )
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.45),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _categories.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final c = _categories[i];
+                  final count = (c['services_count'] as num?)?.toInt() ?? 0;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(_s(c['name']), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink)),
+                    subtitle: Text('$count service${count == 1 ? '' : 's'}', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted)),
+                    trailing: IconButton(
+                      tooltip: count > 0 ? 'Move services out first' : 'Delete category',
+                      icon: Icon(Icons.delete_outline_rounded, color: count > 0 ? muted : bad),
+                      onPressed: (_busy || count > 0) ? null : () => _delete(c),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
