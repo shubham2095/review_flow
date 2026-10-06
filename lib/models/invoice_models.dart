@@ -4,7 +4,7 @@ double _money(dynamic v) {
   return double.tryParse(v?.toString() ?? '') ?? 0;
 }
 
-int _i(dynamic v) => (v as num?)?.toInt() ?? 0;
+int _i(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
 
 String _s(dynamic v) => v?.toString() ?? '';
 

@@ -7,7 +7,7 @@ import '../theme/brand.dart';
 
 String _s(dynamic v) => v?.toString() ?? '';
 
-int _i(dynamic v) => (v as num?)?.toInt() ?? 0;
+int _i(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
 
 String _date(dynamic v) {
   final t = _s(v);

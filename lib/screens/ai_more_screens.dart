@@ -169,7 +169,7 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
       if (!mounted) return;
       setState(() {
         _locations = list.cast<Map<String, dynamic>>();
-        if (_locations.isNotEmpty) _locationId = (_locations.first['id'] as num?)?.toInt();
+        if (_locations.isNotEmpty) _locationId = num.tryParse((_locations.first['id'])?.toString() ?? '')?.toInt();
       });
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -209,6 +209,7 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
   Widget build(BuildContext context) {
     final r = _result;
     final rank = r?['rank'];
+    final isUnavailable = r?['source'] == 'fallback';
     final results = ((r?['results'] as List?) ?? []).cast<Map<String, dynamic>>();
 
     return ToolPage(
@@ -230,7 +231,7 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
                   items: [
                     for (final l in _locations)
                       DropdownMenuItem(
-                        value: (l['id'] as num?)?.toInt(),
+                        value: num.tryParse((l['id'])?.toString() ?? '')?.toInt(),
                         child: Text(l['title']?.toString() ?? 'Location'),
                       ),
                   ],
@@ -272,11 +273,21 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
                 ),
                 if (r != null)
                   ResultCard(
-                    title: rank != null ? 'Rank #$rank' : 'Estimated rank: ${r['estimated_rank'] ?? 'Unknown'}',
+                    // The server sends a setup note (not for end users) when no ranking source is configured.
+                    title: rank != null
+                        ? 'Rank #$rank'
+                        : isUnavailable
+                            ? 'Ranking not available right now'
+                            : 'Estimated rank: ${r['estimated_rank'] ?? 'Unknown'}',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if ((r['summary']?.toString() ?? '').isNotEmpty)
+                        if (isUnavailable)
+                          Text(
+                            'We could not run a ranking check right now. Try again later. These steps usually help local rankings:',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.5),
+                          )
+                        else if ((r['summary']?.toString() ?? '').isNotEmpty)
                           Text(
                             r['summary'].toString(),
                             style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.5),

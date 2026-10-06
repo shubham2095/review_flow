@@ -151,7 +151,7 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
         'round_total': _roundTotal,
         'logo': _logo,
       });
-      _snack('Billing settings saved â');
+      _snack('Billing settings saved ✅');
       _load();
     } on ApiException catch (e) {
       _snack(e.message);

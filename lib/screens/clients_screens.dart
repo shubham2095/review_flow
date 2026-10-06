@@ -8,7 +8,7 @@ import '../theme/brand.dart';
 
 String _s(dynamic v) => v?.toString() ?? '';
 
-int _i(dynamic v) => (v as num?)?.toInt() ?? 0;
+int _i(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
 
 class ClientsScreen extends StatefulWidget {
   const ClientsScreen({super.key, required this.onSignedOut});
@@ -304,7 +304,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         'title': titleText,
         if (addressText.isNotEmpty) 'address': addressText,
       });
-      _snack('Location added â');
+      _snack('Location added ✅');
       _load();
     } on ApiException catch (e) {
       _snack(e.message);

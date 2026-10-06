@@ -68,23 +68,10 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
   }
 
   Future<void> _generate() async {
-    final controller = TextEditingController();
     final prompt = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Generate image with AI'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(hintText: 'Describe the image, e.g. a cozy cafe with morning light'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Generate')),
-        ],
-      ),
+      builder: (_) => const _PromptDialog(),
     );
-    controller.dispose();
     if (prompt == null || prompt.isEmpty) return;
 
     setState(() => _busy = true);
@@ -92,7 +79,7 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
       final res = await ApiService.instance.post('/ai-media/generate', body: {'prompt': prompt});
       final media = (res['media'] as Map?)?.cast<String, dynamic>();
       if (media != null && mounted) setState(() => _items.insert(0, media));
-      _snack(res['success'] == true ? 'Image generated â' : 'Image generated with fallback (AI was busy)');
+      _snack(res['success'] == true ? 'Image generated ✅' : 'Image generated with fallback (AI was busy)');
     } on ApiException catch (e) {
       _snack(e.message);
     } finally {
@@ -197,6 +184,43 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
   }
 }
 
+/// Owns its own controller so it is disposed only after the dialog is gone.
+class _PromptDialog extends StatefulWidget {
+  const _PromptDialog();
+
+  @override
+  State<_PromptDialog> createState() => _PromptDialogState();
+}
+
+class _PromptDialogState extends State<_PromptDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Generate image with AI'),
+      content: TextField(
+        controller: _controller,
+        maxLines: 3,
+        decoration: const InputDecoration(hintText: 'Describe the image, e.g. a cozy cafe with morning light'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: const Text('Generate'),
+        ),
+      ],
+    );
+  }
+}
+
 class _MediaActions extends StatefulWidget {
   const _MediaActions({required this.item});
 
@@ -233,7 +257,7 @@ class _MediaActionsState extends State<_MediaActions> {
         children: [
           for (final l in locations)
             SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, (l['id'] as num?)?.toInt()),
+              onPressed: () => Navigator.pop(ctx, num.tryParse((l['id'])?.toString() ?? '')?.toInt()),
               child: Text(_s(l['title'])),
             ),
         ],

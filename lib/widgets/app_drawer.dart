@@ -44,12 +44,13 @@ class AppDrawer extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [brand, brandDeep]),
+                    gradient: const LinearGradient(colors: [royalIndigo, royalViolet]),
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: royalGold.withValues(alpha: 0.6)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.admin_panel_settings_rounded, color: Colors.white),
+                      const Icon(Icons.admin_panel_settings_rounded, color: royalGold),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -64,76 +65,15 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 12),
-          _SectionLabel('MAIN MENU'),
+          // Order and names follow the web app sidebar. The index passed to
+          // onSelect is the page index, so the order here can change freely.
+          _SectionLabel('WORKSPACE'),
           _NavItem(
             icon: Icons.dashboard_rounded,
-            label: 'Dashboard',
+            label: 'Overview',
             subtitle: 'Health score and overview',
             selected: selectedIndex == 0,
             onTap: () => onSelect(0),
-          ),
-          _NavItem(
-            icon: Icons.rate_review_rounded,
-            label: 'Reviews',
-            subtitle: 'Reviews, replies and sync',
-            selected: selectedIndex == 1,
-            onTap: () => onSelect(1),
-          ),
-          _NavItem(
-            icon: Icons.groups_rounded,
-            label: 'Leads',
-            subtitle: 'Pipeline, new leads and stages',
-            selected: selectedIndex == 2,
-            onTap: () => onSelect(2),
-          ),
-          _NavItem(
-            icon: Icons.campaign_rounded,
-            label: 'Social',
-            subtitle: 'Facebook, Instagram, LinkedIn, X',
-            selected: selectedIndex == 3,
-            onTap: () => onSelect(3),
-          ),
-          _NavItem(
-            icon: Icons.insights_rounded,
-            label: 'Insights',
-            subtitle: 'Search, maps, calls and clicks',
-            selected: selectedIndex == 4,
-            onTap: () => onSelect(4),
-          ),
-          _NavItem(
-            icon: Icons.group_add_rounded,
-            label: 'Team',
-            subtitle: 'Add, edit and remove members',
-            selected: selectedIndex == 5,
-            onTap: () => onSelect(5),
-          ),
-          _NavItem(
-            icon: Icons.receipt_long_rounded,
-            label: 'Invoices',
-            subtitle: 'Create, send and track invoices',
-            selected: selectedIndex == 6,
-            onTap: () => onSelect(6),
-          ),
-          _NavItem(
-            icon: Icons.photo_library_rounded,
-            label: 'Posts & Photos',
-            subtitle: 'Google posts, offers and photos',
-            selected: selectedIndex == 7,
-            onTap: () => onSelect(7),
-          ),
-          _NavItem(
-            icon: Icons.people_alt_rounded,
-            label: 'Customers',
-            subtitle: 'Billing customers and GSTIN',
-            selected: selectedIndex == 8,
-            onTap: () => onSelect(8),
-          ),
-          _NavItem(
-            icon: Icons.account_balance_wallet_rounded,
-            label: 'Expenses',
-            subtitle: 'Track spending by method',
-            selected: selectedIndex == 9,
-            onTap: () => onSelect(9),
           ),
           _NavItem(
             icon: Icons.auto_awesome_rounded,
@@ -143,32 +83,39 @@ class AppDrawer extends StatelessWidget {
             onTap: () => onSelect(10),
           ),
           _NavItem(
-            icon: Icons.business_rounded,
-            label: 'Clients',
-            subtitle: 'Businesses, locations and connections',
-            selected: selectedIndex == 11,
-            onTap: () => onSelect(11),
+            icon: Icons.rate_review_rounded,
+            label: 'Reviews',
+            subtitle: 'Reviews, replies and sync',
+            selected: selectedIndex == 1,
+            onTap: () => onSelect(1),
           ),
           _NavItem(
-            icon: Icons.design_services_rounded,
-            label: 'Services',
-            subtitle: 'Service catalog with GST',
-            selected: selectedIndex == 12,
-            onTap: () => onSelect(12),
+            icon: Icons.insights_rounded,
+            label: 'Insights',
+            subtitle: 'Search, maps, calls and clicks',
+            selected: selectedIndex == 4,
+            onTap: () => onSelect(4),
           ),
           _NavItem(
-            icon: Icons.settings_suggest_rounded,
-            label: 'Billing settings',
-            subtitle: 'Business details, bank and invoice defaults',
-            selected: selectedIndex == 13,
-            onTap: () => onSelect(13),
+            icon: Icons.photo_library_rounded,
+            label: 'Posts & Photos',
+            subtitle: 'Google posts, offers and photos',
+            selected: selectedIndex == 7,
+            onTap: () => onSelect(7),
           ),
           _NavItem(
-            icon: Icons.person_rounded,
-            label: 'Profile',
-            subtitle: 'Your details and password',
-            selected: selectedIndex == 14,
-            onTap: () => onSelect(14),
+            icon: Icons.campaign_rounded,
+            label: 'Social',
+            subtitle: 'Facebook, Instagram, LinkedIn, X',
+            selected: selectedIndex == 3,
+            onTap: () => onSelect(3),
+          ),
+          _NavItem(
+            icon: Icons.groups_rounded,
+            label: 'Leads CRM',
+            subtitle: 'Pipeline, new leads and stages',
+            selected: selectedIndex == 2,
+            onTap: () => onSelect(2),
           ),
           _NavItem(
             icon: Icons.chat_rounded,
@@ -185,6 +132,56 @@ class AppDrawer extends StatelessWidget {
             onTap: () => onSelect(16),
           ),
           _NavItem(
+            icon: Icons.business_rounded,
+            label: 'Clients',
+            subtitle: 'Businesses, locations and connections',
+            selected: selectedIndex == 11,
+            onTap: () => onSelect(11),
+          ),
+          _NavItem(
+            icon: Icons.group_add_rounded,
+            label: 'Team',
+            subtitle: 'Add, edit and remove members',
+            selected: selectedIndex == 5,
+            onTap: () => onSelect(5),
+          ),
+          _NavItem(
+            icon: Icons.receipt_long_rounded,
+            label: 'Invoices',
+            subtitle: 'Create, send and track invoices',
+            selected: selectedIndex == 6,
+            onTap: () => onSelect(6),
+          ),
+          _NavItem(
+            icon: Icons.people_alt_rounded,
+            label: 'Customers',
+            subtitle: 'Billing customers and GSTIN',
+            selected: selectedIndex == 8,
+            onTap: () => onSelect(8),
+          ),
+          _NavItem(
+            icon: Icons.account_balance_wallet_rounded,
+            label: 'Expenses',
+            subtitle: 'Track spending by method',
+            selected: selectedIndex == 9,
+            onTap: () => onSelect(9),
+          ),
+          _NavItem(
+            icon: Icons.design_services_rounded,
+            label: 'Services',
+            subtitle: 'Service catalog with GST',
+            selected: selectedIndex == 12,
+            onTap: () => onSelect(12),
+          ),
+          _NavItem(
+            icon: Icons.image_search_rounded,
+            label: 'AI media',
+            subtitle: 'Generated images for your posts',
+            selected: selectedIndex == 20,
+            onTap: () => onSelect(20),
+          ),
+          _SectionLabel('BILLING'),
+          _NavItem(
             icon: Icons.bolt_rounded,
             label: 'Credits',
             subtitle: 'AI credit balance and activity',
@@ -199,18 +196,25 @@ class AppDrawer extends StatelessWidget {
             onTap: () => onSelect(18),
           ),
           _NavItem(
+            icon: Icons.settings_suggest_rounded,
+            label: 'Billing Settings',
+            subtitle: 'Business details, bank and invoice defaults',
+            selected: selectedIndex == 13,
+            onTap: () => onSelect(13),
+          ),
+          _NavItem(
+            icon: Icons.person_rounded,
+            label: 'My Profile',
+            subtitle: 'Your details and password',
+            selected: selectedIndex == 14,
+            onTap: () => onSelect(14),
+          ),
+          _NavItem(
             icon: Icons.file_download_rounded,
             label: 'Tally export',
             subtitle: 'Download invoices as Tally XML',
             selected: selectedIndex == 19,
             onTap: () => onSelect(19),
-          ),
-          _NavItem(
-            icon: Icons.image_search_rounded,
-            label: 'AI media',
-            subtitle: 'Generated images for your posts',
-            selected: selectedIndex == 20,
-            onTap: () => onSelect(20),
           ),
           if (isAdmin)
             _NavItem(
@@ -256,58 +260,82 @@ class _DrawerHeader extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(20, top + 20, 20, 22),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [brand, brandDeep],
+          colors: [royalNavy, royalIndigo, royalViolet],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.only(bottomRight: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(color: Color(0x332B3FBF), blurRadius: 18, offset: Offset(0, 6)),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: Text(
-              initial,
-              style: GoogleFonts.plusJakartaSans(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: royalGold, width: 1.6),
+                ),
+                child: CircleAvatar(
+                  radius: 26,
+                  backgroundColor: Colors.white.withValues(alpha: 0.14),
+                  child: Text(
+                    initial,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name.isEmpty ? 'Welcome' : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.isEmpty ? 'Welcome' : name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 16),
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  royalGold.withValues(alpha: 0.9),
+                  royalGold.withValues(alpha: 0),
+                ],
+              ),
             ),
           ),
         ],
@@ -324,15 +352,25 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 6),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
-          color: muted,
-        ),
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 14,
+            height: 1.5,
+            color: royalGold,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+              color: royalIndigo,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -357,11 +395,11 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = danger ? bad : (selected ? brand : ink);
+    final color = danger ? bad : (selected ? royalIndigo : ink);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Material(
-        color: selected ? brand.withValues(alpha: 0.10) : Colors.transparent,
+        color: selected ? royalIndigo.withValues(alpha: 0.07) : Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -378,10 +416,16 @@ class _NavItem extends StatelessWidget {
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    gradient: selected && !danger
+                        ? const LinearGradient(colors: [royalIndigo, royalViolet])
+                        : null,
+                    color: selected && !danger ? null : color.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: selected && !danger
+                        ? [BoxShadow(color: royalIndigo.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]
+                        : null,
                   ),
-                  child: Icon(icon, color: color, size: 20),
+                  child: Icon(icon, color: selected && !danger ? Colors.white : color, size: 20),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -405,7 +449,11 @@ class _NavItem extends StatelessWidget {
                   ),
                 ),
                 if (selected)
-                  const Icon(Icons.circle, size: 8, color: brand),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(color: royalGold, shape: BoxShape.circle),
+                  ),
               ],
             ),
           ),

@@ -180,8 +180,8 @@ class _HomeShellState extends State<HomeShell> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: brand,
-        statusBarIconBrightness: Brightness.light,
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         key: _scaffoldKey,

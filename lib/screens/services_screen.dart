@@ -331,7 +331,7 @@ class _CategoriesSheetState extends State<_CategoriesSheet> {
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (_, i) {
                   final c = _categories[i];
-                  final count = (c['services_count'] as num?)?.toInt() ?? 0;
+                  final count = num.tryParse((c['services_count'])?.toString() ?? '')?.toInt() ?? 0;
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(_s(c['name']), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink)),
@@ -367,7 +367,7 @@ class _ServiceSheetState extends State<_ServiceSheet> {
   late final _gst = TextEditingController(
     text: widget.service == null ? '18' : _d(widget.service!['gst_percent']).toString(),
   );
-  late int? _categoryId = (widget.service?['service_category_id'] as num?)?.toInt();
+  late int? _categoryId = num.tryParse((widget.service?['service_category_id'])?.toString() ?? '')?.toInt();
   late bool _active = _s(widget.service?['status']) != 'INACTIVE';
   bool _busy = false;
 
@@ -467,7 +467,7 @@ class _ServiceSheetState extends State<_ServiceSheet> {
               items: [
                 const DropdownMenuItem<int?>(value: null, child: Text('Uncategorized')),
                 for (final c in widget.categories)
-                  DropdownMenuItem<int?>(value: (c['id'] as num?)?.toInt(), child: Text(_s(c['name']))),
+                  DropdownMenuItem<int?>(value: num.tryParse((c['id'])?.toString() ?? '')?.toInt(), child: Text(_s(c['name']))),
               ],
               onChanged: (v) => setState(() => _categoryId = v),
             ),

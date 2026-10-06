@@ -1,6 +1,6 @@
-int _i(dynamic v) => (v as num?)?.toInt() ?? 0;
+int _i(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
 
-double _d(dynamic v) => (v as num?)?.toDouble() ?? 0;
+double _d(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toDouble() ?? 0;
 
 String? _s(dynamic v) => v?.toString();
 

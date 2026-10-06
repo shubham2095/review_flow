@@ -5,9 +5,9 @@ Color _hexColor(String? hex) {
   return Color(int.parse('FF${hex.substring(1)}', radix: 16));
 }
 
-int _int(dynamic v) => (v as num?)?.toInt() ?? 0;
+int _int(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
 
-double _double(dynamic v) => (v as num?)?.toDouble() ?? 0;
+double _double(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toDouble() ?? 0;
 
 String _str(dynamic v) => v?.toString() ?? '';
 

@@ -19,7 +19,7 @@ double _n(dynamic v) {
   return double.tryParse(_s(v)) ?? 0;
 }
 
-int _i(dynamic v) => (v as num?)?.toInt() ?? 0;
+int _i(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
 
 String _date(dynamic v) {
   final t = _s(v);
@@ -134,7 +134,7 @@ class _BillingScreenState extends State<BillingScreen> {
           'razorpay_signature': r.signature,
           'plan': _pendingPlanCode,
         });
-        _snack('Plan activated â');
+        _snack('Plan activated ✅');
       } else {
         await ApiService.instance.post('/billing/credit-verify', body: {
           'razorpay_order_id': r.orderId,
@@ -142,7 +142,7 @@ class _BillingScreenState extends State<BillingScreen> {
           'razorpay_signature': r.signature,
           'package': _pendingPackageId,
         });
-        _snack('Credits added â');
+        _snack('Credits added ✅');
       }
     } on ApiException catch (e) {
       _snack(e.message);

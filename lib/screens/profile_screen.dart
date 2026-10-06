@@ -91,7 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       _current.clear();
       _newPassword.clear();
-      _snack('Profile saved â');
+      _snack('Profile saved ✅');
     } on ApiException catch (e) {
       _snack(e.message);
     } finally {

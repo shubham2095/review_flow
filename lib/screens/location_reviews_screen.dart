@@ -101,7 +101,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
       builder: (_) => _ReplySheet(review: review),
     );
     if (result == 'sent') {
-      _snack('Reply sent to Google â');
+      _snack('Reply sent to Google ✅');
     } else if (result == 'saved') {
       _snack('Reply saved (not posted to Google)');
     }

@@ -86,9 +86,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Status bar brand color ka rahega, taaki header ke saath seamless lage.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: _brand,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FB),

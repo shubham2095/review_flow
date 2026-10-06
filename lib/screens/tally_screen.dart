@@ -92,7 +92,7 @@ class _TallyScreenState extends State<TallyScreen> {
   @override
   Widget build(BuildContext context) {
     final s = _summary;
-    final count = (s?['invoice_count'] as num?)?.toInt() ?? 0;
+    final count = num.tryParse((s?['invoice_count'])?.toString() ?? '')?.toInt() ?? 0;
     final stateSet = _s(s?['state']).isNotEmpty;
 
     return Scaffold(

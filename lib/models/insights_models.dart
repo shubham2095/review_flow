@@ -1,4 +1,4 @@
-double _d(dynamic v) => (v as num?)?.toDouble() ?? 0;
+double _d(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toDouble() ?? 0;
 
 const searchKeys = ['BUSINESS_IMPRESSIONS_DESKTOP_SEARCH', 'BUSINESS_IMPRESSIONS_MOBILE_SEARCH'];
 const mapsKeys = ['BUSINESS_IMPRESSIONS_DESKTOP_MAPS', 'BUSINESS_IMPRESSIONS_MOBILE_MAPS'];
@@ -13,7 +13,7 @@ double sumKeys(Map<String, double> totals, List<String> keys) {
 
 class InsightLocation {
   InsightLocation.fromJson(Map<String, dynamic> j)
-      : id = (j['id'] as num?)?.toInt() ?? 0,
+      : id = num.tryParse((j['id'])?.toString() ?? '')?.toInt() ?? 0,
         title = j['title']?.toString() ?? '';
 
   final int id;

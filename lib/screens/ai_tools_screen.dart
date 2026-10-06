@@ -263,7 +263,7 @@ class _OptimizeScreenState extends State<OptimizeScreen> {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Center(child: HealthRing(score: (d['overall_score'] as num?)?.toInt() ?? 0, size: 150)),
+                    Center(child: HealthRing(score: num.tryParse((d['overall_score'])?.toString() ?? '')?.toInt() ?? 0, size: 150)),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -297,7 +297,7 @@ class _OptimizeScreenState extends State<OptimizeScreen> {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(6),
                                     child: LinearProgressIndicator(
-                                      value: ((c['score'] as num?)?.toDouble() ?? 0) / 100,
+                                      value: (num.tryParse((c['score'])?.toString() ?? '')?.toDouble() ?? 0) / 100,
                                       minHeight: 8,
                                       color: _catColor(c['color']?.toString() ?? ''),
                                       backgroundColor: muted.withValues(alpha: 0.15),
@@ -457,7 +457,7 @@ class _AuditScreenState extends State<AuditScreen> {
                         title: 'Audit score',
                         child: Column(
                           children: [
-                            Center(child: HealthRing(score: (r['score'] as num?)?.toInt() ?? 0, size: 130)),
+                            Center(child: HealthRing(score: num.tryParse((r['score'])?.toString() ?? '')?.toInt() ?? 0, size: 130)),
                             const SizedBox(height: 6),
                             Text(
                               r['grade']?.toString() ?? '',

@@ -3,6 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/brand.dart';
 
+const _gold = Color(0xFFD4AF37);
+
+/// Light top bar that matches the web app header: white surface, dark text,
+/// brand accents. Status bar icons are dark on this surface.
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   const AppTopBar({
     super.key,
@@ -24,23 +28,35 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: kToolbarHeight + 10,
       elevation: 0,
       scrolledUnderElevation: 0,
-      backgroundColor: brand,
+      backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
-      foregroundColor: Colors.white,
-      flexibleSpace: const DecoratedBox(
+      foregroundColor: ink,
+      flexibleSpace: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [brand, brandDeep],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Color(0x332B3FBF),
-              blurRadius: 16,
-              offset: Offset(0, 6),
+              color: const Color(0xFF141E3C).withValues(alpha: 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
             ),
           ],
+        ),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            height: 1.2,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  _gold.withValues(alpha: 0),
+                  _gold.withValues(alpha: 0.8),
+                  _gold.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
       leading: Builder(
@@ -54,25 +70,29 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       title: Row(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(color: const Color(0xFFE6EAF2)),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(9),
               child: Image.asset('assets/images/eydia_logo.png', fit: BoxFit.cover),
             ),
           ),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: GoogleFonts.plusJakartaSans(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                color: ink,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+              ),
             ),
           ),
         ],
@@ -84,11 +104,11 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             onTap: onAvatarTap,
             child: CircleAvatar(
               radius: 17,
-              backgroundColor: Colors.white.withValues(alpha: 0.25),
+              backgroundColor: brand.withValues(alpha: 0.12),
               child: Text(
                 initial,
                 style: GoogleFonts.plusJakartaSans(
-                  color: Colors.white,
+                  color: brand,
                   fontWeight: FontWeight.w800,
                 ),
               ),

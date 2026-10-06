@@ -13,7 +13,7 @@ double _d(dynamic v) {
   return double.tryParse(_s(v)) ?? 0;
 }
 
-int _i(dynamic v) => (v as num?)?.toInt() ?? 0;
+int _i(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
 
 String _date(dynamic v) {
   final t = _s(v);

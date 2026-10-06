@@ -10,6 +10,12 @@ const warn = Color(0xFFF97316);
 const bad = Color(0xFFEF4444);
 const star = Color(0xFFF59E0B);
 
+// Royal palette for premium surfaces (drawer header, login).
+const royalNavy = Color(0xFF0E1530);
+const royalIndigo = Color(0xFF1E2A6B);
+const royalViolet = Color(0xFF3B2A8C);
+const royalGold = Color(0xFFD4AF37);
+
 BoxDecoration cardDecoration() {
   return BoxDecoration(
     color: Colors.white,
