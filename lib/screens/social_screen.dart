@@ -84,7 +84,11 @@ class _SocialScreenState extends State<SocialScreen> {
   Future<void> _retry(SocialPostItem post) async {
     try {
       final res = await ApiService.instance.post('/social/${post.id}/retry');
-      _snack(res['success'] == true ? 'Post published again ✅' : 'Retry failed: ${res['error'] ?? ''}');
+      _snack(
+        res['success'] == true
+            ? 'Post published again ✅'
+            : 'Retry failed: ${res['error'] ?? ''}',
+      );
       _load();
     } on ApiException catch (e) {
       _snack(e.message);
@@ -125,20 +129,32 @@ class _SocialScreenState extends State<SocialScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text('😕', style: TextStyle(fontSize: 40)),
+                                  const Text(
+                                    '😕',
+                                    style: TextStyle(fontSize: 40),
+                                  ),
                                   const SizedBox(height: 8),
                                   Text(
                                     'Could not load posts',
-                                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontWeight: FontWeight.w800,
+                                      color: ink,
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     _error ?? 'Please try again.',
                                     textAlign: TextAlign.center,
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 13,
+                                      color: muted,
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
-                                  FilledButton(onPressed: _load, child: const Text('Try again')),
+                                  FilledButton(
+                                    onPressed: _load,
+                                    child: const Text('Try again'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -161,12 +177,18 @@ class _SocialScreenState extends State<SocialScreen> {
                             const SizedBox(height: 8),
                             Text(
                               'No posts yet',
-                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800,
+                                color: ink,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               'Tap "New post" to create your first one.',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                color: muted,
+                              ),
                             ),
                           ],
                         ),
@@ -177,7 +199,10 @@ class _SocialScreenState extends State<SocialScreen> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: FadeIn(
                         delay: i < 12 ? i * 70 : 0,
-                        child: _PostCard(post: board.posts[i], onRetry: () => _retry(board.posts[i])),
+                        child: _PostCard(
+                          post: board.posts[i],
+                          onRetry: () => _retry(board.posts[i]),
+                        ),
                       ),
                     ),
                 ],
@@ -245,17 +270,24 @@ class _PostCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(platformEmoji[post.platform] ?? '•', style: const TextStyle(fontSize: 18)),
+              Text(
+                platformEmoji[post.platform] ?? '•',
+                style: const TextStyle(fontSize: 18),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   platformLabels[post.platform] ?? post.platform,
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    color: ink,
+                  ),
                 ),
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
                 child: _StatusBadge(
                   key: ValueKey(post.status),
                   text: statusLabels[post.status] ?? post.status,
@@ -269,7 +301,11 @@ class _PostCard extends StatelessWidget {
             post.body,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.4),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              color: ink,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -279,13 +315,19 @@ class _PostCard extends StatelessWidget {
                   child: Text(
                     '🏢 ${post.clientName}',
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: muted,
+                    ),
                   ),
                 ),
               if (post.dateLabel.isNotEmpty)
                 Text(
                   '🗓️ ${post.dateLabel}',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: muted,
+                  ),
                 ),
             ],
           ),
@@ -337,7 +379,11 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: color),
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
       ),
     );
   }
@@ -375,7 +421,9 @@ class _ComposeSheetState extends State<_ComposeSheet> {
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
     final mime = picked.mimeType ?? 'image/jpeg';
-    if (mounted) setState(() => _imageData = 'data:$mime;base64,${base64Encode(bytes)}');
+    if (mounted) {
+      setState(() => _imageData = 'data:$mime;base64,${base64Encode(bytes)}');
+    }
   }
 
   @override
@@ -403,19 +451,31 @@ class _ComposeSheetState extends State<_ComposeSheet> {
     );
     if (time == null) return;
     setState(() {
-      _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
   Future<void> _aiCaption() async {
     final prompt = _body.text.trim();
     if (prompt.isEmpty) {
-      _message('Enter a topic or short idea first, then AI will write the caption');
+      _message(
+        'Enter a topic or short idea first, then AI will write the caption',
+      );
       return;
     }
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/social/caption', body: {'prompt': prompt});
+      final res = await ApiService.instance.post(
+        '/social/caption',
+        body: {'prompt': prompt},
+        timeout: kAiTimeout,
+      );
       _body.text = (res['body'] ?? '').toString();
     } on ApiException catch (e) {
       _message(e.message);
@@ -438,13 +498,17 @@ class _ComposeSheetState extends State<_ComposeSheet> {
 
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/social', body: {
-        'client_id': _clientId,
-        'platform': _platform,
-        'body': text,
-        if (_imageData != null) 'media_data': _imageData,
-        if (_scheduledAt != null) 'scheduled_at': _scheduledAt!.toIso8601String(),
-      });
+      final res = await ApiService.instance.post(
+        '/social',
+        body: {
+          'client_id': _clientId,
+          'platform': _platform,
+          'body': text,
+          if (_imageData != null) 'media_data': _imageData,
+          if (_scheduledAt != null)
+            'scheduled_at': _scheduledAt!.toIso8601String(),
+        },
+      );
       if (!mounted) return;
       final status = res['status']?.toString();
       final result = status == 'SCHEDULED'
@@ -465,7 +529,12 @@ class _ComposeSheetState extends State<_ComposeSheet> {
     final over = count > limit;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -475,13 +544,20 @@ class _ComposeSheetState extends State<_ComposeSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: muted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               '✍️ New social post',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: ink,
+              ),
             ),
             const SizedBox(height: 14),
             Wrap(
@@ -499,16 +575,20 @@ class _ComposeSheetState extends State<_ComposeSheet> {
             if (widget.clients.length > 1) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _clientId,
+                isExpanded: true,
+                initialValue: _clientId,
                 decoration: InputDecoration(
                   labelText: 'Client',
                   filled: true,
                   fillColor: surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
                 items: [
-                  for (final c in widget.clients) DropdownMenuItem(value: c.id, child: Text(c.name)),
+                  for (final c in widget.clients)
+                    DropdownMenuItem(value: c.id, child: Text(c.name)),
                 ],
                 onChanged: (v) => setState(() => _clientId = v ?? _clientId),
               ),
@@ -522,7 +602,10 @@ class _ComposeSheetState extends State<_ComposeSheet> {
                 hintText: 'Write a post, or enter a short idea for AI…',
                 filled: true,
                 fillColor: surface,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
             Align(
@@ -601,7 +684,10 @@ class _ComposeSheetState extends State<_ComposeSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(_scheduledAt == null ? 'Publish' : 'Schedule'),
             ),

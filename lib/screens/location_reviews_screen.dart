@@ -80,7 +80,9 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
   Future<void> _sync() async {
     setState(() => _syncing = true);
     try {
-      final res = await ApiService.instance.post('/reviews/${widget.location.id}/sync');
+      final res = await ApiService.instance.post(
+        '/reviews/${widget.location.id}/sync',
+      );
       final synced = res['synced'] ?? 0;
       _snack(res['message']?.toString() ?? '$synced reviews synced ✅');
       await _loadPage(reset: true);
@@ -111,7 +113,9 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -161,7 +165,8 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
           actions: [
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
-              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
               child: _syncing
                   ? const Padding(
                       key: ValueKey('syncing'),
@@ -205,10 +210,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    '😕 $_error',
-                    style: const TextStyle(color: bad),
-                  ),
+                  child: Text('😕 $_error', style: const TextStyle(color: bad)),
                 ),
               if (_reviews.isEmpty && !_loading)
                 const Padding(
@@ -253,7 +255,13 @@ class _StatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget item(String emoji, double value, int decimals, String label, Color color) {
+    Widget item(
+      String emoji,
+      double value,
+      int decimals,
+      String label,
+      Color color,
+    ) {
       return Expanded(
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -270,7 +278,9 @@ class _StatsStrip extends StatelessWidget {
                   duration: const Duration(milliseconds: 900),
                   curve: Curves.easeOutCubic,
                   builder: (_, v, _) => Text(
-                    decimals > 0 ? v.toStringAsFixed(decimals) : v.round().toString(),
+                    decimals > 0
+                        ? v.toStringAsFixed(decimals)
+                        : v.round().toString(),
                     maxLines: 1,
                     style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.w800,
@@ -298,9 +308,21 @@ class _StatsStrip extends StatelessWidget {
         const SizedBox(width: 8),
         item('⭐', stats.avg, 1, 'Avg', star),
         const SizedBox(width: 8),
-        item('⏳', stats.unreplied.toDouble(), 0, 'Unreplied', stats.unreplied > 0 ? warn : good),
+        item(
+          '⏳',
+          stats.unreplied.toDouble(),
+          0,
+          'Unreplied',
+          stats.unreplied > 0 ? warn : good,
+        ),
         const SizedBox(width: 8),
-        item('👎', stats.negative.toDouble(), 0, 'Negative', stats.negative > 0 ? bad : good),
+        item(
+          '👎',
+          stats.negative.toDouble(),
+          0,
+          'Negative',
+          stats.negative > 0 ? bad : good,
+        ),
       ],
     );
   }
@@ -325,7 +347,9 @@ class _ReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = review.reviewerName.isEmpty ? '?' : review.reviewerName[0].toUpperCase();
+    final initial = review.reviewerName.isEmpty
+        ? '?'
+        : review.reviewerName[0].toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -364,7 +388,10 @@ class _ReviewCard extends StatelessWidget {
                       review.dateLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        color: muted,
+                      ),
                     ),
                   ],
                 ),
@@ -374,9 +401,12 @@ class _ReviewCard extends StatelessWidget {
                   tween: Tween(begin: 0, end: 1),
                   duration: Duration(milliseconds: 260 + i * 90),
                   curve: Curves.easeOutBack,
-                  builder: (_, v, child) => Transform.scale(scale: v, child: child),
+                  builder: (_, v, child) =>
+                      Transform.scale(scale: v, child: child),
                   child: Icon(
-                    i < review.starRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                    i < review.starRating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
                     size: 16,
                     color: star,
                   ),
@@ -387,7 +417,11 @@ class _ReviewCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               review.comment!,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.4),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                color: ink,
+                height: 1.4,
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -408,7 +442,10 @@ class _ReviewCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _sentimentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
@@ -462,7 +499,10 @@ class _ReplySheetState extends State<_ReplySheet> {
   Future<void> _draft() async {
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/reviews/${widget.review.id}/generate');
+      final res = await ApiService.instance.post(
+        '/reviews/${widget.review.id}/generate',
+        timeout: kAiTimeout,
+      );
       _controller.text = (res['reply'] ?? '').toString();
     } on ApiException catch (e) {
       _message(e.message);
@@ -484,7 +524,9 @@ class _ReplySheetState extends State<_ReplySheet> {
         body: {'reply_text': text},
       );
       if (!mounted) return;
-      Navigator.of(context).pop(res['posted_to_google'] == true ? 'sent' : 'saved');
+      Navigator.of(
+        context,
+      ).pop(res['posted_to_google'] == true ? 'sent' : 'saved');
     } on ApiException catch (e) {
       _message(e.message);
     } finally {
@@ -495,7 +537,12 @@ class _ReplySheetState extends State<_ReplySheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,7 +608,10 @@ class _ReplySheetState extends State<_ReplySheet> {
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.send_rounded, size: 18),
                   label: const Text('Send'),

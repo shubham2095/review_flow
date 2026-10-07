@@ -49,6 +49,7 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
     try {
       final res = await ApiService.instance.post(
         '/keywords',
+        timeout: kAiTimeout,
         body: {
           'business': _business.text.trim(),
           'city': _city.text.trim(),
@@ -238,6 +239,7 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
     try {
       final res = await ApiService.instance.post(
         '/rank-checker',
+        timeout: kAiTimeout,
         body: {
           'location_id': _locationId,
           'keyword': _keyword.text.trim(),
@@ -487,6 +489,7 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
     try {
       final res = await ApiService.instance.post(
         '/competitors',
+        timeout: kAiTimeout,
         body: {
           'client_id': _clientId,
           'competitors': _competitors.text.trim(),
@@ -713,6 +716,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       final res = await ApiService.instance.post(
         '/ai-mode',
         body: {'message': text},
+        timeout: kAiTimeout,
       );
       if (mounted) {
         setState(

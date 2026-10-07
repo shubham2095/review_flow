@@ -200,230 +200,234 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: surface,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              children: [
-                FadeIn(
-                  child: Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: cardDecoration(),
-                    child: Row(
-                      children: [
-                        TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0, end: 1),
-                          duration: const Duration(milliseconds: 420),
-                          curve: Curves.easeOutBack,
-                          builder: (_, v, child) =>
-                              Transform.scale(scale: v, child: child),
-                          child: CircleAvatar(
-                            radius: 30,
-                            backgroundColor: brand.withValues(alpha: 0.12),
-                            child: Text(
-                              initial,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: brand,
+          : RefreshIndicator(
+              color: brand,
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
+                  FadeIn(
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: cardDecoration(),
+                      child: Row(
+                        children: [
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0, end: 1),
+                            duration: const Duration(milliseconds: 420),
+                            curve: Curves.easeOutBack,
+                            builder: (_, v, child) =>
+                                Transform.scale(scale: v, child: child),
+                            child: CircleAvatar(
+                              radius: 30,
+                              backgroundColor: brand.withValues(alpha: 0.12),
+                              child: Text(
+                                initial,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: brand,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _name.text,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                  color: ink,
-                                ),
-                              ),
-                              Text(
-                                _email,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12,
-                                  color: muted,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: brand.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  _role.replaceAll('_', ' ').toLowerCase(),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _name.text,
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 10,
                                     fontWeight: FontWeight.w800,
-                                    color: brand,
+                                    fontSize: 16,
+                                    color: ink,
                                   ),
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  _email,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: brand.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _role.replaceAll('_', ' ').toLowerCase(),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: brand,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                FadeIn(
-                  delay: 80,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: cardDecoration(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Profile information',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w800,
-                            color: ink,
+                  const SizedBox(height: 16),
+                  FadeIn(
+                    delay: 80,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: cardDecoration(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Profile information',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w800,
+                              color: ink,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _name,
-                          decoration: _dec('Full name'),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _phone,
-                          keyboardType: TextInputType.phone,
-                          decoration: _dec('Phone'),
-                        ),
-                        const SizedBox(height: 12),
-                        InputDecorator(
-                          decoration: _dec(
-                            'Email (cannot be changed here)',
-                            enabled: false,
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _name,
+                            decoration: _dec('Full name'),
                           ),
-                          child: Text(
-                            _email,
-                            style: GoogleFonts.plusJakartaSans(color: muted),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _phone,
+                            keyboardType: TextInputType.phone,
+                            decoration: _dec('Phone'),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          InputDecorator(
+                            decoration: _dec(
+                              'Email (cannot be changed here)',
+                              enabled: false,
+                            ),
+                            child: Text(
+                              _email,
+                              style: GoogleFonts.plusJakartaSans(color: muted),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                FadeIn(
-                  delay: 160,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: cardDecoration(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Change password',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w800,
-                            color: ink,
+                  const SizedBox(height: 16),
+                  FadeIn(
+                    delay: 160,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: cardDecoration(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Change password',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w800,
+                              color: ink,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Leave empty to keep your current password.',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            color: muted,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _current,
-                          obscureText: true,
-                          decoration: _dec('Current password'),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _newPassword,
-                          obscureText: true,
-                          decoration: _dec('New password'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FadeIn(
-                  delay: 240,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: cardDecoration(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Email verification',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w800,
-                            color: ink,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          transitionBuilder: (child, anim) =>
-                              FadeTransition(opacity: anim, child: child),
-                          child: Text(
-                            _verified
-                                ? '✅ Your email is verified.'
-                                : '⚠️ Your email is not verified yet.',
-                            key: ValueKey(_verified),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Leave empty to keep your current password.',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 12,
                               color: muted,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (!_verified)
-                          OutlinedButton(
-                            onPressed: _sendVerification,
-                            child: const Text('Send verification email'),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _current,
+                            obscureText: true,
+                            decoration: _dec('Current password'),
                           ),
-                        const SizedBox(height: 8),
-                        OutlinedButton(
-                          onPressed: _changeEmail,
-                          child: const Text('Change email'),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _newPassword,
+                            obscureText: true,
+                            decoration: _dec('New password'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                FilledButton(
-                  onPressed: _busy ? null : _save,
-                  child: _busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                  const SizedBox(height: 16),
+                  FadeIn(
+                    delay: 240,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: cardDecoration(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Email verification',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w800,
+                              color: ink,
+                            ),
                           ),
-                        )
-                      : const Text('Save changes'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout_rounded, color: bad),
-                  label: const Text('Log out', style: TextStyle(color: bad)),
-                ),
-              ],
+                          const SizedBox(height: 6),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, anim) =>
+                                FadeTransition(opacity: anim, child: child),
+                            child: Text(
+                              _verified
+                                  ? '✅ Your email is verified.'
+                                  : '⚠️ Your email is not verified yet.',
+                              key: ValueKey(_verified),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: muted,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          if (!_verified)
+                            OutlinedButton(
+                              onPressed: _sendVerification,
+                              child: const Text('Send verification email'),
+                            ),
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: _changeEmail,
+                            child: const Text('Change email'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    onPressed: _busy ? null : _save,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Save changes'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _logout,
+                    icon: const Icon(Icons.logout_rounded, color: bad),
+                    label: const Text('Log out', style: TextStyle(color: bad)),
+                  ),
+                ],
+              ),
             ),
     );
   }

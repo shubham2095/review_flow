@@ -782,6 +782,7 @@ class _PostSheetState extends State<_PostSheet> {
       final res = await ApiService.instance.post(
         '/gbp-content/generate-post',
         body: {'type': _type, 'business': business},
+        timeout: kAiTimeout,
       );
       _body.text = (res['body'] ?? '').toString();
     } on ApiException catch (e) {
@@ -1038,6 +1039,7 @@ class _PhotoSheetState extends State<_PhotoSheet> {
     try {
       final res = await ApiService.instance.post(
         '/gbp-content/generate-caption',
+        timeout: kAiTimeout,
         body: {'business': business},
       );
       if (mounted) _caption.text = (res['caption'] ?? '').toString();

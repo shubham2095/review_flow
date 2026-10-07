@@ -79,6 +79,7 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
     try {
       final res = await ApiService.instance.post(
         '/ai-media/generate',
+        timeout: kAiTimeout,
         body: {'prompt': prompt},
       );
       final media = (res['media'] as Map?)?.cast<String, dynamic>();

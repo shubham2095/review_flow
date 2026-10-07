@@ -8,8 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String kAppUrl = 'https://review.heltog.com';
 const String kApiBase = '$kAppUrl/api';
 
-const _networkMessage = 'No internet connection. Check your network and try again.';
-const _serverMessage = 'Something went wrong on our side. Please try again in a moment.';
+/// AI-backed endpoints (Gemini calls, bulk optimize, image generation) can
+/// legitimately take longer than a normal API call. Pass this to [ApiService.post]
+/// for those so a slow-but-working server isn't mistaken for a timeout.
+const kAiTimeout = Duration(seconds: 90);
+
+const _networkMessage =
+    'No internet connection. Check your network and try again.';
+const _serverMessage =
+    'Something went wrong on our side. Please try again in a moment.';
 const _timeoutMessage = 'The server is taking too long. Please try again.';
 
 class ApiException implements Exception {
@@ -27,7 +34,9 @@ class ApiException implements Exception {
 ApiException friendlyException(Object e) {
   if (e is ApiException) return e;
   if (e is TimeoutException) return ApiException(_timeoutMessage);
-  if (e is SocketException || e is http.ClientException) return ApiException(_networkMessage);
+  if (e is SocketException || e is http.ClientException) {
+    return ApiException(_networkMessage);
+  }
   if (e is FormatException) return ApiException(_serverMessage);
   return ApiException(_serverMessage);
 }
@@ -66,7 +75,10 @@ class ApiService {
   Future<List<int>> getBytes(String path) async {
     final res = await _run(() async {
       final token = await _requireToken();
-      return http.get(Uri.parse('$kApiBase$path'), headers: {'Authorization': 'Bearer $token'});
+      return http.get(
+        Uri.parse('$kApiBase$path'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
     });
     if (res.statusCode >= 400) _decode(res);
     return res.bodyBytes;
@@ -85,6 +97,7 @@ class ApiService {
     String path, {
     Map<String, dynamic>? body,
     bool auth = true,
+    Duration? timeout,
   }) async {
     final res = await _run(() async {
       final headers = <String, String>{
@@ -99,7 +112,7 @@ class ApiService {
         headers: headers,
         body: jsonEncode(body ?? {}),
       );
-    });
+    }, timeout: timeout);
     return _decode(res);
   }
 
@@ -116,7 +129,10 @@ class ApiService {
     final res = await _run(() async {
       final token = await _requireToken();
       final req = http.Request(method, Uri.parse('$kApiBase$path'))
-        ..headers.addAll({..._headers(token), 'Content-Type': 'application/json'});
+        ..headers.addAll({
+          ..._headers(token),
+          'Content-Type': 'application/json',
+        });
       if (body != null) req.body = jsonEncode(body);
       return http.Response.fromStream(await req.send());
     });
@@ -124,14 +140,17 @@ class ApiService {
   }
 
   Map<String, String> _headers(String token) => {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
+    'Accept': 'application/json',
+    'Authorization': 'Bearer $token',
+  };
 
   /// Runs one request. Network, timeout and unexpected failures become friendly ApiExceptions.
-  Future<http.Response> _run(Future<http.Response> Function() request) async {
+  Future<http.Response> _run(
+    Future<http.Response> Function() request, {
+    Duration? timeout,
+  }) async {
     try {
-      return await request().timeout(_timeout);
+      return await request().timeout(timeout ?? _timeout);
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -156,18 +175,24 @@ class ApiService {
   }
 
   /// Server JSON hamesha UTF-8 hota hai. http package bina charset ke Latin-1 maan leta hai, isliye ye zaroori hai.
-  String _text(http.Response res) => utf8.decode(res.bodyBytes, allowMalformed: true);
+  String _text(http.Response res) =>
+      utf8.decode(res.bodyBytes, allowMalformed: true);
 
   Map<String, dynamic> _decode(http.Response res) {
     Map<String, dynamic> data;
     try {
-      data = _text(res).isEmpty ? <String, dynamic>{} : jsonDecode(_text(res)) as Map<String, dynamic>;
+      data = _text(res).isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(_text(res)) as Map<String, dynamic>;
     } catch (_) {
       data = <String, dynamic>{};
     }
 
     if (res.statusCode >= 400) {
-      throw ApiException(_userMessage(res.statusCode, data), statusCode: res.statusCode);
+      throw ApiException(
+        _userMessage(res.statusCode, data),
+        statusCode: res.statusCode,
+      );
     }
 
     return data;

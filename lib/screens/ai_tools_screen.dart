@@ -285,15 +285,32 @@ class _OptimizeScreenState extends State<OptimizeScreen> {
   Future<void> _run() async {
     setState(() => _running = true);
     try {
-      final res = await ApiService.instance.post('/optimization/run');
+      final res = await ApiService.instance.post(
+        '/optimization/run',
+        timeout: kAiTimeout,
+      );
+      final rawActions = res['actions'];
+      final actions = rawActions is List
+          ? rawActions
+                .whereType<Map>()
+                .map((e) => e.cast<String, dynamic>())
+                .toList()
+          : <Map<String, dynamic>>[];
       if (mounted) {
-        setState(
-          () => _actions = ((res['actions'] as List?) ?? [])
-              .cast<Map<String, dynamic>>(),
-        );
+        setState(() => _actions = actions);
+        if (actions.isEmpty) {
+          showToolError(
+            context,
+            ApiException(
+              'Optimization ran, but returned no actions. Please try again.',
+            ),
+          );
+        }
         _load();
       }
-    } on ApiException catch (e) {
+    } catch (e) {
+      // ApiException ke alawa koi bhi unexpected error (jaise galat response
+      // shape) bhi user ko dikhna chahiye — chup-chaap fail nahi hona chahiye.
       if (mounted) showToolError(context, e);
     } finally {
       if (mounted) setState(() => _running = false);
@@ -529,6 +546,7 @@ class _AuditScreenState extends State<AuditScreen> {
       final res = await ApiService.instance.post(
         '/audit',
         body: {'client_id': _clientId},
+        timeout: kAiTimeout,
       );
       if (mounted) setState(() => _result = res);
     } on ApiException catch (e) {
