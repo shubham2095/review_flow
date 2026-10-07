@@ -6,6 +6,7 @@ import '../models/review_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 import 'location_reviews_screen.dart';
 
 class ReviewsScreen extends StatefulWidget {
@@ -104,26 +105,51 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               }
               final locations = snapshot.requireData;
               if (locations.isEmpty) {
-                return const _CenteredList(
-                  child: Text('📍  No locations found'),
+                return _CenteredList(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('📍', style: TextStyle(fontSize: 40)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No locations found',
+                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Connect a Google Business Profile to see reviews here.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               }
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                itemCount: locations.length + 1,
+                itemCount: locations.length + 2,
                 itemBuilder: (_, i) {
                   if (i == 0) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 14),
-                      child: _SettingsCard(onTap: _openSettings),
+                      child: FadeIn(child: _SettingsCard(onTap: _openSettings)),
                     );
                   }
-                  final loc = locations[i - 1];
+                  if (i == 1) {
+                    return const _SectionTitle(text: 'Your locations');
+                  }
+                  final loc = locations[i - 2];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 14),
-                    child: _LocationCard(
-                      loc: loc,
-                      onTap: () => _openLocation(loc),
+                    child: FadeIn(
+                      delay: 80 + (i - 2) * 70,
+                      child: _LocationCard(
+                        loc: loc,
+                        onTap: () => _openLocation(loc),
+                      ),
                     ),
                   );
                 },
@@ -299,6 +325,40 @@ class _ReviewSettingsSheetState extends State<_ReviewSettingsSheet> {
                   : const Text('Save settings'),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [brand, brandDeep],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: ink),
+          ),
         ],
       ),
     );

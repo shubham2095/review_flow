@@ -43,8 +43,14 @@ class _AdminShellState extends State<AdminShell> {
       builder: (ctx) => AlertDialog(
         title: const Text('Log out?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Logout')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout'),
+          ),
         ],
       ),
     );
@@ -60,32 +66,83 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    final initial = widget.name.trim().isEmpty ? 'A' : widget.name.trim()[0].toUpperCase();
+    final initial = widget.name.trim().isEmpty
+        ? 'A'
+        : widget.name.trim()[0].toUpperCase();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: brand,
+        statusBarColor: royalNavy,
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: surface,
         appBar: AppBar(
-          backgroundColor: brand,
+          backgroundColor: royalIndigo,
           foregroundColor: Colors.white,
           elevation: 0,
-          title: Text(
-            _items[_section].$1,
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [royalNavy, royalIndigo, royalViolet],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                height: 1.2,
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      royalGold.withValues(alpha: 0),
+                      royalGold.withValues(alpha: 0.9),
+                      royalGold.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          title: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween(
+                  begin: const Offset(0, 0.2),
+                  end: Offset.zero,
+                ).animate(anim),
+                child: child,
+              ),
+            ),
+            child: Text(
+              _items[_section].$1,
+              key: ValueKey(_section),
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+            ),
           ),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: Colors.white.withValues(alpha: 0.25),
-                child: Text(
-                  initial,
-                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w800),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: royalGold, width: 1.3),
+                ),
+                child: CircleAvatar(
+                  radius: 15,
+                  backgroundColor: Colors.white.withValues(alpha: 0.18),
+                  child: Text(
+                    initial,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -97,19 +154,39 @@ class _AdminShellState extends State<AdminShell> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                Container(
+                  margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [royalNavy, royalIndigo, royalViolet],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: royalIndigo.withValues(alpha: 0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
                   child: Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 42,
+                        height: 42,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1B2437),
-                          borderRadius: BorderRadius.circular(12),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: royalGold, width: 1.4),
                         ),
-                        child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.shield_rounded,
+                          color: royalGold,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -118,13 +195,20 @@ class _AdminShellState extends State<AdminShell> {
                           children: [
                             Text(
                               'Admin Panel',
-                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16, color: ink),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
                             ),
                             Text(
                               widget.email,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                color: Colors.white70,
+                              ),
                             ),
                           ],
                         ),
@@ -133,39 +217,84 @@ class _AdminShellState extends State<AdminShell> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
-                  child: Text(
-                    'MANAGE',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                      color: muted,
-                    ),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+                  child: Row(
+                    children: [
+                      Container(width: 14, height: 1.5, color: royalGold),
+                      const SizedBox(width: 8),
+                      Text(
+                        'MANAGE',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: royalIndigo,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 for (var i = 0; i < _items.length; i++)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 2,
+                    ),
                     child: Material(
-                      color: _section == i ? brand.withValues(alpha: 0.10) : Colors.transparent,
+                      color: _section == i
+                          ? royalIndigo.withValues(alpha: 0.07)
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(14),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
                         onTap: () => _pick(i),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 13,
+                          ),
                           child: Row(
                             children: [
-                              Icon(_items[i].$2, size: 20, color: _section == i ? brand : ink),
-                              const SizedBox(width: 14),
-                              Text(
-                                _items[i].$1,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FontWeight.w700,
-                                  color: _section == i ? brand : ink,
+                              Container(
+                                width: 34,
+                                height: 34,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  gradient: _section == i
+                                      ? const LinearGradient(
+                                          colors: [royalIndigo, royalViolet],
+                                        )
+                                      : null,
+                                  color: _section == i
+                                      ? null
+                                      : ink.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  _items[i].$2,
+                                  size: 18,
+                                  color: _section == i ? Colors.white : ink,
                                 ),
                               ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  _items[i].$1,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontWeight: FontWeight.w700,
+                                    color: _section == i ? royalIndigo : ink,
+                                  ),
+                                ),
+                              ),
+                              if (_section == i)
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: royalGold,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -176,7 +305,12 @@ class _AdminShellState extends State<AdminShell> {
                 const Divider(indent: 20, endIndent: 20),
                 ListTile(
                   leading: const Icon(Icons.swap_horiz_rounded),
-                  title: Text('User view', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+                  title: Text(
+                    'User view',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   onTap: () {
                     Navigator.of(context).pop();
                     widget.onUserView();
@@ -186,7 +320,10 @@ class _AdminShellState extends State<AdminShell> {
                   leading: const Icon(Icons.logout_rounded, color: bad),
                   title: Text(
                     'Sign out',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: bad),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w700,
+                      color: bad,
+                    ),
                   ),
                   onTap: () {
                     Navigator.of(context).pop();
@@ -198,7 +335,18 @@ class _AdminShellState extends State<AdminShell> {
             ),
           ),
         ),
-        body: AdminSectionView(section: _section, onSignedOut: widget.onSignedOut),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, anim) =>
+              FadeTransition(opacity: anim, child: child),
+          child: KeyedSubtree(
+            key: ValueKey(_section),
+            child: AdminSectionView(
+              section: _section,
+              onSignedOut: widget.onSignedOut,
+            ),
+          ),
+        ),
       ),
     );
   }

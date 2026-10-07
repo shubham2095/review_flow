@@ -99,7 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
-                return const _CenteredList(child: CircularProgressIndicator());
+                return const _DashboardSkeleton();
               }
               if (snapshot.hasError) {
                 return _CenteredList(
@@ -157,6 +157,71 @@ class _CenteredList extends StatelessWidget {
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.7,
           child: Center(child: child),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shimmering placeholder shown while the first load is in flight, shaped
+/// like the real layout so the page doesn't "jump" once data arrives.
+class _DashboardSkeleton extends StatefulWidget {
+  const _DashboardSkeleton();
+
+  @override
+  State<_DashboardSkeleton> createState() => _DashboardSkeletonState();
+}
+
+class _DashboardSkeletonState extends State<_DashboardSkeleton> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+  late final Animation<double> _opacity =
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut).drive(Tween(begin: 0.3, end: 0.75));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _box({double? width, required double height, double radius = 14}) {
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (_, _) => Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: _muted.withValues(alpha: _opacity.value * 0.25),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        _box(height: 170, radius: 30),
+        const SizedBox(height: 16),
+        _box(height: 300, radius: 24),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(child: _box(height: 112, radius: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: _box(height: 112, radius: 20)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _box(height: 112, radius: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: _box(height: 112, radius: 20)),
+          ],
         ),
       ],
     );
@@ -295,12 +360,12 @@ class _Header extends StatelessWidget {
             Positioned(
               right: -40,
               top: -50,
-              child: _Bubble(size: 160, alpha: 0.08),
+              child: _FloatingBubble(size: 160, alpha: 0.08, duration: 4200),
             ),
             Positioned(
               right: 30,
               bottom: -60,
-              child: _Bubble(size: 120, alpha: 0.06),
+              child: _FloatingBubble(size: 120, alpha: 0.06, duration: 3400),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,6 +437,41 @@ class _Bubble extends StatelessWidget {
   }
 }
 
+/// Slow, ambient up-down drift for the header's decorative bubbles. Purely
+/// visual (Transform.translate), so it never affects layout size.
+class _FloatingBubble extends StatefulWidget {
+  const _FloatingBubble({required this.size, required this.alpha, required this.duration});
+
+  final double size;
+  final double alpha;
+  final int duration;
+
+  @override
+  State<_FloatingBubble> createState() => _FloatingBubbleState();
+}
+
+class _FloatingBubbleState extends State<_FloatingBubble> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: Duration(milliseconds: widget.duration))..repeat(reverse: true);
+  late final Animation<double> _dy =
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut).drive(Tween(begin: -8, end: 8));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _dy,
+      builder: (_, child) => Transform.translate(offset: Offset(0, _dy.value), child: child),
+      child: _Bubble(size: widget.size, alpha: widget.alpha),
+    );
+  }
+}
+
 class _HeaderChip extends StatelessWidget {
   const _HeaderChip({required this.icon, required this.text});
 
@@ -421,7 +521,7 @@ class _HealthCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          HealthRing(score: overall),
+          _GlowPulse(color: healthColor(overall), child: HealthRing(score: overall)),
           const SizedBox(height: 20),
           GridView.count(
             crossAxisCount: 2,
@@ -437,6 +537,51 @@ class _HealthCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Soft breathing glow behind the health ring. Decorative box-shadow only,
+/// so it never changes the ring's size or the card's layout.
+class _GlowPulse extends StatefulWidget {
+  const _GlowPulse({required this.color, required this.child});
+
+  final Color color;
+  final Widget child;
+
+  @override
+  State<_GlowPulse> createState() => _GlowPulseState();
+}
+
+class _GlowPulseState extends State<_GlowPulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat(reverse: true);
+  late final Animation<double> _t = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _t,
+      builder: (_, child) => DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.12 + _t.value * 0.14),
+              blurRadius: 24 + _t.value * 20,
+              spreadRadius: _t.value * 4,
+            ),
+          ],
+        ),
+        child: child,
+      ),
+      child: widget.child,
     );
   }
 }
@@ -930,13 +1075,18 @@ class _FadeInState extends State<_FadeIn> {
   Widget build(BuildContext context) {
     return AnimatedOpacity(
       opacity: _show ? 1 : 0,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 550),
       curve: Curves.easeOut,
       child: AnimatedSlide(
         offset: _show ? Offset.zero : const Offset(0, 0.04),
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 550),
         curve: Curves.easeOut,
-        child: widget.child,
+        child: AnimatedScale(
+          scale: _show ? 1 : 0.96,
+          duration: const Duration(milliseconds: 550),
+          curve: Curves.easeOutCubic,
+          child: widget.child,
+        ),
       ),
     );
   }

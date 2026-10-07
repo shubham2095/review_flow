@@ -10,6 +10,7 @@ import '../models/insights_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 class InsightsScreen extends StatefulWidget {
   const InsightsScreen({super.key, required this.onSignedOut});
@@ -123,7 +124,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                       child: Center(
                         child: _loading
                             ? const CircularProgressIndicator()
-                            : _ErrorBox(message: _error ?? 'Could not load insights', onRetry: _load),
+                            : FadeIn(child: _ErrorBox(message: _error ?? 'Could not load insights', onRetry: _load)),
                       ),
                     ),
                   ],
@@ -131,42 +132,52 @@ class _InsightsScreenState extends State<InsightsScreen> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   children: [
-                    _Filters(
-                      days: _days,
-                      rangeOptions: _rangeOptions,
-                      onDays: _setDays,
-                      locations: data.locations,
-                      locationId: _locationId,
-                      onLocation: _setLocation,
+                    FadeIn(
+                      child: _Filters(
+                        days: _days,
+                        rangeOptions: _rangeOptions,
+                        onDays: _setDays,
+                        locations: data.locations,
+                        locationId: _locationId,
+                        onLocation: _setLocation,
+                      ),
                     ),
                     if (data.hasGoogle) ...[
                       const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _downloadCsv,
-                        icon: const Icon(Icons.download_rounded, size: 18),
-                        label: const Text('Download CSV'),
+                      FadeIn(
+                        delay: 60,
+                        child: OutlinedButton.icon(
+                          onPressed: _downloadCsv,
+                          icon: const Icon(Icons.download_rounded, size: 18),
+                          label: const Text('Download CSV'),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 16),
                     if (!data.hasGoogle)
-                      const _InfoCard(
-                        emoji: '🔌',
-                        text: 'Google Business Profile is not connected. Connect it from the web app to see insights.',
+                      const FadeIn(
+                        child: _InfoCard(
+                          emoji: '🔌',
+                          text: 'Google Business Profile is not connected. Connect it from a client\'s page under "Clients" to see insights.',
+                        ),
                       )
                     else if (data.error != null)
-                      _InfoCard(emoji: '⚠️', text: data.error!)
+                      FadeIn(child: _InfoCard(emoji: '⚠️', text: data.error!))
                     else ...[
                       _KpiGrid(totals: data.totals),
                       const SizedBox(height: 16),
-                      _SplitCard(totals: data.totals),
+                      FadeIn(delay: 480, child: _SplitCard(totals: data.totals)),
                       const SizedBox(height: 16),
-                      _TrendCard(daily: data.daily),
+                      FadeIn(delay: 560, child: _TrendCard(daily: data.daily)),
                       if (data.perLocation.length > 1) ...[
                         const _SectionTitle('📍 By location'),
-                        for (final loc in data.perLocation)
+                        for (var i = 0; i < data.perLocation.length; i++)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: _LocationRow(loc: loc),
+                            child: FadeIn(
+                              delay: 640 + (i < 10 ? i * 60 : 0),
+                              child: _LocationRow(loc: data.perLocation[i]),
+                            ),
                           ),
                       ],
                     ],
@@ -255,8 +266,11 @@ class _KpiGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1.6,
-      children: items,
+      mainAxisExtent: 104,
+      children: [
+        for (var i = 0; i < items.length; i++)
+          FadeIn(delay: i * 70, child: items[i]),
+      ],
     );
   }
 }
@@ -292,22 +306,28 @@ class _Kpi extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
                 ),
               ),
             ],
           ),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: value),
-            duration: const Duration(milliseconds: 1000),
-            curve: Curves.easeOutCubic,
-            builder: (_, v, _) => Text(
-              _compact(v),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: ink,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: value),
+              duration: const Duration(milliseconds: 1000),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, _) => Text(
+                _compact(v),
+                maxLines: 1,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
               ),
             ),
           ),

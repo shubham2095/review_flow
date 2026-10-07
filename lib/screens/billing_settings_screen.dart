@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 class BillingSettingsScreen extends StatefulWidget {
   const BillingSettingsScreen({super.key, required this.onSignedOut});
@@ -46,8 +47,19 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
   @override
   void dispose() {
     for (final c in [
-      _companyName, _businessType, _phone, _email, _gstin, _address, _state,
-      _bankName, _bankAccount, _ifsc, _invoicePrefix, _defaultGst, _currency,
+      _companyName,
+      _businessType,
+      _phone,
+      _email,
+      _gstin,
+      _address,
+      _state,
+      _bankName,
+      _bankAccount,
+      _ifsc,
+      _invoicePrefix,
+      _defaultGst,
+      _currency,
     ]) {
       c.dispose();
     }
@@ -81,7 +93,8 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
         _currency.text = _s(j['currency']);
         _roundTotal = j['round_total'] == true;
         _logo = _s(j['logo']).isEmpty ? null : _s(j['logo']);
-        _nextNumber = '${_s(j['invoice_prefix'])}-${_s(j['next_invoice_number']).padLeft(4, '0')}';
+        _nextNumber =
+            '${_s(j['invoice_prefix'])}-${_s(j['next_invoice_number']).padLeft(4, '0')}';
       });
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -104,17 +117,36 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
     final mime = picked.mimeType ?? 'image/png';
-    if (mounted) setState(() => _logo = 'data:$mime;base64,${base64Encode(bytes)}');
+    if (mounted) {
+      setState(() => _logo = 'data:$mime;base64,${base64Encode(bytes)}');
+    }
   }
 
   Widget _logoPreview() {
     final logo = _logo;
     if (logo == null) {
-      return Text('No logo set', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted));
+      return Text(
+        'No logo set',
+        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+      );
     }
     final image = logo.startsWith('data:')
-        ? Image.memory(base64Decode(logo.split(',').last), height: 64, fit: BoxFit.contain)
-        : Image.network(logo, height: 64, fit: BoxFit.contain, errorBuilder: (_, _, _) => const Text('🖼️'));
+        ? Image.memory(
+            base64Decode(logo.split(',').last),
+            height: 64,
+            fit: BoxFit.contain,
+          )
+        : Image.network(
+            logo,
+            height: 64,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Text('🖼️'),
+            frameBuilder: (_, child, frame, _) => AnimatedOpacity(
+              opacity: frame == null ? 0 : 1,
+              duration: const Duration(milliseconds: 300),
+              child: child,
+            ),
+          );
     return Row(
       children: [
         image,
@@ -134,23 +166,26 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
     }
     setState(() => _busy = true);
     try {
-      await ApiService.instance.put('/invoicing/settings', body: {
-        'company_name': _companyName.text.trim(),
-        'business_type': _businessType.text.trim(),
-        'phone': _phone.text.trim(),
-        'email': _email.text.trim(),
-        'gstin': _gstin.text.trim(),
-        'address': _address.text.trim(),
-        'state': _state.text.trim(),
-        'bank_name': _bankName.text.trim(),
-        'bank_account': _bankAccount.text.trim(),
-        'ifsc': _ifsc.text.trim(),
-        'invoice_prefix': _invoicePrefix.text.trim(),
-        'default_gst': double.tryParse(_defaultGst.text.trim()),
-        'currency': _currency.text.trim(),
-        'round_total': _roundTotal,
-        'logo': _logo,
-      });
+      await ApiService.instance.put(
+        '/invoicing/settings',
+        body: {
+          'company_name': _companyName.text.trim(),
+          'business_type': _businessType.text.trim(),
+          'phone': _phone.text.trim(),
+          'email': _email.text.trim(),
+          'gstin': _gstin.text.trim(),
+          'address': _address.text.trim(),
+          'state': _state.text.trim(),
+          'bank_name': _bankName.text.trim(),
+          'bank_account': _bankAccount.text.trim(),
+          'ifsc': _ifsc.text.trim(),
+          'invoice_prefix': _invoicePrefix.text.trim(),
+          'default_gst': double.tryParse(_defaultGst.text.trim()),
+          'currency': _currency.text.trim(),
+          'round_total': _roundTotal,
+          'logo': _logo,
+        },
+      );
       _snack('Billing settings saved ✅');
       _load();
     } on ApiException catch (e) {
@@ -161,25 +196,37 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
   }
 
   InputDecoration _dec(String label, {String? hint}) => InputDecoration(
-        labelText: label,
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-      );
+    labelText: label,
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+  );
 
-  Widget _section(String title, List<Widget> children) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink)),
-          const SizedBox(height: 12),
-          ...children,
-        ],
+  Widget _section(String title, List<Widget> children, {int delay = 0}) {
+    return FadeIn(
+      delay: delay,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
       ),
     );
   }
@@ -194,13 +241,27 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 _section('Your business', [
-                  TextField(controller: _companyName, decoration: _dec('Business name')),
+                  TextField(
+                    controller: _companyName,
+                    decoration: _dec('Business name'),
+                  ),
                   const SizedBox(height: 10),
-                  TextField(controller: _businessType, decoration: _dec('Business type')),
+                  TextField(
+                    controller: _businessType,
+                    decoration: _dec('Business type'),
+                  ),
                   const SizedBox(height: 10),
-                  TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: _dec('Phone')),
+                  TextField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: _dec('Phone'),
+                  ),
                   const SizedBox(height: 10),
-                  TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: _dec('Billing email')),
+                  TextField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: _dec('Billing email'),
+                  ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _gstin,
@@ -208,28 +269,46 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
                     decoration: _dec('GSTIN'),
                   ),
                   const SizedBox(height: 10),
-                  TextField(controller: _address, maxLines: 2, decoration: _dec('Address')),
+                  TextField(
+                    controller: _address,
+                    maxLines: 2,
+                    decoration: _dec('Address'),
+                  ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _state,
-                    decoration: _dec('State (place of supply)', hint: 'Needed for CGST/SGST vs IGST'),
+                    decoration: _dec(
+                      'State (place of supply)',
+                      hint: 'Needed for CGST/SGST vs IGST',
+                    ),
                   ),
                 ]),
-                _section('Invoice defaults', [
-                  TextField(controller: _invoicePrefix, decoration: _dec('Invoice prefix *')),
+                _section('Invoice defaults', delay: 80, [
+                  TextField(
+                    controller: _invoicePrefix,
+                    decoration: _dec('Invoice prefix *'),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Next invoice number: ${_nextNumber.isEmpty ? '-' : _nextNumber}',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: muted,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _defaultGst,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: _dec('Default GST %'),
                   ),
                   const SizedBox(height: 10),
-                  TextField(controller: _currency, decoration: _dec('Currency', hint: 'e.g. INR')),
+                  TextField(
+                    controller: _currency,
+                    decoration: _dec('Currency', hint: 'e.g. INR'),
+                  ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Round total to nearest rupee'),
@@ -237,7 +316,7 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
                     onChanged: (v) => setState(() => _roundTotal = v),
                   ),
                 ]),
-                _section('Logo (shown on invoices)', [
+                _section('Logo (shown on invoices)', delay: 160, [
                   _logoPreview(),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
@@ -246,10 +325,16 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
                     label: Text(_logo == null ? 'Choose logo' : 'Change logo'),
                   ),
                 ]),
-                _section('Bank details', [
-                  TextField(controller: _bankName, decoration: _dec('Bank name')),
+                _section('Bank details', delay: 240, [
+                  TextField(
+                    controller: _bankName,
+                    decoration: _dec('Bank name'),
+                  ),
                   const SizedBox(height: 10),
-                  TextField(controller: _bankAccount, decoration: _dec('Account number')),
+                  TextField(
+                    controller: _bankAccount,
+                    decoration: _dec('Account number'),
+                  ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _ifsc,
@@ -263,7 +348,10 @@ class _BillingSettingsScreenState extends State<BillingSettingsScreen> {
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text('Save settings'),
                 ),

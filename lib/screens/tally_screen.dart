@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 String _fmt(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -77,10 +78,15 @@ class _TallyScreenState extends State<TallyScreen> {
         '/tally-export/download?from=${_fmt(_from)}&to=${_fmt(_to)}',
       );
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/tally-export-${_fmt(_from)}-to-${_fmt(_to)}.xml');
+      final file = File(
+        '${dir.path}/tally-export-${_fmt(_from)}-to-${_fmt(_to)}.xml',
+      );
       await file.writeAsBytes(bytes);
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path, mimeType: 'text/xml')], subject: 'Tally export'),
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/xml')],
+          subject: 'Tally export',
+        ),
       );
     } on ApiException catch (e) {
       _snack(e.message);
@@ -92,7 +98,8 @@ class _TallyScreenState extends State<TallyScreen> {
   @override
   Widget build(BuildContext context) {
     final s = _summary;
-    final count = num.tryParse((s?['invoice_count'])?.toString() ?? '')?.toInt() ?? 0;
+    final count =
+        num.tryParse((s?['invoice_count'])?.toString() ?? '')?.toInt() ?? 0;
     final stateSet = _s(s?['state']).isNotEmpty;
 
     return Scaffold(
@@ -101,56 +108,97 @@ class _TallyScreenState extends State<TallyScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           if (_loading)
-            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+            const Padding(
+              padding: EdgeInsets.all(40),
+              child: Center(child: CircularProgressIndicator()),
+            )
           else ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: cardDecoration(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Export invoices to TallyPrime',
-                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16, color: ink)),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Only SENT, PAID and OVERDUE invoices are exported. Drafts are never exported.',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
-                  ),
-                  const SizedBox(height: 12),
-                  Text('Invoices available in the app: $count',
-                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink)),
-                  Text('Company in Tally: ${_s(s?['tally_company_name']).isEmpty ? _s(s?['company_name']) : _s(s?['tally_company_name'])}',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted)),
-                ],
+            FadeIn(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: cardDecoration(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Export invoices to TallyPrime',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Only SENT, PAID and OVERDUE invoices are exported. Drafts are never exported.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: count.toDouble()),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.easeOutCubic,
+                      builder: (_, v, _) => Text(
+                        'Invoices available in the app: ${v.round()}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w700,
+                          color: ink,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Company in Tally: ${_s(s?['tally_company_name']).isEmpty ? _s(s?['company_name']) : _s(s?['tally_company_name'])}',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             if (!stateSet)
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: bad.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(16)),
-                child: Text(
-                  'Your business state is not set. Set it in Billing settings, otherwise GST cannot be split into CGST/SGST or IGST.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: bad),
+              FadeIn(
+                delay: 80,
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: bad.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    'Your business state is not set. Set it in Billing settings, otherwise GST cannot be split into CGST/SGST or IGST.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: bad,
+                    ),
+                  ),
                 ),
               ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _pick(from: true),
-                    child: Text('From ${_fmt(_from)}'),
+            FadeIn(
+              delay: 140,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _pick(from: true),
+                      child: Text('From ${_fmt(_from)}'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _pick(from: false),
-                    child: Text('To ${_fmt(_to)}'),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _pick(from: false),
+                      child: Text('To ${_fmt(_to)}'),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 14),
             FilledButton.icon(
@@ -159,18 +207,24 @@ class _TallyScreenState extends State<TallyScreen> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.download_rounded),
               label: const Text('Download Tally XML'),
             ),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: cardDecoration(),
-              child: Text(
-                'How to import: open TallyPrime, go to Gateway of Tally ? Import Data ? Vouchers, then select the downloaded .xml file.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
+            FadeIn(
+              delay: 200,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: cardDecoration(),
+                child: Text(
+                  'How to import: open TallyPrime, go to Gateway of Tally → Import Data → Vouchers, then select the downloaded .xml file.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
+                ),
               ),
             ),
           ],

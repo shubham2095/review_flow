@@ -5,6 +5,7 @@ import '../models/customer_expense_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key, required this.onSignedOut});
@@ -33,7 +34,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
       final list = await ApiService.instance.getList('/invoicing/customers');
       if (!mounted) return;
       setState(() {
-        _customers = list.cast<Map<String, dynamic>>().map(Customer.fromJson).toList();
+        _customers = list
+            .cast<Map<String, dynamic>>()
+            .map(Customer.fromJson)
+            .toList();
         _error = null;
       });
     } on ApiException catch (e) {
@@ -73,7 +77,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _customers
-        .where((c) => _query.isEmpty || c.name.toLowerCase().contains(_query.toLowerCase()))
+        .where(
+          (c) =>
+              _query.isEmpty ||
+              c.name.toLowerCase().contains(_query.toLowerCase()),
+        )
         .toList();
 
     return Scaffold(
@@ -83,7 +91,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
         backgroundColor: brand,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: Text('Add customer', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+        label: Text(
+          'Add customer',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+        ),
       ),
       body: RefreshIndicator(
         color: brand,
@@ -91,16 +102,18 @@ class _CustomersScreenState extends State<CustomersScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: [
-            TextField(
-              onChanged: (v) => setState(() => _query = v.trim()),
-              decoration: InputDecoration(
-                hintText: 'Search customers',
-                prefixIcon: const Icon(Icons.search_rounded),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+            FadeIn(
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v.trim()),
+                decoration: InputDecoration(
+                  hintText: 'Search customers',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
@@ -117,20 +130,55 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   children: [
                     Text('😕 $_error', textAlign: TextAlign.center),
                     const SizedBox(height: 12),
-                    FilledButton(onPressed: _load, child: const Text('Try again')),
+                    FilledButton(
+                      onPressed: _load,
+                      child: const Text('Try again'),
+                    ),
                   ],
                 ),
               )
             else if (filtered.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: Text('👥  No customers yet. Add your first customer.')),
+              FadeIn(
+                delay: 80,
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('👥', style: TextStyle(fontSize: 40)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No customers yet',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w800,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Add your first customer.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            color: muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               )
             else
-              for (final c in filtered)
+              for (final (i, c) in filtered.indexed)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _CustomerCard(customer: c, onTap: () => _openSheet(customer: c)),
+                  child: FadeIn(
+                    delay: i < 12 ? i * 60 : 0,
+                    child: _CustomerCard(
+                      customer: c,
+                      onTap: () => _openSheet(customer: c),
+                    ),
+                  ),
                 ),
           ],
         ),
@@ -147,7 +195,9 @@ class _CustomerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = customer.name.isEmpty ? '?' : customer.name[0].toUpperCase();
+    final initial = customer.name.isEmpty
+        ? '?'
+        : customer.name[0].toUpperCase();
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -159,12 +209,22 @@ class _CustomerCard extends StatelessWidget {
           decoration: cardDecoration(),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: brand.withValues(alpha: 0.12),
-                child: Text(
-                  initial,
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: brand),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeOutBack,
+                builder: (_, v, child) =>
+                    Transform.scale(scale: v, child: child),
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: brand.withValues(alpha: 0.12),
+                  child: Text(
+                    initial,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      color: brand,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -176,20 +236,32 @@ class _CustomerCard extends StatelessWidget {
                       customer.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      [customer.phone, customer.email].where((e) => e.isNotEmpty).join('  •  '),
+                      [
+                        customer.phone,
+                        customer.email,
+                      ].where((e) => e.isNotEmpty).join('  •  '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
                     ),
                     if (customer.gstin.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         'GSTIN ${customer.gstin}',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: muted,
+                        ),
                       ),
                     ],
                   ],
@@ -199,9 +271,18 @@ class _CustomerCard extends StatelessWidget {
                 children: [
                   Text(
                     '${customer.invoicesCount}',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      color: ink,
+                    ),
                   ),
-                  Text('invoices', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: muted)),
+                  Text(
+                    'invoices',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      color: muted,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -226,7 +307,9 @@ class _CustomerSheetState extends State<_CustomerSheet> {
   late final _phone = TextEditingController(text: widget.customer?.phone ?? '');
   late final _email = TextEditingController(text: widget.customer?.email ?? '');
   late final _gstin = TextEditingController(text: widget.customer?.gstin ?? '');
-  late final _address = TextEditingController(text: widget.customer?.billingAddress ?? '');
+  late final _address = TextEditingController(
+    text: widget.customer?.billingAddress ?? '',
+  );
   bool _busy = false;
 
   bool get _isEdit => widget.customer != null;
@@ -261,7 +344,10 @@ class _CustomerSheetState extends State<_CustomerSheet> {
     setState(() => _busy = true);
     try {
       if (_isEdit) {
-        await ApiService.instance.put('/invoicing/customers/${widget.customer!.id}', body: body);
+        await ApiService.instance.put(
+          '/invoicing/customers/${widget.customer!.id}',
+          body: body,
+        );
         if (mounted) Navigator.of(context).pop('updated');
       } else {
         await ApiService.instance.post('/invoicing/customers', body: body);
@@ -275,16 +361,24 @@ class _CustomerSheetState extends State<_CustomerSheet> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-      );
+    labelText: label,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -294,13 +388,20 @@ class _CustomerSheetState extends State<_CustomerSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: muted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               _isEdit ? 'Edit customer' : 'Add customer',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: ink,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(controller: _name, decoration: _dec('Name *')),
@@ -335,7 +436,10 @@ class _CustomerSheetState extends State<_CustomerSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(_isEdit ? 'Save changes' : 'Add customer'),
             ),

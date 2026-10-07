@@ -8,6 +8,7 @@ import '../models/social_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 class SocialScreen extends StatefulWidget {
   const SocialScreen({super.key, required this.onSignedOut});
@@ -126,7 +127,16 @@ class _SocialScreenState extends State<SocialScreen> {
                                 children: [
                                   const Text('😕', style: TextStyle(fontSize: 40)),
                                   const SizedBox(height: 8),
-                                  Text(_error ?? 'Could not load posts', textAlign: TextAlign.center),
+                                  Text(
+                                    'Could not load posts',
+                                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _error ?? 'Please try again.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+                                  ),
                                   const SizedBox(height: 16),
                                   FilledButton(onPressed: _load, child: const Text('Try again')),
                                 ],
@@ -139,16 +149,36 @@ class _SocialScreenState extends State<SocialScreen> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 children: [
-                  if (!board.metaConnected) const _MetaWarning(),
+                  if (!board.metaConnected) const FadeIn(child: _MetaWarning()),
                   if (board.posts.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: Text('📭  No posts yet. Create a new post.')),
+                    FadeIn(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('📭', style: TextStyle(fontSize: 40)),
+                            const SizedBox(height: 8),
+                            Text(
+                              'No posts yet',
+                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tap "New post" to create your first one.',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  for (final p in board.posts)
+                  for (var i = 0; i < board.posts.length; i++)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _PostCard(post: p, onRetry: () => _retry(p)),
+                      child: FadeIn(
+                        delay: i < 12 ? i * 70 : 0,
+                        child: _PostCard(post: board.posts[i], onRetry: () => _retry(board.posts[i])),
+                      ),
                     ),
                 ],
               ),
@@ -176,7 +206,7 @@ class _MetaWarning extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Meta (Facebook/Instagram) is not connected. Use the web app to connect it.',
+              'Meta (Facebook/Instagram) is not connected. Connect it from a client\'s page under "Clients".',
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
             ),
           ),
@@ -223,9 +253,14 @@ class _PostCard extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
                 ),
               ),
-              _StatusBadge(
-                text: statusLabels[post.status] ?? post.status,
-                color: _statusColor,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                child: _StatusBadge(
+                  key: ValueKey(post.status),
+                  text: statusLabels[post.status] ?? post.status,
+                  color: _statusColor,
+                ),
               ),
             ],
           ),
@@ -287,7 +322,7 @@ class _PostCard extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.text, required this.color});
+  const _StatusBadge({super.key, required this.text, required this.color});
 
   final String text;
   final Color color;
@@ -502,36 +537,46 @@ class _ComposeSheetState extends State<_ComposeSheet> {
               ),
             ),
             const SizedBox(height: 8),
-            if (_imageData == null)
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _pickImage,
-                icon: const Icon(Icons.image_rounded, size: 18),
-                label: const Text('Add image (optional)'),
-              )
-            else
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.memory(
-                      base64Decode(_imageData!.split(',').last),
-                      height: 160,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: _imageData == null
+                  ? OutlinedButton.icon(
+                      key: const ValueKey('no-image'),
+                      onPressed: _busy ? null : _pickImage,
+                      icon: const Icon(Icons.image_rounded, size: 18),
+                      label: const Text('Add image (optional)'),
+                    )
+                  : Stack(
+                      key: const ValueKey('image'),
+                      alignment: Alignment.topRight,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.memory(
+                            base64Decode(_imageData!.split(',').last),
+                            height: 160,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        IconButton.filled(
+                          tooltip: 'Remove image',
+                          onPressed: () => setState(() => _imageData = null),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
                     ),
-                  ),
-                  IconButton.filled(
-                    tooltip: 'Remove image',
-                    onPressed: () => setState(() => _imageData = null),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
+            ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _busy ? null : _aiCaption,
-              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              icon: _busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome_rounded, size: 18),
               label: const Text('Generate caption with AI'),
             ),
             const SizedBox(height: 10),

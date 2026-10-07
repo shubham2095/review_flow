@@ -5,6 +5,7 @@ import '../models/lead_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 class LeadsScreen extends StatefulWidget {
   const LeadsScreen({super.key, required this.onSignedOut});
@@ -166,21 +167,45 @@ class _Board extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              _StatTile(emoji: '🎯', value: '$total', label: 'Total', color: brand),
-              const SizedBox(width: 8),
-              _StatTile(emoji: '🆕', value: '$newCount', label: 'New', color: stageColors['NEW']!),
-              const SizedBox(width: 8),
-              _StatTile(emoji: '🎉', value: '$converted', label: 'Converted', color: good),
-              const SizedBox(width: 8),
-              _StatTile(emoji: '📈', value: '$rate%', label: 'Conversion', color: star),
-            ],
+          child: FadeIn(
+            child: Row(
+              children: [
+                _StatTile(emoji: '🎯', value: total.toDouble(), label: 'Total', color: brand),
+                const SizedBox(width: 8),
+                _StatTile(emoji: '🆕', value: newCount.toDouble(), label: 'New', color: stageColors['NEW']!),
+                const SizedBox(width: 8),
+                _StatTile(emoji: '🎉', value: converted.toDouble(), label: 'Converted', color: good),
+                const SizedBox(width: 8),
+                _StatTile(emoji: '📈', value: rate.toDouble(), suffix: '%', label: 'Conversion', color: star),
+              ],
+            ),
           ),
         ),
         Expanded(
           child: total == 0
-              ? const Center(child: Text('📭  No leads yet. Add a new lead.'))
+              ? FadeIn(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('📭', style: TextStyle(fontSize: 40)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No leads yet',
+                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap "New lead" to add your first one.',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
               : ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -189,10 +214,13 @@ class _Board extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final stage = board.stages[i];
                     final items = board.leads.where((l) => l.stage == stage).toList();
-                    return _StageColumn(
-                      stage: stage,
-                      leads: items,
-                      onLeadTap: onLeadTap,
+                    return FadeIn(
+                      delay: i * 90,
+                      child: _StageColumn(
+                        stage: stage,
+                        leads: items,
+                        onLeadTap: onLeadTap,
+                      ),
                     );
                   },
                 ),
@@ -203,10 +231,17 @@ class _Board extends StatelessWidget {
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.emoji, required this.value, required this.label, required this.color});
+  const _StatTile({
+    required this.emoji,
+    required this.value,
+    required this.label,
+    required this.color,
+    this.suffix = '',
+  });
 
   final String emoji;
-  final String value;
+  final double value;
+  final String suffix;
   final String label;
   final Color color;
 
@@ -214,17 +249,32 @@ class _StatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         decoration: cardDecoration(),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(emoji, style: const TextStyle(fontSize: 15)),
             const SizedBox(height: 2),
-            Text(
-              value,
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15, color: color),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: value),
+                duration: const Duration(milliseconds: 900),
+                curve: Curves.easeOutCubic,
+                builder: (_, v, _) => Text(
+                  '${v.round()}$suffix',
+                  maxLines: 1,
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15, color: color),
+                ),
+              ),
             ),
-            Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: muted)),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(fontSize: 10, color: muted),
+            ),
           ],
         ),
       ),
@@ -261,6 +311,8 @@ class _StageColumn extends StatelessWidget {
                 Expanded(
                   child: Text(
                     stageLabels[stage] ?? stage,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
                   ),
                 ),
@@ -288,7 +340,10 @@ class _StageColumn extends StatelessWidget {
                     itemCount: leads.length,
                     itemBuilder: (_, i) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _LeadCard(lead: leads[i], accent: color, onTap: () => onLeadTap(leads[i])),
+                      child: FadeIn(
+                        delay: i < 10 ? i * 60 : 0,
+                        child: _LeadCard(lead: leads[i], accent: color, onTap: () => onLeadTap(leads[i])),
+                      ),
                     ),
                   ),
           ),
@@ -298,7 +353,7 @@ class _StageColumn extends StatelessWidget {
   }
 }
 
-class _LeadCard extends StatelessWidget {
+class _LeadCard extends StatefulWidget {
   const _LeadCard({required this.lead, required this.accent, required this.onTap});
 
   final LeadItem lead;
@@ -306,8 +361,32 @@ class _LeadCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_LeadCard> createState() => _LeadCardState();
+}
+
+class _LeadCardState extends State<_LeadCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    final lead = widget.lead;
+    final accent = widget.accent;
+    final onTap = widget.onTap;
     final initial = lead.name.isEmpty ? '?' : lead.name[0].toUpperCase();
+    return Listener(
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) => setState(() => _pressed = false),
+      onPointerCancel: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: _buildCard(lead, accent, onTap, initial),
+      ),
+    );
+  }
+
+  Widget _buildCard(LeadItem lead, Color accent, VoidCallback onTap, String initial) {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),

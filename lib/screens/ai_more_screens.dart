@@ -9,6 +9,7 @@ import '../models/invoice_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 import 'ai_tools_screen.dart';
 
 // ---------- Keywords ----------
@@ -46,13 +47,20 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
     }
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/keywords', body: {
-        'business': _business.text.trim(),
-        'city': _city.text.trim(),
-        if (_industry.text.trim().isNotEmpty) 'industry': _industry.text.trim(),
-      });
+      final res = await ApiService.instance.post(
+        '/keywords',
+        body: {
+          'business': _business.text.trim(),
+          'city': _city.text.trim(),
+          if (_industry.text.trim().isNotEmpty)
+            'industry': _industry.text.trim(),
+        },
+      );
       if (mounted) {
-        setState(() => _groups = ((res['groups'] as List?) ?? []).cast<Map<String, dynamic>>());
+        setState(
+          () => _groups = ((res['groups'] as List?) ?? [])
+              .cast<Map<String, dynamic>>(),
+        );
       }
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -67,11 +75,14 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-      );
+    labelText: label,
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -80,11 +91,24 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(controller: _business, decoration: _dec('Business name *')),
-          const SizedBox(height: 10),
-          TextField(controller: _city, decoration: _dec('City *')),
-          const SizedBox(height: 10),
-          TextField(controller: _industry, decoration: _dec('Industry (optional)')),
+          FadeIn(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _business,
+                  decoration: _dec('Business name *'),
+                ),
+                const SizedBox(height: 10),
+                TextField(controller: _city, decoration: _dec('City *')),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _industry,
+                  decoration: _dec('Industry (optional)'),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 12),
           FilledButton(
             onPressed: _busy ? null : _generate,
@@ -92,7 +116,10 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Text('Generate keywords'),
           ),
@@ -103,16 +130,29 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final k in (g['keywords'] as List? ?? []).map((e) => e.toString()))
-                    ActionChip(
-                      label: Text(k),
-                      avatar: const Icon(Icons.copy_rounded, size: 14),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: k));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Copied: $k')),
-                        );
-                      },
+                  for (final (ki, k)
+                      in (g['keywords'] as List? ?? [])
+                          .map((e) => e.toString())
+                          .toList()
+                          .indexed)
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: Duration(
+                        milliseconds: 220 + (ki < 12 ? ki * 50 : 0),
+                      ),
+                      curve: Curves.easeOutBack,
+                      builder: (_, v, child) =>
+                          Transform.scale(scale: v, child: child),
+                      child: ActionChip(
+                        label: Text(k),
+                        avatar: const Icon(Icons.copy_rounded, size: 14),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: k));
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Copied: $k')));
+                        },
+                      ),
                     ),
                 ],
               ),
@@ -169,7 +209,11 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
       if (!mounted) return;
       setState(() {
         _locations = list.cast<Map<String, dynamic>>();
-        if (_locations.isNotEmpty) _locationId = num.tryParse((_locations.first['id'])?.toString() ?? '')?.toInt();
+        if (_locations.isNotEmpty) {
+          _locationId = num.tryParse(
+            (_locations.first['id'])?.toString() ?? '',
+          )?.toInt();
+        }
       });
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -192,11 +236,14 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
     }
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/rank-checker', body: {
-        'location_id': _locationId,
-        'keyword': _keyword.text.trim(),
-        'radius_km': _radius,
-      });
+      final res = await ApiService.instance.post(
+        '/rank-checker',
+        body: {
+          'location_id': _locationId,
+          'keyword': _keyword.text.trim(),
+          'radius_km': _radius,
+        },
+      );
       if (mounted) setState(() => _result = res);
     } on ApiException catch (e) {
       if (mounted) showToolError(context, e);
@@ -210,54 +257,75 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
     final r = _result;
     final rank = r?['rank'];
     final isUnavailable = r?['source'] == 'fallback';
-    final results = ((r?['results'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final results = ((r?['results'] as List?) ?? [])
+        .cast<Map<String, dynamic>>();
 
     return ToolPage(
       title: 'Rank Checker',
       child: _loading
-          ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: CircularProgressIndicator(),
+              ),
+            )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _locationId,
-                  decoration: InputDecoration(
-                    labelText: 'Your business',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                  ),
-                  items: [
-                    for (final l in _locations)
-                      DropdownMenuItem(
-                        value: num.tryParse((l['id'])?.toString() ?? '')?.toInt(),
-                        child: Text(l['title']?.toString() ?? 'Location'),
+                FadeIn(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<int>(
+                        isExpanded: true,
+                        initialValue: _locationId,
+                        decoration: InputDecoration(
+                          labelText: 'Your business',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        items: [
+                          for (final l in _locations)
+                            DropdownMenuItem(
+                              value: num.tryParse(
+                                (l['id'])?.toString() ?? '',
+                              )?.toInt(),
+                              child: Text(l['title']?.toString() ?? 'Location'),
+                            ),
+                        ],
+                        onChanged: (v) => setState(() => _locationId = v),
                       ),
-                  ],
-                  onChanged: (v) => setState(() => _locationId = v),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _keyword,
-                  decoration: InputDecoration(
-                    labelText: 'Search keyword (e.g. dentist)',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final km in const [2, 5, 10, 20])
-                      ChoiceChip(
-                        label: Text('$km km'),
-                        selected: _radius == km,
-                        onSelected: (_) => setState(() => _radius = km),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _keyword,
+                        decoration: InputDecoration(
+                          labelText: 'Search keyword (e.g. dentist)',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
                       ),
-                  ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final km in const [2, 5, 10, 20])
+                            ChoiceChip(
+                              label: Text('$km km'),
+                              selected: _radius == km,
+                              onSelected: (_) => setState(() => _radius = km),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
@@ -266,7 +334,10 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.travel_explore_rounded),
                   label: const Text('Check ranking'),
@@ -277,41 +348,66 @@ class _RankCheckerScreenState extends State<RankCheckerScreen> {
                     title: rank != null
                         ? 'Rank #$rank'
                         : isUnavailable
-                            ? 'Ranking not available right now'
-                            : 'Estimated rank: ${r['estimated_rank'] ?? 'Unknown'}',
+                        ? 'Ranking not available right now'
+                        : 'Estimated rank: ${r['estimated_rank'] ?? 'Unknown'}',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (isUnavailable)
                           Text(
                             'We could not run a ranking check right now. Try again later. These steps usually help local rankings:',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.5),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              color: ink,
+                              height: 1.5,
+                            ),
                           )
                         else if ((r['summary']?.toString() ?? '').isNotEmpty)
                           Text(
                             r['summary'].toString(),
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.5),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              color: ink,
+                              height: 1.5,
+                            ),
                           ),
                         if (results.isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          Text('Top results',
-                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink)),
+                          Text(
+                            'Top results',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w700,
+                              color: ink,
+                            ),
+                          ),
                           const SizedBox(height: 6),
                           for (var i = 0; i < results.length; i++)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Text(
                                 '${i + 1}. ${results[i]['name'] ?? results[i]['title'] ?? 'Business'}',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  color: muted,
+                                ),
                               ),
                             ),
                         ],
                         if (((r['tips'] as List?) ?? []).isNotEmpty) ...[
                           const SizedBox(height: 12),
-                          Text('Tips',
-                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink)),
+                          Text(
+                            'Tips',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w700,
+                              color: ink,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-                          BulletList(items: (r['tips'] as List).map((e) => e.toString()).toList()),
+                          BulletList(
+                            items: (r['tips'] as List)
+                                .map((e) => e.toString())
+                                .toList(),
+                          ),
                         ],
                       ],
                     ),
@@ -360,7 +456,10 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
       final list = await ApiService.instance.getList('/invoicing/customers');
       if (!mounted) return;
       setState(() {
-        _clients = list.cast<Map<String, dynamic>>().map(CustomerOption.fromJson).toList();
+        _clients = list
+            .cast<Map<String, dynamic>>()
+            .map(CustomerOption.fromJson)
+            .toList();
         if (_clients.isNotEmpty) _clientId = _clients.first.id;
       });
     } on ApiException catch (e) {
@@ -378,17 +477,22 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
   Future<void> _run() async {
     if (_clientId == null || _competitors.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pick a client and enter competitor names')),
+        const SnackBar(
+          content: Text('Pick a client and enter competitor names'),
+        ),
       );
       return;
     }
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/competitors', body: {
-        'client_id': _clientId,
-        'competitors': _competitors.text.trim(),
-        if (_city.text.trim().isNotEmpty) 'city': _city.text.trim(),
-      });
+      final res = await ApiService.instance.post(
+        '/competitors',
+        body: {
+          'client_id': _clientId,
+          'competitors': _competitors.text.trim(),
+          if (_city.text.trim().isNotEmpty) 'city': _city.text.trim(),
+        },
+      );
       if (mounted) setState(() => _result = res);
     } on ApiException catch (e) {
       if (mounted) showToolError(context, e);
@@ -397,7 +501,8 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
     }
   }
 
-  List<String> _list(dynamic v) => ((v as List?) ?? []).map((e) => e.toString()).toList();
+  List<String> _list(dynamic v) =>
+      ((v as List?) ?? []).map((e) => e.toString()).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -405,74 +510,113 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
     return ToolPage(
       title: 'Competitors',
       child: _loading
-          ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: CircularProgressIndicator(),
+              ),
+            )
           : _clients.isEmpty
-              ? const Text('Add a client first.')
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _clientId,
-                      decoration: InputDecoration(
-                        labelText: 'Your client',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+          ? const Text('Add a client first.')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FadeIn(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<int>(
+                        isExpanded: true,
+                        initialValue: _clientId,
+                        decoration: InputDecoration(
+                          labelText: 'Your client',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        items: [
+                          for (final c in _clients)
+                            DropdownMenuItem(value: c.id, child: Text(c.name)),
+                        ],
+                        onChanged: (v) => setState(() => _clientId = v),
                       ),
-                      items: [
-                        for (final c in _clients) DropdownMenuItem(value: c.id, child: Text(c.name)),
-                      ],
-                      onChanged: (v) => setState(() => _clientId = v),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _competitors,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: 'Competitors (comma separated)',
-                        hintText: 'e.g. Smile Care Dental, City Dental Clinic',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _city,
-                      decoration: InputDecoration(
-                        labelText: 'City (optional)',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _run,
-                      icon: _busy
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.compare_arrows_rounded),
-                      label: const Text('Analyze competitors'),
-                    ),
-                    if (r != null) ...[
-                      ResultCard(
-                        title: 'Overview',
-                        child: Text(
-                          r['summary']?.toString() ?? '',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.5),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _competitors,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          labelText: 'Competitors (comma separated)',
+                          hintText:
+                              'e.g. Smile Care Dental, City Dental Clinic',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
-                      ResultCard(title: '💪 Strengths', child: BulletList(items: _list(r['strengths']))),
-                      ResultCard(title: '⚠️ Gaps', child: BulletList(items: _list(r['gaps']))),
-                      ResultCard(title: '🎯 Actions', child: BulletList(items: _list(r['actions']))),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _city,
+                        decoration: InputDecoration(
+                          labelText: 'City (optional)',
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
                     ],
-                  ],
+                  ),
                 ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _run,
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.compare_arrows_rounded),
+                  label: const Text('Analyze competitors'),
+                ),
+                if (r != null) ...[
+                  ResultCard(
+                    title: 'Overview',
+                    child: Text(
+                      r['summary']?.toString() ?? '',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        color: ink,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  ResultCard(
+                    title: '💪 Strengths',
+                    child: BulletList(items: _list(r['strengths'])),
+                  ),
+                  ResultCard(
+                    title: '⚠️ Gaps',
+                    child: BulletList(items: _list(r['gaps'])),
+                  ),
+                  ResultCard(
+                    title: '🎯 Actions',
+                    child: BulletList(items: _list(r['actions'])),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -482,8 +626,10 @@ class _CompetitorScreenState extends State<CompetitorScreen> {
 class _ChatMessage {
   _ChatMessage(this.text, {required this.fromUser});
 
-  factory _ChatMessage.fromJson(Map<String, dynamic> j) =>
-      _ChatMessage(j['text']?.toString() ?? '', fromUser: j['fromUser'] == true);
+  factory _ChatMessage.fromJson(Map<String, dynamic> j) => _ChatMessage(
+    j['text']?.toString() ?? '',
+    fromUser: j['fromUser'] == true,
+  );
 
   final String text;
   final bool fromUser;
@@ -537,7 +683,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
   Future<void> _persist() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_chatHistoryKey, jsonEncode(_messages.map((m) => m.toJson()).toList()));
+      await prefs.setString(
+        _chatHistoryKey,
+        jsonEncode(_messages.map((m) => m.toJson()).toList()),
+      );
     } catch (_) {
       // Save fail hone par chat chalti rahegi, sirf history save nahi hogi.
     }
@@ -561,15 +710,26 @@ class _AiChatScreenState extends State<AiChatScreen> {
     });
     _jumpToEnd();
     try {
-      final res = await ApiService.instance.post('/ai-mode', body: {'message': text});
-      if (mounted) setState(() => _messages.add(_ChatMessage(res['reply']?.toString() ?? '', fromUser: false)));
+      final res = await ApiService.instance.post(
+        '/ai-mode',
+        body: {'message': text},
+      );
+      if (mounted) {
+        setState(
+          () => _messages.add(
+            _ChatMessage(res['reply']?.toString() ?? '', fromUser: false),
+          ),
+        );
+      }
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
         await AuthService.logout();
         widget.onSignedOut();
         return;
       }
-      if (mounted) setState(() => _messages.add(_ChatMessage(e.message, fromUser: false)));
+      if (mounted) {
+        setState(() => _messages.add(_ChatMessage(e.message, fromUser: false)));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
       await _persist();
@@ -602,7 +762,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
       appBar: AppBar(
         backgroundColor: brand,
         foregroundColor: Colors.white,
-        title: Text('AI Mode', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800)),
+        title: Text(
+          'AI Mode',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+        ),
         actions: [
           if (_messages.isNotEmpty)
             IconButton(
@@ -618,24 +781,33 @@ class _AiChatScreenState extends State<AiChatScreen> {
             child: _messages.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'How can I help you today?',
-                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
-                        ),
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            for (final s in suggestions)
-                              ActionChip(label: Text(s), onPressed: () => _send(s)),
-                          ],
-                        ),
-                      ],
+                    child: FadeIn(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'How can I help you today?',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 18,
+                              color: ink,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              for (final s in suggestions)
+                                ActionChip(
+                                  label: Text(s),
+                                  onPressed: () => _send(s),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -645,21 +817,27 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     itemBuilder: (_, i) {
                       final m = _messages[i];
                       return Align(
-                        alignment: m.fromUser ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.8),
-                          decoration: BoxDecoration(
-                            color: m.fromUser ? brand : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            m.text,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13,
-                              height: 1.4,
-                              color: m.fromUser ? Colors.white : ink,
+                        alignment: m.fromUser
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: FadeIn(
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(12),
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.sizeOf(context).width * 0.8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: m.fromUser ? brand : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              m.text,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                height: 1.4,
+                                color: m.fromUser ? Colors.white : ink,
+                              ),
                             ),
                           ),
                         ),

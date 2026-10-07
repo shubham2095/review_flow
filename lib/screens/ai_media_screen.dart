@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 String _s(dynamic v) => v?.toString() ?? '';
 
@@ -76,10 +77,17 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
 
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/ai-media/generate', body: {'prompt': prompt});
+      final res = await ApiService.instance.post(
+        '/ai-media/generate',
+        body: {'prompt': prompt},
+      );
       final media = (res['media'] as Map?)?.cast<String, dynamic>();
       if (media != null && mounted) setState(() => _items.insert(0, media));
-      _snack(res['success'] == true ? 'Image generated ✅' : 'Image generated with fallback (AI was busy)');
+      _snack(
+        res['success'] == true
+            ? 'Image generated ✅'
+            : 'Image generated with fallback (AI was busy)',
+      );
     } on ApiException catch (e) {
       _snack(e.message);
     } finally {
@@ -91,7 +99,9 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
     final result = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (_) => _MediaActions(item: item),
     );
     if (result == 'deleted') {
@@ -114,71 +124,144 @@ class _AiMediaScreenState extends State<AiMediaScreen> {
             ? const SizedBox(
                 width: 16,
                 height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : const Icon(Icons.auto_awesome_rounded),
-        label: Text('Generate', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+        label: Text(
+          'Generate',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+        ),
       ),
       body: RefreshIndicator(
         color: brand,
         onRefresh: _load,
         child: _loading && _items.isEmpty
-            ? ListView(children: const [SizedBox(height: 300, child: Center(child: CircularProgressIndicator()))])
+            ? ListView(
+                children: const [
+                  SizedBox(
+                    height: 300,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+              )
             : _error != null
-                ? ListView(children: [Padding(padding: const EdgeInsets.all(24), child: Text('😕 $_error'))])
-                : _items.isEmpty
-                    ? ListView(children: const [
-                        Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: Text('🖼️  No AI images yet. Tap Generate to create one.')),
+            ? ListView(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('😕', style: TextStyle(fontSize: 40)),
+                        const SizedBox(height: 8),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(color: muted),
                         ),
-                      ])
-                    : GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.85,
-                        ),
-                        itemCount: _items.length,
-                        itemBuilder: (_, i) {
-                          final item = _items[i];
-                          final bytes = _decodeDataUri(_s(item['image_data']));
-                          return InkWell(
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: () => _openItem(item),
-                            child: Container(
-                              decoration: cardDecoration(),
-                              clipBehavior: Clip.antiAlias,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: bytes == null
-                                        ? const Center(child: Text('🖼️'))
-                                        : Image.memory(
-                                            bytes,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, _, _) => const Center(child: Text('🖼️')),
-                                          ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Text(
-                                      _s(item['prompt']),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: ink),
-                                    ),
-                                  ),
-                                ],
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : _items.isEmpty
+            ? ListView(
+                children: [
+                  FadeIn(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('🖼️', style: TextStyle(fontSize: 40)),
+                            const SizedBox(height: 8),
+                            Text(
+                              'No AI images yet',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800,
+                                color: ink,
                               ),
                             ),
-                          );
-                        },
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tap Generate to create one.',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                color: muted,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
+                  ),
+                ],
+              )
+            : GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: _items.length,
+                itemBuilder: (_, i) {
+                  final item = _items[i];
+                  final bytes = _decodeDataUri(_s(item['image_data']));
+                  return FadeIn(
+                    delay: i < 16 ? i * 50 : 0,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _openItem(item),
+                      child: Container(
+                        decoration: cardDecoration(),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: bytes == null
+                                  ? const Center(child: Text('🖼️'))
+                                  : Image.memory(
+                                      bytes,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) =>
+                                          const Center(child: Text('🖼️')),
+                                      frameBuilder: (_, child, frame, _) =>
+                                          AnimatedOpacity(
+                                            opacity: frame == null ? 0 : 1,
+                                            duration: const Duration(
+                                              milliseconds: 250,
+                                            ),
+                                            child: child,
+                                          ),
+                                    ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Text(
+                                _s(item['prompt']),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  color: ink,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
@@ -208,10 +291,15 @@ class _PromptDialogState extends State<_PromptDialog> {
       content: TextField(
         controller: _controller,
         maxLines: 3,
-        decoration: const InputDecoration(hintText: 'Describe the image, e.g. a cozy cafe with morning light'),
+        decoration: const InputDecoration(
+          hintText: 'Describe the image, e.g. a cozy cafe with morning light',
+        ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _controller.text.trim()),
           child: const Text('Generate'),
@@ -240,7 +328,9 @@ class _MediaActionsState extends State<_MediaActions> {
   Future<void> _addToPhotos() async {
     List<Map<String, dynamic>> locations;
     try {
-      locations = (await ApiService.instance.getList('/reviews')).cast<Map<String, dynamic>>();
+      locations = (await ApiService.instance.getList(
+        '/reviews',
+      )).cast<Map<String, dynamic>>();
     } on ApiException catch (e) {
       _message(e.message);
       return;
@@ -257,7 +347,10 @@ class _MediaActionsState extends State<_MediaActions> {
         children: [
           for (final l in locations)
             SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, num.tryParse((l['id'])?.toString() ?? '')?.toInt()),
+              onPressed: () => Navigator.pop(
+                ctx,
+                num.tryParse((l['id'])?.toString() ?? '')?.toInt(),
+              ),
               child: Text(_s(l['title'])),
             ),
         ],
@@ -267,9 +360,10 @@ class _MediaActionsState extends State<_MediaActions> {
 
     setState(() => _busy = true);
     try {
-      await ApiService.instance.post('/ai-media/${widget.item['id']}/use-as-photo', body: {
-        'gbp_location_id': locationId,
-      });
+      await ApiService.instance.post(
+        '/ai-media/${widget.item['id']}/use-as-photo',
+        body: {'gbp_location_id': locationId},
+      );
       if (mounted) Navigator.of(context).pop('added');
     } on ApiException catch (e) {
       _message(e.message);
@@ -298,7 +392,13 @@ class _MediaActionsState extends State<_MediaActions> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(_s(widget.item['prompt']), style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink)),
+          Text(
+            _s(widget.item['prompt']),
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
+          ),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _busy ? null : _addToPhotos,

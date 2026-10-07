@@ -5,6 +5,7 @@ import '../models/customer_expense_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 String _money(double v) => '₹${v.toStringAsFixed(2)}';
 
@@ -77,10 +78,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete expense?'),
-        content: Text('"${e.description}" (${_money(e.amount)}) will be removed.'),
+        content: Text(
+          '"${e.description}" (${_money(e.amount)}) will be removed.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -105,7 +114,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         backgroundColor: brand,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_card_rounded),
-        label: Text('Add expense', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+        label: Text(
+          'Add expense',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+        ),
       ),
       body: RefreshIndicator(
         color: brand,
@@ -114,26 +126,28 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: [
             if (board != null)
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatTile(
-                      emoji: '💸',
-                      label: 'Spent this month',
-                      value: _money(board.spentThisMonth),
-                      color: bad,
+              FadeIn(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        emoji: '💸',
+                        label: 'Spent this month',
+                        value: _money(board.spentThisMonth),
+                        color: bad,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _StatTile(
-                      emoji: '🧾',
-                      label: 'Expenses',
-                      value: '${board.count}',
-                      color: brand,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatTile(
+                        emoji: '🧾',
+                        label: 'Expenses',
+                        value: '${board.count}',
+                        color: brand,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             const SizedBox(height: 14),
             if (_loading && board == null)
@@ -148,20 +162,52 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   children: [
                     Text('😕 $_error', textAlign: TextAlign.center),
                     const SizedBox(height: 12),
-                    FilledButton(onPressed: _load, child: const Text('Try again')),
+                    FilledButton(
+                      onPressed: _load,
+                      child: const Text('Try again'),
+                    ),
                   ],
                 ),
               )
             else if (board == null || board.expenses.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: Text('💳  No expenses yet. Add your first expense.')),
+              FadeIn(
+                delay: 80,
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('💳', style: TextStyle(fontSize: 40)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No expenses yet',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w800,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Add your first expense.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            color: muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               )
             else
-              for (final e in board.expenses)
+              for (final (i, e) in board.expenses.indexed)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _ExpenseCard(expense: e, onDelete: () => _delete(e)),
+                  child: FadeIn(
+                    delay: i < 12 ? i * 60 : 0,
+                    child: _ExpenseCard(expense: e, onDelete: () => _delete(e)),
+                  ),
                 ),
           ],
         ),
@@ -171,7 +217,12 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 }
 
 class _StatTile extends StatelessWidget {
-  const _StatTile({required this.emoji, required this.label, required this.value, required this.color});
+  const _StatTile({
+    required this.emoji,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   final String emoji;
   final String label;
@@ -192,9 +243,16 @@ class _StatTile extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16, color: color),
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: color,
+            ),
           ),
-          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted)),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+          ),
         ],
       ),
     );
@@ -220,15 +278,22 @@ class _ExpenseCard extends StatelessWidget {
           decoration: cardDecoration(),
           child: Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: bad.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeOutBack,
+                builder: (_, v, child) =>
+                    Transform.scale(scale: v, child: child),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: bad.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Text('💸', style: TextStyle(fontSize: 18)),
                 ),
-                child: const Text('💸', style: TextStyle(fontSize: 18)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -239,7 +304,10 @@ class _ExpenseCard extends StatelessWidget {
                       expense.description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -247,14 +315,20 @@ class _ExpenseCard extends StatelessWidget {
                       '${expense.category.isEmpty ? '' : '  •  ${expense.category}'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        color: muted,
+                      ),
                     ),
                   ],
                 ),
               ),
               Text(
                 _money(expense.amount),
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: bad),
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: bad,
+                ),
               ),
             ],
           ),
@@ -317,13 +391,17 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
 
     setState(() => _busy = true);
     try {
-      await ApiService.instance.post('/invoicing/expenses', body: {
-        'date': _fmt(_date),
-        'description': _description.text.trim(),
-        if (_category.text.trim().isNotEmpty) 'category': _category.text.trim(),
-        'method': _method,
-        'amount': amount,
-      });
+      await ApiService.instance.post(
+        '/invoicing/expenses',
+        body: {
+          'date': _fmt(_date),
+          'description': _description.text.trim(),
+          if (_category.text.trim().isNotEmpty)
+            'category': _category.text.trim(),
+          'method': _method,
+          'amount': amount,
+        },
+      );
       if (mounted) Navigator.of(context).pop('added');
     } on ApiException catch (e) {
       _message(e.message);
@@ -333,16 +411,24 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-      );
+    labelText: label,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -352,31 +438,47 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: muted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'Add expense',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: ink,
+              ),
             ),
             const SizedBox(height: 16),
-            TextField(controller: _description, decoration: _dec('Description *')),
+            TextField(
+              controller: _description,
+              decoration: _dec('Description *'),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: _dec('Amount (₹) *'),
             ),
             const SizedBox(height: 12),
-            TextField(controller: _category, decoration: _dec('Category (optional)')),
+            TextField(
+              controller: _category,
+              decoration: _dec('Category (optional)'),
+            ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               isExpanded: true,
               initialValue: _method,
               decoration: _dec('Payment method'),
               items: [
-                for (final e in expenseMethodLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
+                for (final e in expenseMethodLabels.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value)),
               ],
               onChanged: (v) => setState(() => _method = v ?? _method),
             ),
@@ -393,7 +495,10 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text('Save expense'),
             ),

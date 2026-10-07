@@ -8,6 +8,7 @@ import '../models/gbp_content_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 Color _statusColor(String status) {
   switch (status) {
@@ -93,7 +94,10 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _run(Future<Map<String, dynamic>> Function() action, String success) async {
+  Future<void> _run(
+    Future<Map<String, dynamic>> Function() action,
+    String success,
+  ) async {
     try {
       final res = await action();
       if (!mounted) return;
@@ -191,7 +195,11 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
               onPressed: _section == 0 ? () => _openPostSheet() : _addPhoto,
               backgroundColor: brand,
               foregroundColor: Colors.white,
-              icon: Icon(_section == 0 ? Icons.edit_rounded : Icons.add_photo_alternate_rounded),
+              icon: Icon(
+                _section == 0
+                    ? Icons.edit_rounded
+                    : Icons.add_photo_alternate_rounded,
+              ),
               label: Text(
                 _section == 0 ? 'New post' : 'Upload photo',
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
@@ -213,9 +221,15 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(_error ?? 'Could not load posts', textAlign: TextAlign.center),
+                                  Text(
+                                    _error ?? 'Could not load posts',
+                                    textAlign: TextAlign.center,
+                                  ),
                                   const SizedBox(height: 12),
-                                  FilledButton(onPressed: _load, child: const Text('Try again')),
+                                  FilledButton(
+                                    onPressed: _load,
+                                    child: const Text('Try again'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -226,58 +240,90 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 children: [
-                  _StatsRow(board: board),
+                  FadeIn(child: _StatsRow(board: board)),
                   const SizedBox(height: 14),
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 0, label: Text('Posts')),
-                      ButtonSegment(value: 1, label: Text('Photos')),
-                    ],
-                    selected: {_section},
-                    onSelectionChanged: (s) => setState(() => _section = s.first),
+                  FadeIn(
+                    delay: 70,
+                    child: SegmentedButton<int>(
+                      segments: const [
+                        ButtonSegment(value: 0, label: Text('Posts')),
+                        ButtonSegment(value: 1, label: Text('Photos')),
+                      ],
+                      selected: {_section},
+                      onSelectionChanged: (s) =>
+                          setState(() => _section = s.first),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   if (_section == 0) ...[
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final f in const [
-                          ['ALL', 'All'],
-                          ['PUBLISHED', 'Published'],
-                          ['SCHEDULED', 'Scheduled'],
-                          ['OTHER', 'Draft / Failed'],
-                        ])
-                          ChoiceChip(
-                            label: Text(f[1]),
-                            selected: _filter == f[0],
-                            onSelected: (_) => setState(() => _filter = f[0]),
-                          ),
-                      ],
+                    FadeIn(
+                      delay: 130,
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final f in const [
+                            ['ALL', 'All'],
+                            ['PUBLISHED', 'Published'],
+                            ['SCHEDULED', 'Scheduled'],
+                            ['OTHER', 'Draft / Failed'],
+                          ])
+                            ChoiceChip(
+                              label: Text(f[1]),
+                              selected: _filter == f[0],
+                              onSelected: (_) => setState(() => _filter = f[0]),
+                            ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    if (board.posts.isEmpty)
-                      const _Empty(text: '📝  No posts yet. Create your first post.')
+                    if (board.posts
+                        .where((p) => _matchesFilter(p.status))
+                        .isEmpty)
+                      const FadeIn(
+                        delay: 180,
+                        child: _Empty(
+                          emoji: '📝',
+                          text: 'No posts yet. Create your first post.',
+                        ),
+                      )
                     else
-                      for (final p in board.posts.where((p) => _matchesFilter(p.status)))
+                      for (final (pi, p)
+                          in board.posts
+                              .where((p) => _matchesFilter(p.status))
+                              .toList()
+                              .indexed)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _PostCard(
-                            post: p,
-                            onEdit: () => _openPostSheet(post: p),
-                            onPublish: () => _run(
-                              () async => ApiService.instance.post('/gbp-content/posts/${p.id}/publish'),
-                              'Post published ✅',
-                            ),
-                            onDelete: () => _confirmDelete(
-                              'Delete this post?',
-                              () => ApiService.instance.delete('/gbp-content/posts/${p.id}'),
-                              'Post deleted',
+                          child: FadeIn(
+                            delay: pi < 12 ? pi * 60 : 0,
+                            child: _PostCard(
+                              post: p,
+                              onEdit: () => _openPostSheet(post: p),
+                              onPublish: () => _run(
+                                () async => ApiService.instance.post(
+                                  '/gbp-content/posts/${p.id}/publish',
+                                ),
+                                'Post published ✅',
+                              ),
+                              onDelete: () => _confirmDelete(
+                                'Delete this post?',
+                                () => ApiService.instance.delete(
+                                  '/gbp-content/posts/${p.id}',
+                                ),
+                                'Post deleted',
+                              ),
                             ),
                           ),
                         ),
                   ] else ...[
                     if (board.photos.isEmpty)
-                      const _Empty(text: '📷  No photos yet. Upload your first photo.')
+                      const FadeIn(
+                        delay: 130,
+                        child: _Empty(
+                          emoji: '📷',
+                          text: 'No photos yet. Upload your first photo.',
+                        ),
+                      )
                     else
                       GridView.count(
                         crossAxisCount: 2,
@@ -287,17 +333,24 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                         mainAxisSpacing: 12,
                         childAspectRatio: 0.82,
                         children: [
-                          for (final ph in board.photos)
-                            _PhotoTile(
-                              photo: ph,
-                              onPublish: () => _run(
-                                () async => ApiService.instance.post('/gbp-content/photos/${ph.id}/publish'),
-                                'Photo published ✅',
-                              ),
-                              onDelete: () => _confirmDelete(
-                                'Delete this photo?',
-                                () => ApiService.instance.delete('/gbp-content/photos/${ph.id}'),
-                                'Photo deleted',
+                          for (final (phi, ph) in board.photos.indexed)
+                            FadeIn(
+                              delay: phi < 16 ? phi * 50 : 0,
+                              child: _PhotoTile(
+                                photo: ph,
+                                onPublish: () => _run(
+                                  () async => ApiService.instance.post(
+                                    '/gbp-content/photos/${ph.id}/publish',
+                                  ),
+                                  'Photo published ✅',
+                                ),
+                                onDelete: () => _confirmDelete(
+                                  'Delete this photo?',
+                                  () => ApiService.instance.delete(
+                                    '/gbp-content/photos/${ph.id}',
+                                  ),
+                                  'Photo deleted',
+                                ),
                               ),
                             ),
                         ],
@@ -319,8 +372,14 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(title),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -345,7 +404,8 @@ class _StatsRow extends StatelessWidget {
     final published = board.posts.where((p) => p.status == 'PUBLISHED').length;
     final scheduled = board.posts.where((p) => p.status == 'SCHEDULED').length;
 
-    Widget tile(String emoji, String value, String label, Color color) => Expanded(
+    Widget tile(String emoji, String value, String label, Color color) =>
+        Expanded(
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: cardDecoration(),
@@ -356,9 +416,19 @@ class _StatsRow extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   value,
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 16, color: color),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: color,
+                  ),
                 ),
-                Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: muted)),
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    color: muted,
+                  ),
+                ),
               ],
             ),
           ),
@@ -404,14 +474,29 @@ class _PostCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(postTypeEmoji[post.type] ?? '📰', style: const TextStyle(fontSize: 16)),
+              Text(
+                postTypeEmoji[post.type] ?? '📰',
+                style: const TextStyle(fontSize: 16),
+              ),
               const SizedBox(width: 6),
               Text(
                 postTypeLabels[post.type] ?? post.type,
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
               ),
               const Spacer(),
-              _Badge(text: _statusLabel(post.status), color: color),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: _Badge(
+                  key: ValueKey(post.status),
+                  text: _statusLabel(post.status),
+                  color: color,
+                ),
+              ),
             ],
           ),
           if (post.imageUrl != null) ...[
@@ -424,6 +509,11 @@ class _PostCard extends StatelessWidget {
                 width: double.infinity,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                frameBuilder: (_, child, frame, _) => AnimatedOpacity(
+                  opacity: frame == null ? 0 : 1,
+                  duration: const Duration(milliseconds: 300),
+                  child: child,
+                ),
               ),
             ),
           ],
@@ -432,7 +522,11 @@ class _PostCard extends StatelessWidget {
             post.body,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.4),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              color: ink,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
@@ -449,8 +543,14 @@ class _PostCard extends StatelessWidget {
                   label: const Text('Publish'),
                 ),
               const Spacer(),
-              IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, color: brand)),
-              IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline_rounded, color: bad)),
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, color: brand),
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline_rounded, color: bad),
+              ),
             ],
           ),
         ],
@@ -460,7 +560,11 @@ class _PostCard extends StatelessWidget {
 }
 
 class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.photo, required this.onPublish, required this.onDelete});
+  const _PhotoTile({
+    required this.photo,
+    required this.onPublish,
+    required this.onDelete,
+  });
 
   final GbpPhotoItem photo;
   final VoidCallback onPublish;
@@ -483,6 +587,11 @@ class _PhotoTile extends StatelessWidget {
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => const Center(child: Text('🖼️')),
+                    frameBuilder: (_, child, frame, _) => AnimatedOpacity(
+                      opacity: frame == null ? 0 : 1,
+                      duration: const Duration(milliseconds: 300),
+                      child: child,
+                    ),
                   ),
           ),
           Padding(
@@ -492,20 +601,39 @@ class _PhotoTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: _Badge(text: _statusLabel(photo.status), color: color)),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (child, anim) =>
+                            ScaleTransition(scale: anim, child: child),
+                        child: _Badge(
+                          key: ValueKey(photo.status),
+                          text: _statusLabel(photo.status),
+                          color: color,
+                        ),
+                      ),
+                    ),
                     if (photo.status != 'PUBLISHED')
                       InkWell(
                         onTap: onPublish,
                         child: const Padding(
                           padding: EdgeInsets.all(4),
-                          child: Icon(Icons.send_rounded, size: 18, color: brand),
+                          child: Icon(
+                            Icons.send_rounded,
+                            size: 18,
+                            color: brand,
+                          ),
                         ),
                       ),
                     InkWell(
                       onTap: onDelete,
                       child: const Padding(
                         padding: EdgeInsets.all(4),
-                        child: Icon(Icons.delete_outline_rounded, size: 18, color: bad),
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                          color: bad,
+                        ),
                       ),
                     ),
                   ],
@@ -515,7 +643,10 @@ class _PhotoTile extends StatelessWidget {
                   photo.locationTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: muted,
+                  ),
                 ),
               ],
             ),
@@ -527,7 +658,7 @@ class _PhotoTile extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({required this.text, required this.color});
+  const _Badge({super.key, required this.text, required this.color});
 
   final String text;
   final Color color;
@@ -542,22 +673,40 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, color: color),
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
       ),
     );
   }
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.text});
+  const _Empty({required this.emoji, required this.text});
 
+  final String emoji;
   final String text;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(32),
-      child: Center(child: Text(text, textAlign: TextAlign.center)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 40)),
+            const SizedBox(height: 8),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -613,17 +762,27 @@ class _PostSheetState extends State<_PostSheet> {
       initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
     );
     if (time == null) return;
-    setState(() => _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    setState(
+      () => _scheduledAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      ),
+    );
   }
 
   Future<void> _aiWrite() async {
-    final business = widget.locations.firstWhere((l) => l.id == _locationId).title;
+    final business = widget.locations
+        .firstWhere((l) => l.id == _locationId)
+        .title;
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/gbp-content/generate-post', body: {
-        'type': _type,
-        'business': business,
-      });
+      final res = await ApiService.instance.post(
+        '/gbp-content/generate-post',
+        body: {'type': _type, 'business': business},
+      );
       _body.text = (res['body'] ?? '').toString();
     } on ApiException catch (e) {
       _message(e.message);
@@ -646,21 +805,32 @@ class _PostSheetState extends State<_PostSheet> {
     setState(() => _busy = true);
     try {
       if (_isEdit) {
-        await ApiService.instance.put('/gbp-content/posts/${widget.post!.id}', body: {
-          'type': _type,
-          'body': text,
-          'cta_url': _cta.text.trim().isEmpty ? null : _cta.text.trim(),
-        });
+        await ApiService.instance.put(
+          '/gbp-content/posts/${widget.post!.id}',
+          body: {
+            'type': _type,
+            'body': text,
+            'cta_url': _cta.text.trim().isEmpty ? null : _cta.text.trim(),
+          },
+        );
         if (mounted) Navigator.of(context).pop('saved');
       } else {
-        final res = await ApiService.instance.post('/gbp-content/posts', body: {
-          'gbp_location_id': _locationId,
-          'type': _type,
-          'body': text,
-          if (_cta.text.trim().isNotEmpty) 'cta_url': _cta.text.trim(),
-          if (_scheduledAt != null) 'scheduled_at': _scheduledAt!.toIso8601String(),
-        });
-        if (mounted) Navigator.of(context).pop(res['status'] == 'FAILED' ? 'failed' : 'saved');
+        final res = await ApiService.instance.post(
+          '/gbp-content/posts',
+          body: {
+            'gbp_location_id': _locationId,
+            'type': _type,
+            'body': text,
+            if (_cta.text.trim().isNotEmpty) 'cta_url': _cta.text.trim(),
+            if (_scheduledAt != null)
+              'scheduled_at': _scheduledAt!.toIso8601String(),
+          },
+        );
+        if (mounted) {
+          Navigator.of(
+            context,
+          ).pop(res['status'] == 'FAILED' ? 'failed' : 'saved');
+        }
       }
     } on ApiException catch (e) {
       _message(e.message);
@@ -670,17 +840,25 @@ class _PostSheetState extends State<_PostSheet> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-      );
+    labelText: label,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final count = _body.text.length;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -690,24 +868,33 @@ class _PostSheetState extends State<_PostSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: muted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               _isEdit ? 'Edit post' : 'New Google post',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: ink,
+              ),
             ),
             const SizedBox(height: 14),
             if (!_isEdit) ...[
               DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _locationId,
+                isExpanded: true,
+                initialValue: _locationId,
                 decoration: _dec('Location'),
                 items: [
-                  for (final l in widget.locations) DropdownMenuItem(value: l.id, child: Text(l.title)),
+                  for (final l in widget.locations)
+                    DropdownMenuItem(value: l.id, child: Text(l.title)),
                 ],
-                onChanged: (v) => setState(() => _locationId = v ?? _locationId),
+                onChanged: (v) =>
+                    setState(() => _locationId = v ?? _locationId),
               ),
               const SizedBox(height: 12),
             ],
@@ -733,13 +920,22 @@ class _PostSheetState extends State<_PostSheet> {
               alignment: Alignment.centerRight,
               child: Text(
                 '$count / 1500',
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: count > 1500 ? bad : muted),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  color: count > 1500 ? bad : muted,
+                ),
               ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _busy ? null : _aiWrite,
-              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              icon: _busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome_rounded, size: 18),
               label: const Text('Write with AI (uses credits)'),
             ),
             const SizedBox(height: 12),
@@ -757,7 +953,7 @@ class _PostSheetState extends State<_PostSheet> {
                   _scheduledAt == null
                       ? 'Publish now (tap to schedule)'
                       : 'Scheduled: ${_scheduledAt!.day}/${_scheduledAt!.month}/${_scheduledAt!.year} '
-                          '${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}',
+                            '${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}',
                 ),
               ),
             ],
@@ -768,9 +964,16 @@ class _PostSheetState extends State<_PostSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
-                  : Text(_isEdit ? 'Save changes' : (_scheduledAt == null ? 'Publish' : 'Schedule')),
+                  : Text(
+                      _isEdit
+                          ? 'Save changes'
+                          : (_scheduledAt == null ? 'Publish' : 'Schedule'),
+                    ),
             ),
           ],
         ),
@@ -807,12 +1010,19 @@ class _PhotoSheetState extends State<_PhotoSheet> {
   Future<void> _upload() async {
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/gbp-content/photos', body: {
-        'gbp_location_id': _locationId,
-        'image': widget.imageData,
-        if (_caption.text.trim().isNotEmpty) 'caption': _caption.text.trim(),
-      });
-      if (mounted) Navigator.of(context).pop(res['status'] == 'FAILED' ? 'failed' : 'uploaded');
+      final res = await ApiService.instance.post(
+        '/gbp-content/photos',
+        body: {
+          'gbp_location_id': _locationId,
+          'image': widget.imageData,
+          if (_caption.text.trim().isNotEmpty) 'caption': _caption.text.trim(),
+        },
+      );
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pop(res['status'] == 'FAILED' ? 'failed' : 'uploaded');
+      }
     } on ApiException catch (e) {
       _message(e.message);
     } finally {
@@ -821,12 +1031,15 @@ class _PhotoSheetState extends State<_PhotoSheet> {
   }
 
   Future<void> _suggestCaption() async {
-    final business = widget.locations.firstWhere((l) => l.id == _locationId).title;
+    final business = widget.locations
+        .firstWhere((l) => l.id == _locationId)
+        .title;
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/gbp-content/generate-caption', body: {
-        'business': business,
-      });
+      final res = await ApiService.instance.post(
+        '/gbp-content/generate-caption',
+        body: {'business': business},
+      );
       if (mounted) _caption.text = (res['caption'] ?? '').toString();
     } on ApiException catch (e) {
       _message(e.message);
@@ -838,7 +1051,12 @@ class _PhotoSheetState extends State<_PhotoSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -847,26 +1065,37 @@ class _PhotoSheetState extends State<_PhotoSheet> {
             child: Container(
               width: 40,
               height: 4,
-              decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(
+                color: muted.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
           const SizedBox(height: 16),
           Text(
             'Upload photo',
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              color: ink,
+            ),
           ),
           const SizedBox(height: 14),
           DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _locationId,
+            isExpanded: true,
+            initialValue: _locationId,
             decoration: InputDecoration(
               labelText: 'Location',
               filled: true,
               fillColor: surface,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
             ),
             items: [
-              for (final l in widget.locations) DropdownMenuItem(value: l.id, child: Text(l.title)),
+              for (final l in widget.locations)
+                DropdownMenuItem(value: l.id, child: Text(l.title)),
             ],
             onChanged: (v) => setState(() => _locationId = v ?? _locationId),
           ),
@@ -878,14 +1107,23 @@ class _PhotoSheetState extends State<_PhotoSheet> {
               labelText: 'Caption (optional)',
               filled: true,
               fillColor: surface,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
             ),
           ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: _busy ? null : _suggestCaption,
-              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              icon: _busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome_rounded, size: 18),
               label: const Text('Suggest caption with AI'),
             ),
           ),
@@ -896,7 +1134,10 @@ class _PhotoSheetState extends State<_PhotoSheet> {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Text('Upload to Google'),
           ),

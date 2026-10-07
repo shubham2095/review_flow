@@ -6,6 +6,7 @@ import '../models/review_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 class LocationReviewsScreen extends StatefulWidget {
   const LocationReviewsScreen({
@@ -126,6 +127,31 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
           backgroundColor: brand,
           foregroundColor: Colors.white,
           elevation: 0,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [brand, brandDeep],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                height: 1.2,
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      royalGold.withValues(alpha: 0),
+                      royalGold.withValues(alpha: 0.9),
+                      royalGold.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           title: Text(
             widget.location.title,
             maxLines: 1,
@@ -133,23 +159,29 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
             style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
           ),
           actions: [
-            _syncing
-                ? const Padding(
-                    padding: EdgeInsets.all(14),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+              child: _syncing
+                  ? const Padding(
+                      key: ValueKey('syncing'),
+                      padding: EdgeInsets.all(14),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       ),
+                    )
+                  : IconButton(
+                      key: const ValueKey('idle'),
+                      tooltip: 'Sync with Google',
+                      icon: const Icon(Icons.sync_rounded),
+                      onPressed: _sync,
                     ),
-                  )
-                : IconButton(
-                    tooltip: 'Sync with Google',
-                    icon: const Icon(Icons.sync_rounded),
-                    onPressed: _sync,
-                  ),
+            ),
           ],
         ),
         body: RefreshIndicator(
@@ -158,7 +190,7 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
             children: [
-              if (_stats != null) _StatsStrip(stats: _stats!),
+              if (_stats != null) FadeIn(child: _StatsStrip(stats: _stats!)),
               const SizedBox(height: 14),
               SegmentedButton<String>(
                 segments: const [
@@ -183,12 +215,15 @@ class _LocationReviewsScreenState extends State<LocationReviewsScreen> {
                   padding: EdgeInsets.all(32),
                   child: Center(child: Text('📭  No reviews for this filter')),
                 ),
-              for (final r in _reviews)
+              for (var i = 0; i < _reviews.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _ReviewCard(
-                    review: r,
-                    onReply: () => _openReply(r),
+                  child: FadeIn(
+                    delay: i < 12 ? i * 60 : 0,
+                    child: _ReviewCard(
+                      review: _reviews[i],
+                      onReply: () => _openReply(_reviews[i]),
+                    ),
                   ),
                 ),
               if (_loading)
@@ -218,25 +253,37 @@ class _StatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget item(String emoji, String value, String label, Color color) {
+    Widget item(String emoji, double value, int decimals, String label, Color color) {
       return Expanded(
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           decoration: cardDecoration(),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(emoji, style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 4),
-              Text(
-                value,
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  color: color,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: value),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, v, _) => Text(
+                    decimals > 0 ? v.toStringAsFixed(decimals) : v.round().toString(),
+                    maxLines: 1,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: color,
+                    ),
+                  ),
                 ),
               ),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(fontSize: 10, color: muted),
               ),
             ],
@@ -247,13 +294,13 @@ class _StatsStrip extends StatelessWidget {
 
     return Row(
       children: [
-        item('💬', '${stats.total}', 'Total', brand),
+        item('💬', stats.total.toDouble(), 0, 'Total', brand),
         const SizedBox(width: 8),
-        item('⭐', stats.avg.toStringAsFixed(1), 'Avg', star),
+        item('⭐', stats.avg, 1, 'Avg', star),
         const SizedBox(width: 8),
-        item('⏳', '${stats.unreplied}', 'Unreplied', stats.unreplied > 0 ? warn : good),
+        item('⏳', stats.unreplied.toDouble(), 0, 'Unreplied', stats.unreplied > 0 ? warn : good),
         const SizedBox(width: 8),
-        item('👎', '${stats.negative}', 'Negative', stats.negative > 0 ? bad : good),
+        item('👎', stats.negative.toDouble(), 0, 'Negative', stats.negative > 0 ? bad : good),
       ],
     );
   }
@@ -306,6 +353,8 @@ class _ReviewCard extends StatelessWidget {
                   children: [
                     Text(
                       review.reviewerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.w700,
                         color: ink,
@@ -313,16 +362,24 @@ class _ReviewCard extends StatelessWidget {
                     ),
                     Text(
                       review.dateLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
                     ),
                   ],
                 ),
               ),
               for (var i = 0; i < 5; i++)
-                Icon(
-                  i < review.starRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  size: 16,
-                  color: star,
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: Duration(milliseconds: 260 + i * 90),
+                  curve: Curves.easeOutBack,
+                  builder: (_, v, child) => Transform.scale(scale: v, child: child),
+                  child: Icon(
+                    i < review.starRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                    size: 16,
+                    color: star,
+                  ),
                 ),
             ],
           ),

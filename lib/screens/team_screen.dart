@@ -5,6 +5,7 @@ import '../models/team_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 
 class TeamScreen extends StatefulWidget {
   const TeamScreen({super.key, required this.onSignedOut});
@@ -32,7 +33,10 @@ class _TeamScreenState extends State<TeamScreen> {
       final list = await ApiService.instance.getList('/team');
       if (!mounted) return;
       setState(() {
-        _members = list.cast<Map<String, dynamic>>().map(TeamMember.fromJson).toList();
+        _members = list
+            .cast<Map<String, dynamic>>()
+            .map(TeamMember.fromJson)
+            .toList();
         _error = null;
       });
     } on ApiException catch (e) {
@@ -129,11 +133,20 @@ class _TeamScreenState extends State<TeamScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text('🔒', style: TextStyle(fontSize: 40)),
+                                  const Text(
+                                    '🔒',
+                                    style: TextStyle(fontSize: 40),
+                                  ),
                                   const SizedBox(height: 8),
-                                  Text(_error ?? 'Could not load team', textAlign: TextAlign.center),
+                                  Text(
+                                    _error ?? 'Could not load team',
+                                    textAlign: TextAlign.center,
+                                  ),
                                   const SizedBox(height: 16),
-                                  FilledButton(onPressed: _load, child: const Text('Try again')),
+                                  FilledButton(
+                                    onPressed: _load,
+                                    child: const Text('Try again'),
+                                  ),
                                 ],
                               ),
                             ),
@@ -142,27 +155,53 @@ class _TeamScreenState extends State<TeamScreen> {
                 ],
               )
             : members.isEmpty
-                ? ListView(
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.sizeOf(context).height * 0.6,
-                        child: Center(
-                          child: Text(
-                            '👥  No team members yet. Add your first member.',
-                            style: GoogleFonts.plusJakartaSans(color: muted),
-                          ),
+            ? ListView(
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.6,
+                    child: Center(
+                      child: FadeIn(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('👥', style: TextStyle(fontSize: 40)),
+                            const SizedBox(height: 8),
+                            Text(
+                              'No team members yet',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800,
+                                color: ink,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Add your first member.',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                color: muted,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                    itemCount: members.length,
-                    itemBuilder: (_, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _MemberCard(member: members[i], onTap: () => _editMember(members[i])),
                     ),
                   ),
+                ],
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                itemCount: members.length,
+                itemBuilder: (_, i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: FadeIn(
+                    delay: i < 12 ? i * 60 : 0,
+                    child: _MemberCard(
+                      member: members[i],
+                      onTap: () => _editMember(members[i]),
+                    ),
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -191,12 +230,22 @@ class _MemberCard extends StatelessWidget {
           decoration: cardDecoration(),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: color.withValues(alpha: 0.12),
-                child: Text(
-                  initial,
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: color),
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeOutBack,
+                builder: (_, v, child) =>
+                    Transform.scale(scale: v, child: child),
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: color.withValues(alpha: 0.12),
+                  child: Text(
+                    initial,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -208,30 +257,45 @@ class _MemberCard extends StatelessWidget {
                       member.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       member.email,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  roleLabels[member.role] ?? member.role,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: color,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Container(
+                  key: ValueKey(member.role),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    roleLabels[member.role] ?? member.role,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
                   ),
                 ),
               ),
@@ -294,20 +358,26 @@ class _MemberSheetState extends State<_MemberSheet> {
     setState(() => _busy = true);
     try {
       if (_isEdit) {
-        await ApiService.instance.put('/team/${widget.member!.id}', body: {
-          'name': name,
-          'email': email,
-          'role': _role,
-          if (password.isNotEmpty) 'password': password,
-        });
+        await ApiService.instance.put(
+          '/team/${widget.member!.id}',
+          body: {
+            'name': name,
+            'email': email,
+            'role': _role,
+            if (password.isNotEmpty) 'password': password,
+          },
+        );
         if (mounted) Navigator.of(context).pop('updated');
       } else {
-        await ApiService.instance.post('/team', body: {
-          'name': name,
-          'email': email,
-          'password': password,
-          'role': _role,
-        });
+        await ApiService.instance.post(
+          '/team',
+          body: {
+            'name': name,
+            'email': email,
+            'password': password,
+            'role': _role,
+          },
+        );
         if (mounted) Navigator.of(context).pop('added');
       }
     } on ApiException catch (e) {
@@ -322,10 +392,18 @@ class _MemberSheetState extends State<_MemberSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove team member?'),
-        content: Text('${widget.member!.name} will lose access to this account.'),
+        content: Text(
+          '${widget.member!.name} will lose access to this account.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
         ],
       ),
     );
@@ -343,17 +421,25 @@ class _MemberSheetState extends State<_MemberSheet> {
   }
 
   InputDecoration _dec(String label, {String? hint}) => InputDecoration(
-        labelText: label,
-        hintText: hint,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-      );
+    labelText: label,
+    hintText: hint,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -363,13 +449,20 @@ class _MemberSheetState extends State<_MemberSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: muted.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: muted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               _isEdit ? 'Edit team member' : 'Add team member',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 18, color: ink),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: ink,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(controller: _name, decoration: _dec('Name *')),
@@ -385,7 +478,9 @@ class _MemberSheetState extends State<_MemberSheet> {
               obscureText: true,
               decoration: _dec(
                 _isEdit ? 'New password' : 'Password *',
-                hint: _isEdit ? 'Leave empty to keep current password' : 'At least 8 characters',
+                hint: _isEdit
+                    ? 'Leave empty to keep current password'
+                    : 'At least 8 characters',
               ),
             ),
             const SizedBox(height: 12),
@@ -394,7 +489,8 @@ class _MemberSheetState extends State<_MemberSheet> {
               initialValue: _role,
               decoration: _dec('Role'),
               items: [
-                for (final e in roleLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
+                for (final e in roleLabels.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value)),
               ],
               onChanged: (v) => setState(() => _role = v ?? _role),
             ),
@@ -405,7 +501,10 @@ class _MemberSheetState extends State<_MemberSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(_isEdit ? 'Save changes' : 'Add member'),
             ),
@@ -414,7 +513,10 @@ class _MemberSheetState extends State<_MemberSheet> {
               TextButton.icon(
                 onPressed: _busy ? null : _delete,
                 icon: const Icon(Icons.delete_outline_rounded, color: bad),
-                label: const Text('Remove member', style: TextStyle(color: bad)),
+                label: const Text(
+                  'Remove member',
+                  style: TextStyle(color: bad),
+                ),
               ),
             ],
           ],

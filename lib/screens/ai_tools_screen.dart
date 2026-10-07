@@ -5,6 +5,7 @@ import '../models/invoice_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 import '../widgets/health_ring.dart';
 import 'ai_more_screens.dart';
 
@@ -25,18 +26,42 @@ class AiToolsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tools = [
-      _Tool('⚡', 'One-Click Optimize', 'Profile score and AI fixes',
-          (_) => OptimizeScreen(onSignedOut: onSignedOut)),
-      _Tool('🔍', 'Google Audit', 'Audit a client\'s profile with AI tips',
-          (_) => AuditScreen(onSignedOut: onSignedOut)),
-      _Tool('🔑', 'Keywords', 'Local SEO keyword ideas',
-          (_) => KeywordsScreen(onSignedOut: onSignedOut)),
-      _Tool('📍', 'Rank Checker', 'See where you rank for a keyword',
-          (_) => RankCheckerScreen(onSignedOut: onSignedOut)),
-      _Tool('⚔️', 'Competitors', 'Compare with local competitors',
-          (_) => CompetitorScreen(onSignedOut: onSignedOut)),
-      _Tool('💬', 'AI Mode', 'Ask the marketing assistant',
-          (_) => AiChatScreen(onSignedOut: onSignedOut)),
+      _Tool(
+        '⚡',
+        'One-Click Optimize',
+        'Profile score and AI fixes',
+        (_) => OptimizeScreen(onSignedOut: onSignedOut),
+      ),
+      _Tool(
+        '🔍',
+        'Google Audit',
+        'Audit a client\'s profile with AI tips',
+        (_) => AuditScreen(onSignedOut: onSignedOut),
+      ),
+      _Tool(
+        '🔑',
+        'Keywords',
+        'Local SEO keyword ideas',
+        (_) => KeywordsScreen(onSignedOut: onSignedOut),
+      ),
+      _Tool(
+        '📍',
+        'Rank Checker',
+        'See where you rank for a keyword',
+        (_) => RankCheckerScreen(onSignedOut: onSignedOut),
+      ),
+      _Tool(
+        '⚔️',
+        'Competitors',
+        'Compare with local competitors',
+        (_) => CompetitorScreen(onSignedOut: onSignedOut),
+      ),
+      _Tool(
+        '💬',
+        'AI Mode',
+        'Ask the marketing assistant',
+        (_) => AiChatScreen(onSignedOut: onSignedOut),
+      ),
     ];
 
     return Scaffold(
@@ -44,54 +69,76 @@ class AiToolsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: cardDecoration(),
-            child: Text(
-              'AI tools use credits. Your balance is shown on the web app.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+          FadeIn(
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: cardDecoration(),
+              child: Text(
+                'AI tools use credits. Check your balance in "Credits".',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+              ),
             ),
           ),
           const SizedBox(height: 14),
-          for (final t in tools)
+          for (final (i, t) in tools.indexed)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                child: InkWell(
+              child: FadeIn(
+                delay: 60 + i * 70,
+                child: Material(
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: t.builder)),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: cardDecoration(),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 46,
-                          height: 46,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(colors: [brand, brandDeep]),
-                            borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute(builder: t.builder)),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: cardDecoration(),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [brand, brandDeep],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              t.emoji,
+                              style: const TextStyle(fontSize: 20),
+                            ),
                           ),
-                          child: Text(t.emoji, style: const TextStyle(fontSize: 20)),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(t.title,
-                                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink)),
-                              const SizedBox(height: 2),
-                              Text(t.subtitle,
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted)),
-                            ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  t.title,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontWeight: FontWeight.w800,
+                                    color: ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  t.subtitle,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: muted,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.chevron_right_rounded, color: muted),
-                      ],
+                          const Icon(Icons.chevron_right_rounded, color: muted),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -117,7 +164,10 @@ class ToolPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: brand,
         foregroundColor: Colors.white,
-        title: Text(title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800)),
+        title: Text(
+          title,
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -135,18 +185,27 @@ class ResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15, color: ink)),
-          const SizedBox(height: 10),
-          child,
-        ],
+    return FadeIn(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 10),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -167,7 +226,11 @@ class BulletList extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
               '•  $i',
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.4),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                color: ink,
+                height: 1.4,
+              ),
             ),
           ),
       ],
@@ -224,7 +287,10 @@ class _OptimizeScreenState extends State<OptimizeScreen> {
     try {
       final res = await ApiService.instance.post('/optimization/run');
       if (mounted) {
-        setState(() => _actions = ((res['actions'] as List?) ?? []).cast<Map<String, dynamic>>());
+        setState(
+          () => _actions = ((res['actions'] as List?) ?? [])
+              .cast<Map<String, dynamic>>(),
+        );
         _load();
       }
     } on ApiException catch (e) {
@@ -257,98 +323,154 @@ class _OptimizeScreenState extends State<OptimizeScreen> {
     return ToolPage(
       title: 'One-Click Optimize',
       child: _loading
-          ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: CircularProgressIndicator(),
+              ),
+            )
           : d == null
-              ? const Text('Could not load optimization data.')
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(child: HealthRing(score: num.tryParse((d['overall_score'])?.toString() ?? '')?.toInt() ?? 0, size: 150)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: cardDecoration(),
-                      child: Column(
-                        children: [
-                          for (final c in (d['categories'] as List? ?? []).cast<Map<String, dynamic>>())
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          c['label']?.toString() ?? '',
-                                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
-                                        ),
-                                      ),
-                                      Text(
-                                        '${c['score']}%',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontWeight: FontWeight.w800,
-                                          color: _catColor(c['color']?.toString() ?? ''),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: LinearProgressIndicator(
-                                      value: (num.tryParse((c['score'])?.toString() ?? '')?.toDouble() ?? 0) / 100,
-                                      minHeight: 8,
-                                      color: _catColor(c['color']?.toString() ?? ''),
-                                      backgroundColor: muted.withValues(alpha: 0.15),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
+          ? const Text('Could not load optimization data.')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FadeIn(
+                  child: Center(
+                    child: HealthRing(
+                      score:
+                          num.tryParse(
+                            (d['overall_score'])?.toString() ?? '',
+                          )?.toInt() ??
+                          0,
+                      size: 150,
                     ),
-                    const SizedBox(height: 14),
-                    FilledButton.icon(
-                      onPressed: _running ? null : _run,
-                      icon: _running
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.bolt_rounded),
-                      label: const Text('Run full optimization'),
-                    ),
-                    if (_actions.isNotEmpty)
-                      ResultCard(
-                        title: 'Actions taken',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (final a in _actions)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FadeIn(
+                  delay: 120,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: cardDecoration(),
+                    child: Column(
+                      children: [
+                        for (final (ci, c)
+                            in (d['categories'] as List? ?? [])
+                                .cast<Map<String, dynamic>>()
+                                .indexed)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
-                                    Text(
-                                      a['title']?.toString() ?? '',
-                                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+                                    Expanded(
+                                      child: Text(
+                                        c['label']?.toString() ?? '',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontWeight: FontWeight.w700,
+                                          color: ink,
+                                        ),
+                                      ),
                                     ),
                                     Text(
-                                      a['detail']?.toString() ?? '',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                                      '${c['score']}%',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontWeight: FontWeight.w800,
+                                        color: _catColor(
+                                          c['color']?.toString() ?? '',
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween(
+                                      begin: 0,
+                                      end:
+                                          (num.tryParse(
+                                                (c['score'])?.toString() ?? '',
+                                              )?.toDouble() ??
+                                              0) /
+                                          100,
+                                    ),
+                                    duration: Duration(
+                                      milliseconds: 800 + ci * 120,
+                                    ),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (_, v, _) =>
+                                        LinearProgressIndicator(
+                                          value: v,
+                                          minHeight: 8,
+                                          color: _catColor(
+                                            c['color']?.toString() ?? '',
+                                          ),
+                                          backgroundColor: muted.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: _running ? null : _run,
+                  icon: _running
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.bolt_rounded),
+                  label: const Text('Run full optimization'),
+                ),
+                if (_actions.isNotEmpty)
+                  ResultCard(
+                    title: 'Actions taken',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final a in _actions)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  a['title']?.toString() ?? '',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontWeight: FontWeight.w700,
+                                    color: ink,
+                                  ),
+                                ),
+                                Text(
+                                  a['detail']?.toString() ?? '',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -382,7 +504,10 @@ class _AuditScreenState extends State<AuditScreen> {
       final list = await ApiService.instance.getList('/invoicing/customers');
       if (!mounted) return;
       setState(() {
-        _clients = list.cast<Map<String, dynamic>>().map(CustomerOption.fromJson).toList();
+        _clients = list
+            .cast<Map<String, dynamic>>()
+            .map(CustomerOption.fromJson)
+            .toList();
         if (_clients.isNotEmpty) _clientId = _clients.first.id;
       });
     } on ApiException catch (e) {
@@ -401,7 +526,10 @@ class _AuditScreenState extends State<AuditScreen> {
     if (_clientId == null) return;
     setState(() => _busy = true);
     try {
-      final res = await ApiService.instance.post('/audit', body: {'client_id': _clientId});
+      final res = await ApiService.instance.post(
+        '/audit',
+        body: {'client_id': _clientId},
+      );
       if (mounted) setState(() => _result = res);
     } on ApiException catch (e) {
       if (mounted) showToolError(context, e);
@@ -417,103 +545,149 @@ class _AuditScreenState extends State<AuditScreen> {
     return ToolPage(
       title: 'Google Audit',
       child: _loading
-          ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: CircularProgressIndicator(),
+              ),
+            )
           : _clients.isEmpty
-              ? const Text('Add a client first to run an audit.')
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _clientId,
-                      decoration: InputDecoration(
-                        labelText: 'Client',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: [
-                        for (final c in _clients) DropdownMenuItem(value: c.id, child: Text(c.name)),
-                      ],
-                      onChanged: (v) => setState(() => _clientId = v),
+          ? const Text('Add a client first to run an audit.')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<int>(
+                  isExpanded: true,
+                  initialValue: _clientId,
+                  decoration: InputDecoration(
+                    labelText: 'Client',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
                     ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _run,
-                      icon: _busy
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.analytics_rounded),
-                      label: const Text('Analyze profile'),
-                    ),
-                    if (r != null) ...[
-                      ResultCard(
-                        title: 'Audit score',
-                        child: Column(
-                          children: [
-                            Center(child: HealthRing(score: num.tryParse((r['score'])?.toString() ?? '')?.toInt() ?? 0, size: 130)),
-                            const SizedBox(height: 6),
-                            Text(
-                              r['grade']?.toString() ?? '',
-                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ResultCard(
-                        title: 'Checks',
-                        child: Column(
-                          children: [
-                            for (final c in (r['checks'] as List? ?? []).cast<Map<String, dynamic>>())
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(
-                                      c['ok'] == true ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                                      color: c['ok'] == true ? good : warn,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            c['label']?.toString() ?? '',
-                                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
-                                          ),
-                                          Text(
-                                            c['note']?.toString() ?? '',
-                                            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (tips.isNotEmpty)
-                        ResultCard(
-                          title: 'AI tips',
-                          child: Text(
-                            tips,
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.5),
+                  ),
+                  items: [
+                    for (final c in _clients)
+                      DropdownMenuItem(value: c.id, child: Text(c.name)),
+                  ],
+                  onChanged: (v) => setState(() => _clientId = v),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _run,
+                  icon: _busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.analytics_rounded),
+                  label: const Text('Analyze profile'),
+                ),
+                if (r != null) ...[
+                  ResultCard(
+                    title: 'Audit score',
+                    child: Column(
+                      children: [
+                        Center(
+                          child: HealthRing(
+                            score:
+                                num.tryParse(
+                                  (r['score'])?.toString() ?? '',
+                                )?.toInt() ??
+                                0,
+                            size: 130,
                           ),
                         ),
-                    ],
-                  ],
-                ),
+                        const SizedBox(height: 6),
+                        Text(
+                          r['grade']?.toString() ?? '',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w800,
+                            color: ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ResultCard(
+                    title: 'Checks',
+                    child: Column(
+                      children: [
+                        for (final (chi, c)
+                            in (r['checks'] as List? ?? [])
+                                .cast<Map<String, dynamic>>()
+                                .indexed)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(begin: 0, end: 1),
+                                  duration: Duration(
+                                    milliseconds: 260 + chi * 70,
+                                  ),
+                                  curve: Curves.easeOutBack,
+                                  builder: (_, v, child) =>
+                                      Transform.scale(scale: v, child: child),
+                                  child: Icon(
+                                    c['ok'] == true
+                                        ? Icons.check_circle_rounded
+                                        : Icons.error_outline_rounded,
+                                    color: c['ok'] == true ? good : warn,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c['label']?.toString() ?? '',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontWeight: FontWeight.w700,
+                                          color: ink,
+                                        ),
+                                      ),
+                                      Text(
+                                        c['note']?.toString() ?? '',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 12,
+                                          color: muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (tips.isNotEmpty)
+                    ResultCard(
+                      title: 'AI tips',
+                      child: Text(
+                        tips,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          color: ink,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
     );
   }
 }
