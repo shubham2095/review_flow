@@ -5,8 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -29,6 +29,10 @@ String _date(dynamic v) {
 
 String _rupees(double v) => '₹${v.toStringAsFixed(2)}';
 
+/// Plan subscriptions and credit purchases are completed on the web, not in
+/// the app (Google Play requires Play Billing for in-app digital goods, and
+/// we use Razorpay instead). This screen only shows plans/credits/payment
+/// history and hands off to a pre-authenticated web session for buying.
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key, required this.onSignedOut});
 
@@ -44,26 +48,12 @@ class _BillingScreenState extends State<BillingScreen> {
   Map<String, dynamic> _history = {};
   String? _error;
   bool _loading = true;
-  bool _paying = false;
-
-  final Razorpay _razorpay = Razorpay();
-  // What the current checkout is for: a plan or a credit package.
-  String? _pendingPlanCode;
-  int? _pendingPackageId;
+  bool _openingWeb = false;
 
   @override
   void initState() {
     super.initState();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onWallet);
     _load();
-  }
-
-  @override
-  void dispose() {
-    _razorpay.clear();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -98,80 +88,22 @@ class _BillingScreenState extends State<BillingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  /// Opens Razorpay checkout for a plan (planCode) or a credit package (packageId).
-  Future<void> _startCheckout({String? planCode, int? packageId}) async {
-    if (_paying) return;
-    setState(() => _paying = true);
+  /// Opens the web app in the browser, already signed in (one-time login
+  /// link), so the user doesn't have to log in again just to pay.
+  Future<void> _openWeb() async {
+    if (_openingWeb) return;
+    setState(() => _openingWeb = true);
     try {
-      final isPlan = planCode != null;
-      final res = await ApiService.instance.post(
-        isPlan ? '/billing/checkout' : '/billing/credit-checkout',
-        body: isPlan ? {'plan': planCode} : {'package': packageId},
+      final res = await ApiService.instance.post('/web-session');
+      await launchUrl(
+        Uri.parse(res['login_url'] as String),
+        mode: LaunchMode.externalApplication,
       );
-      _pendingPlanCode = planCode;
-      _pendingPackageId = packageId;
-
-      _razorpay.open({
-        'key': res['key'],
-        'amount': res['amount'],
-        'currency': res['currency'] ?? 'INR',
-        'name': 'ReviewFlow',
-        'description': isPlan
-            ? _s(res['plan_name'])
-            : _s((res['package'] as Map?)?['name']),
-        'order_id': res['order_id'],
-        'theme': {'color': '#4C6FFF'},
-      });
-    } on ApiException catch (e) {
-      _snack(e.message);
-      setState(() => _paying = false);
-    }
-  }
-
-  Future<void> _onPaymentSuccess(PaymentSuccessResponse r) async {
-    try {
-      if (_pendingPlanCode != null) {
-        await ApiService.instance.post(
-          '/billing/verify',
-          body: {
-            'razorpay_order_id': r.orderId,
-            'razorpay_payment_id': r.paymentId,
-            'razorpay_signature': r.signature,
-            'plan': _pendingPlanCode,
-          },
-        );
-        _snack('Plan activated ✅');
-      } else {
-        await ApiService.instance.post(
-          '/billing/credit-verify',
-          body: {
-            'razorpay_order_id': r.orderId,
-            'razorpay_payment_id': r.paymentId,
-            'razorpay_signature': r.signature,
-            'package': _pendingPackageId,
-          },
-        );
-        _snack('Credits added ✅');
-      }
     } on ApiException catch (e) {
       _snack(e.message);
     } finally {
-      _pendingPlanCode = null;
-      _pendingPackageId = null;
-      if (mounted) setState(() => _paying = false);
-      _load();
+      if (mounted) setState(() => _openingWeb = false);
     }
-  }
-
-  void _onPaymentError(PaymentFailureResponse r) {
-    _snack('Payment failed: ${r.message ?? 'Please try again'}');
-    _pendingPlanCode = null;
-    _pendingPackageId = null;
-    if (mounted) setState(() => _paying = false);
-  }
-
-  void _onWallet(ExternalWalletResponse r) {
-    _snack('Paid with ${r.walletName ?? 'wallet'}. Confirming…');
   }
 
   Future<void> _shareInvoice(int paymentId) async {
@@ -187,7 +119,6 @@ class _BillingScreenState extends State<BillingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final razorpayReady = _plans['razorpay_ready'] == true;
     final currentPlan = _s(_plans['current_plan']);
     final plans = ((_plans['plans'] as List?) ?? [])
         .cast<Map<String, dynamic>>();
@@ -234,17 +165,58 @@ class _BillingScreenState extends State<BillingScreen> {
                   credits: _i(_plans['credit_balance']),
                 ),
               ),
-              if (!razorpayReady)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    'Payments are not configured on the server yet.',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      color: warn,
-                    ),
+              const SizedBox(height: 14),
+              FadeIn(
+                delay: 60,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: cardDecoration(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.language_rounded, color: brand),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Subscribing to a plan or buying AI credits',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800,
+                                color: ink,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'For secure payment, this is completed on the web. Tap below to open the web app — you\'ll already be signed in.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: muted,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: _openingWeb ? null : _openWeb,
+                        icon: _openingWeb
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.open_in_new_rounded, size: 18),
+                        label: const Text('Continue on web'),
+                      ),
+                    ],
                   ),
                 ),
+              ),
               _Heading('Plans'),
               for (final (i, p) in plans.indexed)
                 Padding(
@@ -254,9 +226,7 @@ class _BillingScreenState extends State<BillingScreen> {
                     child: _PlanCard(
                       plan: p,
                       isCurrent: _s(p['code']) == currentPlan,
-                      enabled: razorpayReady && !_paying,
-                      onSubscribe: () =>
-                          _startCheckout(planCode: _s(p['code'])),
+                      onTap: _openingWeb ? null : _openWeb,
                     ),
                   ),
                 ),
@@ -268,8 +238,7 @@ class _BillingScreenState extends State<BillingScreen> {
                     delay: i < 10 ? i * 70 : 0,
                     child: _PackCard(
                       pack: k,
-                      enabled: razorpayReady && !_paying,
-                      onBuy: () => _startCheckout(packageId: _i(k['id'])),
+                      onTap: _openingWeb ? null : _openWeb,
                     ),
                   ),
                 ),
@@ -419,14 +388,12 @@ class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
     required this.isCurrent,
-    required this.enabled,
-    required this.onSubscribe,
+    required this.onTap,
   });
 
   final Map<String, dynamic> plan;
   final bool isCurrent;
-  final bool enabled;
-  final VoidCallback onSubscribe;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -491,10 +458,11 @@ class _PlanCard extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
             ),
           const SizedBox(height: 10),
-          FilledButton(
-            onPressed: (!enabled || isCurrent) ? null : onSubscribe,
-            child: Text(
-              isCurrent ? 'Current plan' : 'Choose ${_s(plan['name'])}',
+          OutlinedButton.icon(
+            onPressed: isCurrent ? null : onTap,
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: Text(
+              isCurrent ? 'Current plan' : 'Choose ${_s(plan['name'])} on web',
             ),
           ),
         ],
@@ -504,15 +472,10 @@ class _PlanCard extends StatelessWidget {
 }
 
 class _PackCard extends StatelessWidget {
-  const _PackCard({
-    required this.pack,
-    required this.enabled,
-    required this.onBuy,
-  });
+  const _PackCard({required this.pack, required this.onTap});
 
   final Map<String, dynamic> pack;
-  final bool enabled;
-  final VoidCallback onBuy;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -542,9 +505,10 @@ class _PackCard extends StatelessWidget {
               ],
             ),
           ),
-          FilledButton(
-            onPressed: enabled ? onBuy : null,
-            child: const Text('Buy'),
+          OutlinedButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: const Text('Buy on web'),
           ),
         ],
       ),
