@@ -3,38 +3,37 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
+import '../services/session.dart';
 import '../theme/brand.dart';
-import 'admin_screen.dart';
+import 'admin_companies_screen.dart';
+import 'admin_packs_screen.dart';
+import 'admin_payments_screen.dart';
+import 'admin_plans_screen.dart';
+import 'admin_settings_screen.dart';
+import 'admin_support_screen.dart';
 
-/// Super admin ka main layout. Sidebar mein admin sections hain, aur neeche
-/// "User view" se normal client app khulti hai.
+/// Layout for the platform super admin: a royal drawer with the admin sections.
 class AdminShell extends StatefulWidget {
-  const AdminShell({
-    super.key,
-    required this.name,
-    required this.email,
-    required this.onSignedOut,
-    required this.onUserView,
-  });
+  const AdminShell({super.key, required this.onSignedOut});
 
-  final String name;
-  final String email;
   final VoidCallback onSignedOut;
-  final VoidCallback onUserView;
 
   @override
   State<AdminShell> createState() => _AdminShellState();
 }
 
 class _AdminShellState extends State<AdminShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _section = 0;
+  final Set<int> _visited = {0};
 
   static const _items = [
-    ('Overview', Icons.dashboard_rounded),
-    ('Users', Icons.people_alt_rounded),
-    ('Plans', Icons.workspace_premium_rounded),
-    ('Credit packs', Icons.bolt_rounded),
-    ('Top-up', Icons.add_card_rounded),
+    ('Companies', 'Tenants, plans, credits and users', Icons.business_rounded),
+    ('Plans', 'Pricing, limits and features', Icons.workspace_premium_rounded),
+    ('Credit packs', 'AI credit packs for sale', Icons.bolt_rounded),
+    ('Payments', 'Every plan invoice', Icons.payments_rounded),
+    ('Support', 'Tickets from all companies', Icons.support_agent_rounded),
+    ('Settings', 'Invoice details and AI provider', Icons.settings_rounded),
   ];
 
   Future<void> _logout() async {
@@ -61,14 +60,34 @@ class _AdminShellState extends State<AdminShell> {
 
   void _pick(int i) {
     Navigator.of(context).pop();
-    setState(() => _section = i);
+    setState(() {
+      _section = i;
+      _visited.add(i);
+    });
+  }
+
+  Widget _page(int i) {
+    switch (i) {
+      case 0:
+        return const AdminCompaniesScreen();
+      case 1:
+        return const AdminPlansScreen();
+      case 2:
+        return const AdminPacksScreen();
+      case 3:
+        return const AdminPaymentsScreen();
+      case 4:
+        return const AdminSupportScreen();
+      default:
+        return const AdminSettingsScreen();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final initial = widget.name.trim().isEmpty
-        ? 'A'
-        : widget.name.trim()[0].toUpperCase();
+    final user = Session.current;
+    final name = user?.name ?? '';
+    final initial = name.trim().isEmpty ? 'A' : name.trim()[0].toUpperCase();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -76,6 +95,7 @@ class _AdminShellState extends State<AdminShell> {
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: surface,
         appBar: AppBar(
           backgroundColor: royalIndigo,
@@ -127,20 +147,24 @@ class _AdminShellState extends State<AdminShell> {
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: royalGold, width: 1.3),
-                ),
-                child: CircleAvatar(
-                  radius: 15,
-                  backgroundColor: Colors.white.withValues(alpha: 0.18),
-                  child: Text(
-                    initial,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+              child: GestureDetector(
+                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: royalGold, width: 1.3),
+                  ),
+                  child: CircleAvatar(
+                    radius: 15,
+                    backgroundColor: Colors.white.withValues(alpha: 0.18),
+                    child: Text(
+                      initial,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -150,200 +174,213 @@ class _AdminShellState extends State<AdminShell> {
         ),
         drawer: Drawer(
           backgroundColor: Colors.white,
-          child: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [royalNavy, royalIndigo, royalViolet],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: royalIndigo.withValues(alpha: 0.3),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: royalGold, width: 1.4),
-                        ),
-                        child: const Icon(
-                          Icons.shield_rounded,
-                          color: royalGold,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Admin Panel',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                            Text(
-                              widget.email,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+          width: MediaQuery.sizeOf(context).width * 0.8,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              Container(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  MediaQuery.paddingOf(context).top + 20,
+                  20,
+                  22,
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-                  child: Row(
-                    children: [
-                      Container(width: 14, height: 1.5, color: royalGold),
-                      const SizedBox(width: 8),
-                      Text(
-                        'MANAGE',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                          color: royalIndigo,
-                        ),
-                      ),
-                    ],
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [royalNavy, royalIndigo, royalViolet],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.only(bottomRight: Radius.circular(28)),
                 ),
-                for (var i = 0; i < _items.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 2,
-                    ),
-                    child: Material(
-                      color: _section == i
-                          ? royalIndigo.withValues(alpha: 0.07)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () => _pick(i),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 13,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: royalGold, width: 1.6),
                           ),
-                          child: Row(
+                          child: CircleAvatar(
+                            radius: 26,
+                            backgroundColor: Colors.white.withValues(alpha: 0.14),
+                            child: Text(
+                              initial,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 34,
-                                height: 34,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  gradient: _section == i
-                                      ? const LinearGradient(
-                                          colors: [royalIndigo, royalViolet],
-                                        )
-                                      : null,
-                                  color: _section == i
-                                      ? null
-                                      : ink.withValues(alpha: 0.06),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  _items[i].$2,
-                                  size: 18,
-                                  color: _section == i ? Colors.white : ink,
+                              Text(
+                                name.isEmpty ? 'Super admin' : name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  _items[i].$1,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontWeight: FontWeight.w700,
-                                    color: _section == i ? royalIndigo : ink,
-                                  ),
+                              Text(
+                                user?.email ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: Colors.white70,
+                                  fontSize: 12,
                                 ),
                               ),
-                              if (_section == i)
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: royalGold,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
                             ],
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: royalGold.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: royalGold.withValues(alpha: 0.6)),
+                      ),
+                      child: Text(
+                        'SUPER ADMIN',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: royalGold,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
                       ),
                     ),
-                  ),
-                const Spacer(),
-                const Divider(indent: 20, endIndent: 20),
-                ListTile(
-                  leading: const Icon(Icons.swap_horiz_rounded),
-                  title: Text(
-                    'User view',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    widget.onUserView();
-                  },
+                  ],
                 ),
-                ListTile(
-                  leading: const Icon(Icons.logout_rounded, color: bad),
-                  title: Text(
-                    'Sign out',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w700,
-                      color: bad,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _logout();
-                  },
+              ),
+              const SizedBox(height: 12),
+              for (var i = 0; i < _items.length; i++)
+                _NavItem(
+                  icon: _items[i].$3,
+                  label: _items[i].$1,
+                  subtitle: _items[i].$2,
+                  selected: _section == i,
+                  onTap: () => _pick(i),
                 ),
-                const SizedBox(height: 12),
-              ],
-            ),
+              const Divider(indent: 20, endIndent: 20, height: 28),
+              _NavItem(
+                icon: Icons.logout_rounded,
+                label: 'Logout',
+                danger: true,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _logout();
+                },
+              ),
+            ],
           ),
         ),
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          transitionBuilder: (child, anim) =>
-              FadeTransition(opacity: anim, child: child),
-          child: KeyedSubtree(
-            key: ValueKey(_section),
-            child: AdminSectionView(
-              section: _section,
-              onSignedOut: widget.onSignedOut,
+        body: IndexedStack(
+          index: _section,
+          children: [
+            for (var i = 0; i < _items.length; i++)
+              _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.subtitle,
+    this.selected = false,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final bool selected;
+  final bool danger;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? bad : (selected ? royalIndigo : ink);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: Material(
+        color: selected ? royalIndigo.withValues(alpha: 0.07) : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: selected && !danger
+                        ? const LinearGradient(colors: [royalIndigo, royalViolet])
+                        : null,
+                    color: selected && !danger ? null : color.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: selected && !danger ? Colors.white : color,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                      if (subtitle != null)
+                        Text(
+                          subtitle!,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                        ),
+                    ],
+                  ),
+                ),
+                if (selected)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: royalGold,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

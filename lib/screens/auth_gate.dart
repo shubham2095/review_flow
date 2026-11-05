@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/session.dart';
 import '../theme/brand.dart';
+import 'admin_shell.dart';
 import 'home_shell.dart';
 import 'login_screen.dart';
 import 'plan_gate_screen.dart';
@@ -116,6 +117,12 @@ class _AuthGateState extends State<AuthGate> {
           onSignedOut: _signedOut,
         );
       case _Stage.ready:
+        if (Session.current?.isSuperAdmin ?? false) {
+          return AdminShell(
+            key: ValueKey('admin$_sessionId'),
+            onSignedOut: _signedOut,
+          );
+        }
         return HomeShell(
           key: ValueKey('home$_sessionId'),
           onSignedOut: _signedOut,

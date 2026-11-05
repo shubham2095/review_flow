@@ -231,6 +231,9 @@ class SupportTicket {
     this.adminReply,
     this.createdAt,
     this.repliedAt,
+    this.userName,
+    this.userEmail,
+    this.tenantName,
   });
 
   factory SupportTicket.fromJson(Map<String, dynamic> j) => SupportTicket(
@@ -244,6 +247,9 @@ class SupportTicket {
         adminReply: j['admin_reply']?.toString(),
         createdAt: asDate(j['created_at']),
         repliedAt: asDate(j['replied_at']),
+        userName: j['user_name']?.toString(),
+        userEmail: j['user_email']?.toString(),
+        tenantName: j['tenant_name']?.toString(),
       );
 
   final String id;
@@ -256,6 +262,11 @@ class SupportTicket {
   final String? adminReply;
   final DateTime? createdAt;
   final DateTime? repliedAt;
+
+  /// Only filled for the super admin ticket list.
+  final String? userName;
+  final String? userEmail;
+  final String? tenantName;
 
   bool get hasReply => (adminReply ?? '').trim().isNotEmpty;
 }
