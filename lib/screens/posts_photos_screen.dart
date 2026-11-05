@@ -9,6 +9,8 @@ import '../theme/brand.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/image_upload.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 import 'auto_plan_sheet.dart';
 import 'pages.dart';
 import 'photo_editor_sheet.dart';
@@ -351,7 +353,7 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
         color: brand,
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SkeletonList(count: 4, itemHeight: 140, headerHeight: 48)
             : ListView(
                 controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
@@ -372,6 +374,17 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                     ],
                     selected: {_section},
                     onSelectionChanged: (s) => setState(() => _section = s.first),
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      selectedBackgroundColor: brand.withValues(alpha: 0.14),
+                      selectedForegroundColor: brand,
+                      foregroundColor: muted,
+                      side: const BorderSide(color: Color(0xFFE3E8F2)),
+                      textStyle: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   if (_error != null)
@@ -418,6 +431,18 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                   label: Text(label(f)),
                   selected: _filter == f,
                   showCheckmark: false,
+                  backgroundColor: Colors.white,
+                  selectedColor: brand.withValues(alpha: 0.14),
+                  side: BorderSide(
+                    color: _filter == f
+                        ? brand.withValues(alpha: 0.4)
+                        : const Color(0xFFE3E8F2),
+                  ),
+                  labelStyle: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _filter == f ? brand : ink,
+                  ),
                   onSelected: (_) => setState(() => _filter = f),
                 ),
               ),
@@ -781,30 +806,7 @@ class _EmptyBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
-      child: Column(
-        children: [
-          Icon(icon, size: 44, color: muted),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              color: ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
-          ),
-        ],
-      ),
-    );
+    return StateView(icon: icon, title: title, text: text);
   }
 }
 
@@ -816,21 +818,10 @@ class _ErrorBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
-          ),
-          const SizedBox(height: 14),
-          FilledButton(onPressed: onRetry, child: const Text('Try again')),
-        ],
-      ),
+    return StateView.error(
+      title: 'Could not load this',
+      text: message,
+      onRetry: onRetry,
     );
   }
 }

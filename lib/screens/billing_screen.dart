@@ -8,6 +8,8 @@ import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 
 /// Your plan, AI credits, available plans and payment history. Nothing is bought
 /// in the app: every purchase button opens the web app, already signed in.
@@ -93,29 +95,19 @@ class _BillingScreenState extends State<BillingScreen> {
         color: brand,
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SkeletonList(count: 3, itemHeight: 120, headerHeight: 170)
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   if (!hasData && _error != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
-                          const SizedBox(height: 12),
-                          Text(_error!, textAlign: TextAlign.center),
-                          const SizedBox(height: 14),
-                          FilledButton(
-                            onPressed: () {
-                              setState(() => _loading = true);
-                              _load();
-                            },
-                            child: const Text('Try again'),
-                          ),
-                        ],
-                      ),
+                    StateView.error(
+                      title: 'Could not load billing',
+                      text: _error!,
+                      onRetry: () {
+                        setState(() => _loading = true);
+                        _load();
+                      },
                     )
                   else ...[
                     FadeIn(

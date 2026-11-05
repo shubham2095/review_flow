@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/session.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import '../widgets/skeleton.dart';
 import 'support_screen.dart';
 
 /// Your account: details, photo, password, help, policies, sign out and
@@ -193,7 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: surface,
       body: _loading && u == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const SkeletonList(count: 3, itemHeight: 130, headerHeight: 150)
           : RefreshIndicator(
               color: brand,
               onRefresh: _load,

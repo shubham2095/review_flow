@@ -8,9 +8,12 @@ import '../services/gbp_service.dart';
 import '../services/location_store.dart';
 import '../services/session.dart';
 import '../theme/brand.dart';
+import '../widgets/count_up.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/health_card.dart';
 import '../widgets/health_ring.dart';
+import '../widgets/pressable.dart';
+import '../widgets/state_view.dart';
 import 'pages.dart';
 
 /// Overview: business health, review stats, what to do next, locations and
@@ -161,6 +164,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onSync: _sync,
                 onConnect: _connect,
                 onAction: _runAction,
+                onNavigate: widget.onNavigate,
               );
             },
           ),
@@ -183,33 +187,10 @@ class _ErrorView extends StatelessWidget {
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.7,
           child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Could not load your dashboard',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w800,
-                      color: ink,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      color: muted,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(onPressed: onRetry, child: const Text('Try again')),
-                ],
-              ),
+            child: StateView.error(
+              title: 'Could not load your dashboard',
+              text: message,
+              onRetry: onRetry,
             ),
           ),
         ),
@@ -296,6 +277,7 @@ class _DashboardBody extends StatelessWidget {
     required this.onSync,
     required this.onConnect,
     required this.onAction,
+    required this.onNavigate,
   });
 
   final GbpOverview data;
@@ -305,6 +287,7 @@ class _DashboardBody extends StatelessWidget {
   final VoidCallback onSync;
   final VoidCallback onConnect;
   final ValueChanged<HealthAction> onAction;
+  final ValueChanged<int> onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -360,6 +343,8 @@ class _DashboardBody extends StatelessWidget {
         if (needsReconnect || !connected || data.locations.isEmpty)
           const SizedBox(height: 16),
         FadeIn(delay: 120, child: HealthCard(health: data.health)),
+        const SizedBox(height: 16),
+        FadeIn(delay: 170, child: _QuickActions(onNavigate: onNavigate)),
         const SizedBox(height: 20),
         FadeIn(delay: 220, child: _StatsGrid(data: data)),
         if (data.totalReviews > 0) ...[
@@ -662,6 +647,69 @@ class _SetupCard extends StatelessWidget {
   }
 }
 
+/// Four one-tap shortcuts to the jobs owners do most.
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.onNavigate});
+
+  final ValueChanged<int> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (Icons.reply_rounded, 'Reply', kPageReviews, brand),
+      (Icons.edit_note_rounded, 'New post', kPagePosts, brandDeep),
+      (Icons.insights_rounded, 'Insights', kPageInsights, good),
+      (Icons.auto_awesome_rounded, 'AI Tools', kPageAiTools, warn),
+    ];
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: Pressable(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onNavigate(items[i].$3);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                decoration: cardDecoration(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: items[i].$4.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(items[i].$1, size: 20, color: items[i].$4),
+                    ),
+                    const SizedBox(height: 6),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        items[i].$2,
+                        maxLines: 1,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _StatsGrid extends StatelessWidget {
   const _StatsGrid({required this.data});
 
@@ -734,19 +782,14 @@ class _StatCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: stat.value),
+            child: CountUp(
+              value: stat.value,
+              decimals: stat.decimals,
               duration: const Duration(milliseconds: 1100),
-              curve: Curves.easeOutCubic,
-              builder: (_, v, _) => Text(
-                stat.decimals > 0
-                    ? v.toStringAsFixed(stat.decimals)
-                    : v.round().toString(),
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: ink,
-                ),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: ink,
               ),
             ),
           ),
@@ -800,11 +843,19 @@ class _RatingBars extends StatelessWidget {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: (data.ratingDistribution[s] ?? 0) / total,
-                        minHeight: 8,
-                        color: s >= 4 ? good : (s == 3 ? star : bad),
-                        backgroundColor: const Color(0xFFEEF1F7),
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(
+                          begin: 0,
+                          end: (data.ratingDistribution[s] ?? 0) / total,
+                        ),
+                        duration: Duration(milliseconds: 600 + (5 - s) * 120),
+                        curve: Curves.easeOutCubic,
+                        builder: (_, v, _) => LinearProgressIndicator(
+                          value: v,
+                          minHeight: 8,
+                          color: s >= 4 ? good : (s == 3 ? star : bad),
+                          backgroundColor: const Color(0xFFEEF1F7),
+                        ),
                       ),
                     ),
                   ),
@@ -889,81 +940,77 @@ class _ActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: cardDecoration(),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(action.icon, style: const TextStyle(fontSize: 20)),
+      child: Pressable(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: cardDecoration(),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        action.title,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: ink,
-                        ),
+                child: Text(action.icon, style: const TextStyle(fontSize: 20)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      action.title,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
                       ),
-                      const SizedBox(height: 4),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      action.why,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        height: 1.35,
+                        color: muted,
+                      ),
+                    ),
+                    if (action.cta.isNotEmpty) ...[
+                      const SizedBox(height: 8),
                       Text(
-                        action.why,
+                        '${action.cta} >',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
-                          color: muted,
+                          fontWeight: FontWeight.w800,
+                          color: brand,
                         ),
                       ),
-                      if (action.cta.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '${action.cta} >',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: brand,
-                          ),
-                        ),
-                      ],
                     ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  action.priority.toUpperCase(),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: _color,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    action.priority.toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: _color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

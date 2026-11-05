@@ -10,7 +10,10 @@ import '../services/api_service.dart';
 import '../services/gbp_service.dart';
 import '../services/location_store.dart';
 import '../theme/brand.dart';
+import '../widgets/count_up.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 import 'pages.dart';
 
 /// Google performance for the selected location: views, calls, website
@@ -110,7 +113,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
         color: brand,
         onRefresh: _load,
         child: _loading && data == null
-            ? const Center(child: CircularProgressIndicator())
+            ? const _InsightsSkeleton()
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -123,29 +126,34 @@ class _InsightsScreenState extends State<InsightsScreen> {
                     ],
                     selected: {_days},
                     onSelectionChanged: (s) => _setDays(s.first),
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      selectedBackgroundColor: brand.withValues(alpha: 0.14),
+                      selectedForegroundColor: brand,
+                      foregroundColor: muted,
+                      side: const BorderSide(color: Color(0xFFE3E8F2)),
+                      textStyle: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (_error != null && data == null)
-                    _Message(
-                      icon: Icons.cloud_off_rounded,
+                    StateView.error(
                       title: 'Could not load insights',
                       text: _error!,
-                      action: FilledButton(
-                        onPressed: _load,
-                        child: const Text('Try again'),
-                      ),
+                      onRetry: _load,
                     )
                   else if (data != null && !data.connected)
-                    _Message(
+                    StateView(
                       icon: Icons.link_off_rounded,
                       title: 'Google is not connected',
                       text: data.message.isNotEmpty
                           ? data.message
                           : 'Connect your Google Business Profile to see live performance.',
-                      action: FilledButton(
-                        onPressed: () => widget.onNavigate(kPageOverview),
-                        child: const Text('Go to Overview'),
-                      ),
+                      actionLabel: 'Go to Overview',
+                      onAction: () => widget.onNavigate(kPageOverview),
                     )
                   else if (data != null) ...[
                     if ((data.locationName ?? '').isNotEmpty)
@@ -169,7 +177,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
                           ],
                         ),
                       ),
-                    FadeIn(child: _Metrics(data: data)),
+                    FadeIn(child: _ActionsHero(data: data, days: _days)),
+                    const SizedBox(height: 14),
+                    FadeIn(delay: 60, child: _Metrics(data: data)),
                     const SizedBox(height: 16),
                     FadeIn(delay: 120, child: _Trend(series: data.series)),
                     const SizedBox(height: 12),
@@ -363,6 +373,13 @@ class _BarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty || maxValue <= 0) return;
+    final grid = Paint()
+      ..color = const Color(0xFFEEF1F7)
+      ..strokeWidth = 1;
+    for (final f in const [0.0, 0.5, 1.0]) {
+      final y = (size.height - 0.5) * (1 - f);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
     final slot = size.width / points.length;
     final barWidth = (slot * 0.66).clamp(2.0, 18.0);
     final paint = Paint()
@@ -390,44 +407,156 @@ class _BarPainter extends CustomPainter {
       old.progress != progress || old.points != points || old.maxValue != maxValue;
 }
 
-class _Message extends StatelessWidget {
-  const _Message({
-    required this.icon,
-    required this.title,
-    required this.text,
-    required this.action,
-  });
+/// What customers did after finding you: one total, split by action type.
+class _ActionsHero extends StatelessWidget {
+  const _ActionsHero({required this.data, required this.days});
 
-  final IconData icon;
-  final String title;
-  final String text;
-  final Widget action;
+  final InsightsData data;
+  final int days;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
+    final parts = [
+      ('Calls', data.calls, good),
+      ('Website', data.websiteClicks, brandDeep),
+      ('Directions', data.directions, warn),
+    ];
+    final total = parts.fold<int>(0, (s, p) => s + p.$2);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [royalNavy, royalIndigo, royalViolet],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: royalNavy.withValues(alpha: 0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 44, color: muted),
-          const SizedBox(height: 12),
           Text(
-            title,
-            textAlign: TextAlign.center,
+            'Customer actions, last $days days',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              color: ink,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white70,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: CountUp(
+              value: total,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              height: 8,
+              child: total == 0
+                  ? const ColoredBox(color: Colors.white24)
+                  : Row(
+                      children: [
+                        for (final p in parts)
+                          if (p.$2 > 0)
+                            Expanded(
+                              flex: p.$2,
+                              child: ColoredBox(color: p.$3),
+                            ),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (final p in parts)
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: p.$3,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          total == 0
+                              ? p.$1
+                              : '${p.$1} ${(p.$2 * 100 / total).round()}%',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightsSkeleton extends StatelessWidget {
+  const _InsightsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeleton(
+      builder: (context, o) => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          SkeletonBox(opacity: o, height: 40, radius: 20),
+          const SizedBox(height: 16),
+          SkeletonBox(opacity: o, height: 140, radius: 24),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: SkeletonBox(opacity: o, height: 112, radius: 20)),
+              const SizedBox(width: 12),
+              Expanded(child: SkeletonBox(opacity: o, height: 112, radius: 20)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: SkeletonBox(opacity: o, height: 112, radius: 20)),
+              const SizedBox(width: 12),
+              Expanded(child: SkeletonBox(opacity: o, height: 112, radius: 20)),
+            ],
           ),
           const SizedBox(height: 16),
-          action,
+          SkeletonBox(opacity: o, height: 250, radius: 22),
         ],
       ),
     );

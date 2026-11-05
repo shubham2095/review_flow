@@ -3,6 +3,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'api_service.dart';
 import 'session.dart';
 
+/// The person closed the Google account chooser. Not an error.
+class SignInCancelled implements Exception {}
+
 class AuthService {
   /// Saves the JWT from an auth response and stores the returned user.
   static Future<void> _store(Map<String, dynamic> data) async {
@@ -70,13 +73,40 @@ class AuthService {
     await _store(data);
   }
 
+  /// Shows the Google account chooser and returns a fresh ID token for the
+  /// backend. Throws [SignInCancelled] when the person backs out (not an error
+  /// to show) and a friendly [ApiException] for real failures.
   static Future<String> googleIdToken() async {
-    final account = await GoogleSignIn.instance.authenticate();
-    final idToken = account.authentication.idToken;
-    if (idToken == null) {
-      throw ApiException('Could not get Google ID token');
+    try {
+      // Forget the cached account so the chooser always appears and people can
+      // switch to another Google account.
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
+
+      final account = await GoogleSignIn.instance.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw ApiException('Google did not return a sign-in token. Please try again.');
+      }
+      return idToken;
+    } on GoogleSignInException catch (e) {
+      switch (e.code) {
+        case GoogleSignInExceptionCode.canceled:
+          throw SignInCancelled();
+        case GoogleSignInExceptionCode.interrupted:
+          throw ApiException('Google sign-in was interrupted. Please try again.');
+        case GoogleSignInExceptionCode.clientConfigurationError:
+        case GoogleSignInExceptionCode.providerConfigurationError:
+          throw ApiException(
+            'Google sign-in is not set up correctly on this build. Please update the app or contact support.',
+          );
+        case GoogleSignInExceptionCode.uiUnavailable:
+          throw ApiException('Google sign-in could not open. Please try again.');
+        default:
+          throw ApiException('Google sign-in failed. Please try again.');
+      }
     }
-    return idToken;
   }
 
   /// One-time link that opens the web app already signed in (payments happen there).
@@ -109,5 +139,8 @@ class AuthService {
     }
     await ApiService.instance.clearToken();
     Session.clear();
+    try {
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {}
   }
 }

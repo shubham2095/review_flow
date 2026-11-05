@@ -6,7 +6,10 @@ import '../services/api_service.dart';
 import '../services/gbp_service.dart';
 import '../services/location_store.dart';
 import '../theme/brand.dart';
+import '../widgets/count_up.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 import 'pages.dart';
 
 enum _Filter { all, unreplied, r5, r4, r3, r2, r1 }
@@ -239,9 +242,13 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             }
             if (empty) {
               if (_loading) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 60),
-                  child: Center(child: CircularProgressIndicator()),
+                return const SizedBox(
+                  height: 420,
+                  child: SkeletonList(
+                    count: 4,
+                    itemHeight: 104,
+                    padding: EdgeInsets.zero,
+                  ),
                 );
               }
               return _Empty(
@@ -299,36 +306,135 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget stat(IconData icon, String value, String label, Color color) {
-      return Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-          decoration: cardDecoration(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: ink,
-                  ),
-                ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 10, color: muted),
-              ),
-            ],
+    final replied = total - unreplied;
+    final rate = total <= 0 ? 0.0 : (replied / total).clamp(0.0, 1.0);
+
+    Widget hero() {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [royalNavy, royalIndigo, royalViolet],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: royalNavy.withValues(alpha: 0.25),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (avg == 0)
+                      Text(
+                        '-',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 40,
+                          height: 1.1,
+                          color: Colors.white,
+                        ),
+                      )
+                    else
+                      CountUp(
+                        value: avg,
+                        decimals: 1,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 40,
+                          height: 1.1,
+                          color: Colors.white,
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 6),
+                      child: Text(
+                        '/ 5',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < 5; i++)
+                      Icon(
+                        i < avg.round()
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 17,
+                        color: royalGold,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$total ${total == 1 ? 'review' : 'reviews'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: rate),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.easeOutCubic,
+                      builder: (_, v, _) => LinearProgressIndicator(
+                        value: v,
+                        minHeight: 7,
+                        backgroundColor: Colors.white24,
+                        valueColor: const AlwaysStoppedAnimation(royalGold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    total == 0
+                        ? 'No reviews yet'
+                        : unreplied > 0
+                            ? '${(rate * 100).round()}% replied, $unreplied waiting'
+                            : 'All reviews replied',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -349,27 +455,7 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FadeIn(
-            child: Row(
-              children: [
-                stat(Icons.reviews_rounded, '$total', 'Total', brand),
-                const SizedBox(width: 8),
-                stat(
-                  Icons.star_rounded,
-                  avg == 0 ? '-' : avg.toStringAsFixed(1),
-                  'Avg rating',
-                  star,
-                ),
-                const SizedBox(width: 8),
-                stat(
-                  Icons.hourglass_bottom_rounded,
-                  '$unreplied',
-                  'Unreplied',
-                  unreplied > 0 ? warn : good,
-                ),
-              ],
-            ),
-          ),
+          FadeIn(child: hero()),
           const SizedBox(height: 14),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -379,10 +465,25 @@ class _Header extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
-                      label: Text(label(f)),
+                      avatar: f == _Filter.unreplied
+                          ? Icon(Icons.hourglass_bottom_rounded,
+                              size: 14, color: filter == f ? brand : warn)
+                          : (_ratingOf(f) != null
+                              ? Icon(Icons.star_rounded,
+                                  size: 15, color: filter == f ? brand : star)
+                              : null),
+                      label: Text(f == _Filter.all || f == _Filter.unreplied
+                          ? label(f)
+                          : '${_ratingOf(f)}'),
                       selected: filter == f,
                       onSelected: (_) => onFilter(f),
                       showCheckmark: false,
+                      side: BorderSide(
+                        color: filter == f
+                            ? brand.withValues(alpha: 0.4)
+                            : const Color(0xFFE3E8F2),
+                      ),
+                      backgroundColor: Colors.white,
                       selectedColor: brand.withValues(alpha: 0.14),
                       labelStyle: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
@@ -432,53 +533,33 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final failed = error != null;
-    final title = failed
-        ? 'Could not load reviews'
-        : (hasAny ? 'No reviews match this filter' : 'No reviews yet');
-    final text = failed
-        ? error!
-        : (hasAny
-            ? 'Try another filter.'
-            : 'Sync from Google to bring in your reviews. If Google is not connected yet, connect it from the Overview.');
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
-      child: Column(
-        children: [
-          Icon(
-            failed ? Icons.cloud_off_rounded : Icons.rate_review_outlined,
-            size: 44,
-            color: muted,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              color: ink,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
-          ),
-          const SizedBox(height: 16),
-          if (failed)
-            FilledButton(onPressed: onRetry, child: const Text('Try again'))
-          else if (!hasAny) ...[
-            FilledButton(onPressed: onSync, child: const Text('Sync from Google')),
-            TextButton(
-              onPressed: onOverview,
-              child: const Text('Go to Overview'),
-            ),
-          ],
-        ],
-      ),
+    if (error != null) {
+      return StateView.error(
+        title: 'Could not load reviews',
+        text: error!,
+        onRetry: onRetry,
+      );
+    }
+    if (hasAny) {
+      return const StateView(
+        icon: Icons.filter_alt_off_rounded,
+        title: 'No reviews match this filter',
+        text: 'Try another filter.',
+      );
+    }
+    return Column(
+      children: [
+        StateView(
+          icon: Icons.rate_review_outlined,
+          title: 'No reviews yet',
+          text:
+              'Sync from Google to bring in your reviews. If Google is not connected yet, connect it from the Overview.',
+          actionLabel: 'Sync from Google',
+          onAction: onSync,
+          padding: const EdgeInsets.fromLTRB(20, 40, 20, 4),
+        ),
+        TextButton(onPressed: onOverview, child: const Text('Go to Overview')),
+      ],
     );
   }
 }
@@ -527,9 +608,16 @@ class _ReviewCard extends StatelessWidget {
         : review.authorName[0].toUpperCase();
     final photo = review.authorPhoto;
 
+    // A low-rated review still waiting for a reply is the one to answer first.
+    final urgent = !review.hasReply && review.rating <= 2;
+
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(),
+      decoration: cardDecoration().copyWith(
+        border: Border.all(
+          color: urgent ? bad.withValues(alpha: 0.35) : const Color(0xFFEEF1F7),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -783,13 +871,38 @@ class _ReplySheetState extends State<_ReplySheet> {
                 color: ink,
               ),
             ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                for (var i = 0; i < 5; i++)
+                  Icon(
+                    i < widget.review.rating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    size: 16,
+                    color: star,
+                  ),
+              ],
+            ),
             if ((widget.review.comment ?? '').isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                '"${widget.review.comment}"',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  widget.review.comment!,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: muted,
+                  ),
+                ),
               ),
             ],
             const SizedBox(height: 14),

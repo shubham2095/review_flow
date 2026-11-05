@@ -6,7 +6,10 @@ import '../services/api_service.dart';
 import '../services/gbp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/fade_indexed_stack.dart';
 import '../widgets/health_card.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 
 /// Audit (health score), One-Click Optimize and the marketing assistant.
 class AiToolsScreen extends StatefulWidget {
@@ -49,11 +52,22 @@ class _AiToolsScreenState extends State<AiToolsScreen> {
                 ],
                 selected: {_tab},
                 onSelectionChanged: (s) => setState(() => _tab = s.first),
+                style: SegmentedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  selectedBackgroundColor: brand.withValues(alpha: 0.14),
+                  selectedForegroundColor: brand,
+                  foregroundColor: muted,
+                  side: const BorderSide(color: Color(0xFFE3E8F2)),
+                  textStyle: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ),
           Expanded(
-            child: IndexedStack(
+            child: FadeIndexedStack(
               index: _tab,
               children: const [_AuditTab(), _OptimizeTab(), _AssistantTab()],
             ),
@@ -165,21 +179,10 @@ class _Failure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
-          ),
-          const SizedBox(height: 14),
-          FilledButton(onPressed: onRetry, child: const Text('Try again')),
-        ],
-      ),
+    return StateView.error(
+      title: 'Could not load this',
+      text: message,
+      onRetry: onRetry,
     );
   }
 }
@@ -226,7 +229,12 @@ class _AuditTabState extends State<_AuditTab> {
       color: brand,
       onRefresh: _load,
       child: _loading && h == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const SkeletonList(
+              count: 3,
+              itemHeight: 84,
+              headerHeight: 230,
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               physics: const AlwaysScrollableScrollPhysics(),
@@ -467,6 +475,18 @@ class _AssistantTabState extends State<_AssistantTab> {
   bool _sending = false;
   int? _credits;
 
+  static const _suggestions = [
+    'How do I get more Google reviews?',
+    'Write a post for a weekend offer',
+    'How can I improve my local ranking?',
+    'How should I reply to a bad review?',
+  ];
+
+  Future<void> _ask(String text) {
+    _controller.text = text;
+    return _send();
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -526,22 +546,34 @@ class _AssistantTabState extends State<_AssistantTab> {
             itemCount: _messages.length + (_sending ? 1 : 0),
             itemBuilder: (context, i) {
               if (i == _messages.length) {
-                return const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: EdgeInsets.all(8),
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                );
+                return const _TypingBubble();
               }
               return _Bubble(message: _messages[i]);
             },
           ),
         ),
+        if (_messages.length == 1 && !_sending)
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _suggestions.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => ActionChip(
+                label: Text(_suggestions[i]),
+                avatar: const Icon(Icons.auto_awesome_rounded, size: 14, color: brand),
+                backgroundColor: Colors.white,
+                side: BorderSide(color: brand.withValues(alpha: 0.25)),
+                labelStyle: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: ink,
+                ),
+                onPressed: () => _ask(_suggestions[i]),
+              ),
+            ),
+          ),
         if (_credits != null)
           Text(
             'Credits left: $_credits',
@@ -592,6 +624,24 @@ class _AssistantTabState extends State<_AssistantTab> {
   }
 }
 
+class _AiAvatar extends StatelessWidget {
+  const _AiAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 28,
+      margin: const EdgeInsets.only(right: 8, bottom: 4),
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(colors: [royalIndigo, royalViolet]),
+      ),
+      child: const Icon(Icons.auto_awesome_rounded, size: 15, color: royalGold),
+    );
+  }
+}
+
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.message});
 
@@ -605,12 +655,11 @@ class _Bubble extends StatelessWidget {
         : (message.isError ? bad.withValues(alpha: 0.1) : Colors.white);
     final fg = user ? Colors.white : (message.isError ? bad : ink);
 
-    return Align(
-      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
+    final bubble = Flexible(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.8,
+          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -621,12 +670,96 @@ class _Bubble extends StatelessWidget {
             bottomLeft: Radius.circular(user ? 18 : 4),
             bottomRight: Radius.circular(user ? 4 : 18),
           ),
+          boxShadow: user
+              ? null
+              : [
+                  BoxShadow(
+                    color: royalNavy.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
         ),
         child: SelectableText(
           message.text,
           style: GoogleFonts.plusJakartaSans(fontSize: 13.5, height: 1.4, color: fg),
         ),
       ),
+    );
+
+    return FadeIn(
+      child: Row(
+        mainAxisAlignment: user ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: user ? [bubble] : [const _AiAvatar(), bubble],
+      ),
+    );
+  }
+}
+
+/// Three bouncing dots while the assistant is thinking.
+class _TypingBubble extends StatefulWidget {
+  const _TypingBubble();
+
+  @override
+  State<_TypingBubble> createState() => _TypingBubbleState();
+}
+
+class _TypingBubbleState extends State<_TypingBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        const _AiAvatar(),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(18),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(4),
+              bottomRight: Radius.circular(18),
+            ),
+          ),
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (_, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < 3; i++)
+                  Container(
+                    width: 7,
+                    height: 7,
+                    margin: EdgeInsets.only(right: i < 2 ? 5 : 0),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: brand.withValues(
+                        alpha: 0.25 +
+                            0.6 *
+                                (1 - ((_c.value * 3 - i) % 3).clamp(0.0, 1.0)),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

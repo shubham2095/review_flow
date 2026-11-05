@@ -6,6 +6,8 @@ import '../services/account_service.dart';
 import '../services/api_service.dart';
 import '../theme/brand.dart';
 import '../widgets/date_format.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 
 const _categories = {
   'billing': 'Billing',
@@ -110,47 +112,23 @@ class _SupportScreenState extends State<SupportScreen> {
         color: brand,
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SkeletonList(count: 4, itemHeight: 88)
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
-                          const SizedBox(height: 12),
-                          Text(_error!, textAlign: TextAlign.center),
-                          const SizedBox(height: 14),
-                          FilledButton(onPressed: _load, child: const Text('Try again')),
-                        ],
-                      ),
+                    StateView.error(
+                      title: 'Could not load tickets',
+                      text: _error!,
+                      onRetry: _load,
                     )
                   else if (_tickets.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 12),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.support_agent_rounded, size: 48, color: muted),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No tickets yet',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              color: ink,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Having trouble? Raise a ticket and our team will reply here.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
-                          ),
-                        ],
-                      ),
+                    const StateView(
+                      icon: Icons.support_agent_rounded,
+                      title: 'No tickets yet',
+                      text:
+                          'Having trouble? Raise a ticket and our team will reply here.',
                     )
                   else
                     for (final t in _tickets)

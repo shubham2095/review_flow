@@ -6,6 +6,7 @@ import '../services/admin_service.dart';
 import '../services/api_service.dart';
 import '../theme/brand.dart';
 import '../widgets/admin_ui.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/fade_in.dart';
 
 String _label(String key) => key.replaceAll('_', ' ');
@@ -105,7 +106,7 @@ class _AdminPlansScreenState extends State<AdminPlansScreen> {
         color: brand,
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SkeletonList(count: 3, itemHeight: 130)
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 physics: const AlwaysScrollableScrollPhysics(),

@@ -6,6 +6,7 @@ import '../services/admin_service.dart';
 import '../services/api_service.dart';
 import '../theme/brand.dart';
 import '../widgets/admin_ui.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
 
@@ -53,7 +54,7 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
         color: brand,
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SkeletonList(count: 4, itemHeight: 84, headerHeight: 90)
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 physics: const AlwaysScrollableScrollPhysics(),

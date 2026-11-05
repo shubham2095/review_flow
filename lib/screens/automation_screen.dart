@@ -10,6 +10,8 @@ import '../services/api_service.dart';
 import '../theme/brand.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 
 const _tones = [
   'Friendly',
@@ -90,21 +92,13 @@ class _AutomationScreenState extends State<AutomationScreen> {
     return Scaffold(
       backgroundColor: surface,
       body: _loading && data == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const SkeletonList(count: 4, itemHeight: 110, headerHeight: 130)
           : _error != null && data == null
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
-                        const SizedBox(height: 12),
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: 14),
-                        FilledButton(onPressed: _load, child: const Text('Try again')),
-                      ],
-                    ),
+                  child: StateView.error(
+                    title: 'Could not load automation',
+                    text: _error!,
+                    onRetry: _load,
                   ),
                 )
               : RefreshIndicator(

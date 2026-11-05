@@ -7,6 +7,7 @@ import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
+import '../widgets/fade_indexed_stack.dart';
 import 'ai_tools_screen.dart';
 import 'automation_screen.dart';
 import 'billing_screen.dart';
@@ -124,7 +125,7 @@ class _HomeShellState extends State<HomeShell> {
           onSelect: _select,
           onLogout: _confirmLogout,
         ),
-        body: IndexedStack(
+        body: FadeIndexedStack(
           index: _index,
           children: [
             for (var i = 0; i < _pageBuilders.length; i++)
@@ -133,7 +134,17 @@ class _HomeShellState extends State<HomeShell> {
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: bottomIndex,
-          onDestinationSelected: _select,
+          onDestinationSelected: (i) {
+            HapticFeedback.selectionClick();
+            _select(i);
+          },
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 8,
+          shadowColor: royalNavy.withValues(alpha: 0.25),
+          indicatorColor: brand.withValues(alpha: 0.14),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          height: 68,
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.dashboard_outlined),

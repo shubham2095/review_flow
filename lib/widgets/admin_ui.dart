@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/brand.dart';
+import 'state_view.dart';
 
 /// Shared building blocks for the super admin screens.
 
@@ -135,35 +136,13 @@ class AdminMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
-      child: Column(
-        children: [
-          Icon(icon, size: 44, color: muted),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-              color: ink,
-            ),
-          ),
-          if (text.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
-            ),
-          ],
-          if (onRetry != null) ...[
-            const SizedBox(height: 14),
-            FilledButton(onPressed: onRetry, child: const Text('Try again')),
-          ],
-        ],
-      ),
+    return StateView(
+      icon: icon,
+      title: title,
+      text: text,
+      error: onRetry != null,
+      actionLabel: onRetry == null ? null : 'Try again',
+      onAction: onRetry,
     );
   }
 }

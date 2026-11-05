@@ -6,6 +6,7 @@ import '../services/admin_service.dart';
 import '../services/api_service.dart';
 import '../theme/brand.dart';
 import '../widgets/admin_ui.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/fade_in.dart';
 
 /// Credit packs that companies can buy on the web.
@@ -96,7 +97,7 @@ class _AdminPacksScreenState extends State<AdminPacksScreen> {
         color: brand,
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const SkeletonList(count: 4, itemHeight: 92)
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 physics: const AlwaysScrollableScrollPhysics(),

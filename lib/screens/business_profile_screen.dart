@@ -9,6 +9,8 @@ import '../services/gbp_service.dart';
 import '../services/location_store.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/skeleton.dart';
+import '../widgets/state_view.dart';
 
 const _dayLabels = {
   'MONDAY': 'Monday',
@@ -306,21 +308,13 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
     return Scaffold(
       backgroundColor: surface,
       body: _loading && p == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const SkeletonList(count: 3, itemHeight: 150, headerHeight: 150)
           : _error != null && p == null
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
-                        const SizedBox(height: 12),
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: 14),
-                        FilledButton(onPressed: _load, child: const Text('Try again')),
-                      ],
-                    ),
+                  child: StateView.error(
+                    title: 'Could not load your profile',
+                    text: _error!,
+                    onRetry: _load,
                   ),
                 )
               : Column(
@@ -457,8 +451,33 @@ class _Summary extends StatelessWidget {
 
   final BusinessProfile profile;
 
+  /// Which key details are filled in, so owners see what is still missing.
+  ({int done, int total, List<String> missing}) get _completeness {
+    final checks = <String, bool>{
+      'name': profile.name.trim().isNotEmpty,
+      'category': profile.category.trim().isNotEmpty,
+      'description': profile.description.trim().length >= 60,
+      'phone': profile.phone.trim().isNotEmpty,
+      'website': profile.website.trim().isNotEmpty,
+      'address': profile.address.trim().isNotEmpty,
+      'opening hours': profile.hours.isNotEmpty,
+      'labels': profile.labels.isNotEmpty,
+    };
+    final missing = [
+      for (final e in checks.entries)
+        if (!e.value) e.key,
+    ];
+    return (
+      done: checks.length - missing.length,
+      total: checks.length,
+      missing: missing,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final c = _completeness;
+    final pct = c.total == 0 ? 0.0 : c.done / c.total;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
@@ -495,6 +514,59 @@ class _Summary extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  c.missing.isEmpty
+                      ? 'Profile complete'
+                      : 'Profile ${(pct * 100).round()}% complete',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '${c.done}/${c.total}',
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: pct),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, _) => LinearProgressIndicator(
+                value: v,
+                minHeight: 7,
+                backgroundColor: Colors.white24,
+                valueColor: const AlwaysStoppedAnimation(royalGold),
+              ),
+            ),
+          ),
+          if (c.missing.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Add: ${c.missing.join(', ')}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white70,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
         ],
       ),
     );
