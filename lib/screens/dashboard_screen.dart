@@ -2,31 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/dashboard_data.dart';
+import '../models/gbp_models.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
+import '../services/gbp_service.dart';
+import '../services/location_store.dart';
+import '../services/session.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
 import '../widgets/health_ring.dart';
+import 'pages.dart';
 
-const _brand = Color(0xFF4C6FFF);
-const _brandDeep = Color(0xFF7C5CFF);
-const _ink = Color(0xFF1B2437);
-const _muted = Color(0xFF7A8599);
-
-typedef _Payload = ({DashboardData data, String name});
-
+/// Overview: business health, review stats, what to do next, locations and
+/// recent reviews, all from GET /gbp/overview.
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.onSignedOut});
+  const DashboardScreen({super.key, required this.onNavigate});
 
-  final VoidCallback onSignedOut;
+  final ValueChanged<int> onNavigate;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  late Future<_Payload> _future;
+  late Future<GbpOverview> _future;
   bool _syncing = false;
+  bool _connecting = false;
 
   @override
   void initState() {
@@ -34,23 +34,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _future = _load();
   }
 
-  Future<_Payload> _load() async {
-    try {
-      final results = await Future.wait([
-        ApiService.instance.get('/dashboard'),
-        ApiService.instance.get('/me'),
-      ]);
-      return (
-        data: DashboardData.fromJson(results[0]),
-        name: (results[1]['name'] ?? '').toString(),
-      );
-    } on ApiException catch (e) {
-      if (e.statusCode == 401) {
-        await AuthService.logout();
-        widget.onSignedOut();
-      }
-      rethrow;
-    }
+  Future<GbpOverview> _load() async {
+    final data = await GbpService.overview();
+    await LocationStore.setLocations(data.locations);
+    return data;
   }
 
   Future<void> _refresh() async {
@@ -59,31 +46,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       await next;
     } catch (_) {
-      // Error FutureBuilder mein dikhega.
+      // The error is shown by the FutureBuilder.
     }
   }
 
-  Future<void> _sync() async {
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _connect() async {
+    if (_connecting) return;
+    setState(() => _connecting = true);
+    try {
+      final status = await GbpService.connectGoogle();
+      switch (status) {
+        case GbpConnectStatus.success:
+          _snack('Google connected');
+          await _sync(afterConnect: true);
+        case GbpConnectStatus.cancelled:
+          _snack('Google connection was cancelled.');
+        case GbpConnectStatus.invalidState:
+          _snack('The connection link expired. Please try again.');
+        case GbpConnectStatus.tokenFailed:
+          _snack('Google did not accept the connection. Please try again.');
+      }
+    } catch (e) {
+      _snack(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
+  }
+
+  Future<void> _sync({bool afterConnect = false}) async {
+    if (_syncing) return;
     setState(() => _syncing = true);
     try {
-      final res = await ApiService.instance.post('/dashboard/sync');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Synced ${res['synced'] ?? 0} reviews ✅')),
-      );
+      final res = await GbpService.sync();
+      if (!afterConnect || res.message.isNotEmpty) {
+        _snack(
+          res.message.isNotEmpty
+              ? res.message
+              : 'Synced ${res.reviews} reviews from ${res.locations} locations.',
+        );
+      }
       await _refresh();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyException(e).message)));
-      }
+      _snack(friendlyException(e).message);
+      await _refresh();
     } finally {
       if (mounted) setState(() => _syncing = false);
     }
   }
 
+  void _runAction(HealthAction a) {
+    switch (a.cta) {
+      case 'Connect Google':
+        _connect();
+      case 'Add Location':
+        _sync();
+      case 'View Negative' || 'Open Reviews':
+        widget.onNavigate(kPageReviews);
+      case 'Optimize':
+        widget.onNavigate(kPageAiTools);
+      case 'Upload Photos' || 'Create Post':
+        widget.onNavigate(kPagePosts);
+      default:
+        widget.onNavigate(
+          a.module == 'Reviews' ? kPageReviews : kPageOverview,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Status bar brand color ka rahega, taaki header ke saath seamless lage.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.white,
@@ -91,51 +127,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
         statusBarBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F6FB),
+        backgroundColor: surface,
         body: RefreshIndicator(
-          color: _brand,
+          color: brand,
           onRefresh: _refresh,
-          child: FutureBuilder<_Payload>(
+          child: FutureBuilder<GbpOverview>(
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
                 return const _DashboardSkeleton();
               }
               if (snapshot.hasError) {
-                return _CenteredList(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('😕', style: TextStyle(fontSize: 40)),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Could not load your dashboard',
-                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: _ink),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          friendlyException(snapshot.error!).message,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _muted),
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: _refresh,
-                          child: const Text('Try again'),
-                        ),
-                      ],
-                    ),
-                  ),
+                return _ErrorView(
+                  message: friendlyException(snapshot.error!).message,
+                  onRetry: _refresh,
                 );
               }
-              final payload = snapshot.requireData;
               return _DashboardBody(
-                data: payload.data,
-                name: payload.name,
+                data: snapshot.requireData,
                 syncing: _syncing,
+                connecting: _connecting,
                 onSync: _sync,
+                onConnect: _connect,
+                onAction: _runAction,
               );
             },
           ),
@@ -145,10 +159,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _CenteredList extends StatelessWidget {
-  const _CenteredList({required this.child});
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message, required this.onRetry});
 
-  final Widget child;
+  final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -156,15 +171,44 @@ class _CenteredList extends StatelessWidget {
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.7,
-          child: Center(child: child),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Could not load your dashboard',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      color: ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      color: muted,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(onPressed: onRetry, child: const Text('Try again')),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-/// Shimmering placeholder shown while the first load is in flight, shaped
-/// like the real layout so the page doesn't "jump" once data arrives.
+/// Shimmering placeholder shaped like the real layout, so the page does not
+/// jump once data arrives.
 class _DashboardSkeleton extends StatefulWidget {
   const _DashboardSkeleton();
 
@@ -172,11 +216,16 @@ class _DashboardSkeleton extends StatefulWidget {
   State<_DashboardSkeleton> createState() => _DashboardSkeletonState();
 }
 
-class _DashboardSkeletonState extends State<_DashboardSkeleton> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
-  late final Animation<double> _opacity =
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut).drive(Tween(begin: 0.3, end: 0.75));
+class _DashboardSkeletonState extends State<_DashboardSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+  late final Animation<double> _opacity = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeInOut,
+  ).drive(Tween(begin: 0.3, end: 0.75));
 
   @override
   void dispose() {
@@ -184,14 +233,13 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton> with SingleTicke
     super.dispose();
   }
 
-  Widget _box({double? width, required double height, double radius = 14}) {
+  Widget _box({required double height, double radius = 14}) {
     return AnimatedBuilder(
       animation: _opacity,
       builder: (_, _) => Container(
-        width: width,
         height: height,
         decoration: BoxDecoration(
-          color: _muted.withValues(alpha: _opacity.value * 0.25),
+          color: muted.withValues(alpha: _opacity.value * 0.25),
           borderRadius: BorderRadius.circular(radius),
         ),
       ),
@@ -204,7 +252,7 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton> with SingleTicke
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       physics: const NeverScrollableScrollPhysics(),
       children: [
-        _box(height: 170, radius: 30),
+        _box(height: 150, radius: 30),
         const SizedBox(height: 16),
         _box(height: 300, radius: 24),
         const SizedBox(height: 20),
@@ -231,59 +279,101 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton> with SingleTicke
 class _DashboardBody extends StatelessWidget {
   const _DashboardBody({
     required this.data,
-    required this.name,
     required this.syncing,
+    required this.connecting,
     required this.onSync,
+    required this.onConnect,
+    required this.onAction,
   });
 
-  final DashboardData data;
-  final String name;
+  final GbpOverview data;
   final bool syncing;
+  final bool connecting;
   final VoidCallback onSync;
+  final VoidCallback onConnect;
+  final ValueChanged<HealthAction> onAction;
 
   @override
   Widget build(BuildContext context) {
+    final connected = data.googleConnected;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        _FadeIn(delay: 0, child: _Header(name: name, data: data)),
+        FadeIn(child: _Header(data: data)),
         const SizedBox(height: 16),
-        _FadeIn(
-          delay: 120,
-          child: _HealthCard(overall: data.overall, subScores: data.subScores),
-        ),
-        const SizedBox(height: 20),
-        _FadeIn(delay: 220, child: _StatsRow(data: data)),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: syncing ? null : onSync,
-          icon: syncing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: _brand),
-                )
-              : const Icon(Icons.sync_rounded),
-          label: Text(syncing ? 'Syncing reviews…' : 'Sync reviews now'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _brand,
-            minimumSize: const Size.fromHeight(46),
-            side: const BorderSide(color: _brand, width: 1.2),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            textStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+        if (!connected)
+          FadeIn(
+            delay: 80,
+            child: _SetupCard(
+              icon: Icons.link_rounded,
+              title: 'Connect your Google Business Profile',
+              text:
+                  'Connect Google to bring in your locations, reviews and insights.',
+              button: 'Connect Google',
+              busy: connecting,
+              onTap: onConnect,
+            ),
+          )
+        else if (data.locations.isEmpty)
+          FadeIn(
+            delay: 80,
+            child: _SetupCard(
+              icon: Icons.place_rounded,
+              title: 'Import your locations',
+              text:
+                  'Sync to bring your business locations and reviews from Google.',
+              button: 'Import from Google',
+              busy: syncing,
+              onTap: onSync,
+            ),
           ),
-        ),
-        if (data.doNext.isNotEmpty) ...[
-          const _SectionTitle(emoji: '✅', text: "Today's actions"),
-          for (var i = 0; i < data.doNext.length; i++)
-            _FadeIn(
-              delay: 300 + i * 90,
-              child: _DoNextCard(item: data.doNext[i]),
+        if (!connected || data.locations.isEmpty) const SizedBox(height: 16),
+        FadeIn(delay: 120, child: _HealthCard(health: data.health)),
+        const SizedBox(height: 20),
+        FadeIn(delay: 220, child: _StatsGrid(data: data)),
+        if (data.totalReviews > 0) ...[
+          const SizedBox(height: 16),
+          FadeIn(delay: 280, child: _RatingBars(data: data)),
+        ],
+        if (connected) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: syncing ? null : onSync,
+            icon: syncing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: brand),
+                  )
+                : const Icon(Icons.sync_rounded),
+            label: Text(syncing ? 'Syncing from Google...' : 'Sync from Google now'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: brand,
+              minimumSize: const Size.fromHeight(46),
+              side: const BorderSide(color: brand, width: 1.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+        if (data.health.actions.isNotEmpty) ...[
+          const _SectionTitle("Today's actions"),
+          for (var i = 0; i < data.health.actions.length; i++)
+            FadeIn(
+              delay: 300 + i * 80,
+              child: _ActionCard(
+                action: data.health.actions[i],
+                onTap: () => onAction(data.health.actions[i]),
+              ),
             ),
         ],
         if (data.locations.isNotEmpty) ...[
-          const _SectionTitle(emoji: '📍', text: 'Locations'),
-          _FadeIn(
+          const _SectionTitle('Locations'),
+          FadeIn(
             delay: 400,
             child: SizedBox(
               height: 150,
@@ -298,10 +388,10 @@ class _DashboardBody extends StatelessWidget {
           ),
         ],
         if (data.recentReviews.isNotEmpty) ...[
-          const _SectionTitle(emoji: '💬', text: 'Recent reviews'),
+          const _SectionTitle('Recent reviews'),
           for (var i = 0; i < data.recentReviews.length; i++)
-            _FadeIn(
-              delay: 480 + i * 80,
+            FadeIn(
+              delay: 480 + i * 70,
               child: _ReviewCard(review: data.recentReviews[i]),
             ),
         ],
@@ -310,11 +400,19 @@ class _DashboardBody extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.name, required this.data});
+String _ago(DateTime? t) {
+  if (t == null) return 'Not synced yet';
+  final d = DateTime.now().difference(t);
+  if (d.inMinutes < 1) return 'Synced just now';
+  if (d.inMinutes < 60) return 'Synced ${d.inMinutes} min ago';
+  if (d.inHours < 24) return 'Synced ${d.inHours} h ago';
+  return 'Synced ${d.inDays} d ago';
+}
 
-  final String name;
-  final DashboardData data;
+class _Header extends StatelessWidget {
+  const _Header({required this.data});
+
+  final GbpOverview data;
 
   String get _greeting {
     final h = DateTime.now().hour;
@@ -337,8 +435,9 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstName = name.trim().split(' ').first;
-    final locCount = data.locations.length;
+    final name = Session.current?.name.trim() ?? '';
+    final first = name.isEmpty ? '' : name.split(' ').first;
+    final count = data.locations.length;
 
     return ClipRRect(
       borderRadius: const BorderRadius.only(
@@ -347,68 +446,58 @@ class _Header extends StatelessWidget {
       ),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 26),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [_brand, _brandDeep],
+            colors: [brand, brandDeep],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Positioned(
-              right: -40,
-              top: -50,
-              child: _FloatingBubble(size: 160, alpha: 0.08, duration: 4200),
+            Text(
+              _date.toUpperCase(),
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white70,
+                fontSize: 11,
+                letterSpacing: 1.1,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            Positioned(
-              right: 30,
-              bottom: -60,
-              child: _FloatingBubble(size: 120, alpha: 0.06, duration: 3400),
+            const SizedBox(height: 6),
+            Text(
+              first.isEmpty ? _greeting : '$_greeting, $first',
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+              ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                const SizedBox(height: 4),
-                Text(
-                  _date.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    letterSpacing: 1.1,
-                    fontWeight: FontWeight.w600,
+                _HeaderChip(
+                  icon: data.googleConnected
+                      ? Icons.check_circle_rounded
+                      : Icons.error_outline_rounded,
+                  text: data.googleConnected
+                      ? 'Google connected'
+                      : 'Google not connected',
+                ),
+                _HeaderChip(
+                  icon: Icons.place_rounded,
+                  text: '$count ${count == 1 ? 'location' : 'locations'}',
+                ),
+                if (data.googleConnected)
+                  _HeaderChip(
+                    icon: Icons.schedule_rounded,
+                    text: _ago(data.lastSyncedAt),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  firstName.isEmpty
-                      ? '$_greeting 👋'
-                      : '$_greeting, $firstName 👋',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _HeaderChip(
-                      icon: data.hasGoogle ? '🔗' : '⚠️',
-                      text: data.hasGoogle
-                          ? 'Google connected'
-                          : 'Google not connected',
-                    ),
-                    _HeaderChip(
-                      icon: '📍',
-                      text: '$locCount ${locCount == 1 ? 'location' : 'locations'}',
-                    ),
-                  ],
-                ),
               ],
             ),
           ],
@@ -418,64 +507,10 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.size, required this.alpha});
-
-  final double size;
-  final double alpha;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: alpha),
-      ),
-    );
-  }
-}
-
-/// Slow, ambient up-down drift for the header's decorative bubbles. Purely
-/// visual (Transform.translate), so it never affects layout size.
-class _FloatingBubble extends StatefulWidget {
-  const _FloatingBubble({required this.size, required this.alpha, required this.duration});
-
-  final double size;
-  final double alpha;
-  final int duration;
-
-  @override
-  State<_FloatingBubble> createState() => _FloatingBubbleState();
-}
-
-class _FloatingBubbleState extends State<_FloatingBubble> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: Duration(milliseconds: widget.duration))..repeat(reverse: true);
-  late final Animation<double> _dy =
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut).drive(Tween(begin: -8, end: 8));
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _dy,
-      builder: (_, child) => Transform.translate(offset: Offset(0, _dy.value), child: child),
-      child: _Bubble(size: widget.size, alpha: widget.alpha),
-    );
-  }
-}
-
 class _HeaderChip extends StatelessWidget {
   const _HeaderChip({required this.icon, required this.text});
 
-  final String icon;
+  final IconData icon;
   final String text;
 
   @override
@@ -487,29 +522,121 @@ class _HeaderChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
       ),
-      child: Text(
-        '$icon  $text',
-        style: GoogleFonts.plusJakartaSans(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SetupCard extends StatelessWidget {
+  const _SetupCard({
+    required this.icon,
+    required this.title,
+    required this.text,
+    required this.button,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String text;
+  final String button;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [royalIndigo, royalViolet]),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: royalGold.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: royalGold),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              color: Colors.white70,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton(
+            onPressed: busy ? null : onTap,
+            style: FilledButton.styleFrom(
+              backgroundColor: royalGold,
+              foregroundColor: royalNavy,
+            ),
+            child: busy
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: royalNavy,
+                    ),
+                  )
+                : Text(button),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _HealthCard extends StatelessWidget {
-  const _HealthCard({required this.overall, required this.subScores});
+  const _HealthCard({required this.health});
 
-  final int overall;
-  final List<SubScore> subScores;
+  final GbpHealth health;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: _cardDecoration(),
+      decoration: cardDecoration(),
       child: Column(
         children: [
           Text(
@@ -517,22 +644,33 @@ class _HealthCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: _ink,
+              color: ink,
             ),
           ),
           const SizedBox(height: 16),
-          _GlowPulse(color: healthColor(overall), child: HealthRing(score: overall)),
-          const SizedBox(height: 20),
+          HealthRing(score: health.score),
+          if (health.grade.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              health.grade,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: healthColor(health.score),
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 1.5,
+            mainAxisExtent: 84,
             children: [
-              for (var i = 0; i < subScores.length; i++)
-                _SubScoreTile(score: subScores[i], index: i),
+              for (var i = 0; i < health.subScores.length; i++)
+                _SubScoreTile(score: health.subScores[i], index: i),
             ],
           ),
         ],
@@ -541,55 +679,10 @@ class _HealthCard extends StatelessWidget {
   }
 }
 
-/// Soft breathing glow behind the health ring. Decorative box-shadow only,
-/// so it never changes the ring's size or the card's layout.
-class _GlowPulse extends StatefulWidget {
-  const _GlowPulse({required this.color, required this.child});
-
-  final Color color;
-  final Widget child;
-
-  @override
-  State<_GlowPulse> createState() => _GlowPulseState();
-}
-
-class _GlowPulseState extends State<_GlowPulse> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat(reverse: true);
-  late final Animation<double> _t = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _t,
-      builder: (_, child) => DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withValues(alpha: 0.12 + _t.value * 0.14),
-              blurRadius: 24 + _t.value * 20,
-              spreadRadius: _t.value * 4,
-            ),
-          ],
-        ),
-        child: child,
-      ),
-      child: widget.child,
-    );
-  }
-}
-
 class _SubScoreTile extends StatelessWidget {
   const _SubScoreTile({required this.score, required this.index});
 
-  final SubScore score;
+  final HealthSub score;
   final int index;
 
   @override
@@ -603,19 +696,21 @@ class _SubScoreTile extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Text(score.icon, style: const TextStyle(fontSize: 16)),
+              Text(score.icon, style: const TextStyle(fontSize: 15)),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   score.label,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: _ink,
+                    color: ink,
                   ),
                 ),
               ),
@@ -634,7 +729,6 @@ class _SubScoreTile extends StatelessWidget {
               ),
             ],
           ),
-          const Spacer(),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: TweenAnimationBuilder<double>(
@@ -649,12 +743,11 @@ class _SubScoreTile extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 6),
           Text(
             score.detail,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(fontSize: 10, color: _muted),
+            style: GoogleFonts.plusJakartaSans(fontSize: 10, color: muted),
           ),
         ],
       ),
@@ -662,18 +755,18 @@ class _SubScoreTile extends StatelessWidget {
   }
 }
 
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.data});
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid({required this.data});
 
-  final DashboardData data;
+  final GbpOverview data;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      _StatData('⭐', 'Total reviews', data.totalReviews.toDouble(), 0, const Color(0xFF4C6FFF)),
-      _StatData('⭐', 'Avg rating', data.avgRating, 1, const Color(0xFFF59E0B)),
-      _StatData('✅', 'Replied', data.replied.toDouble(), 0, const Color(0xFF22C55E)),
-      _StatData('⏳', 'Unreplied', data.unreplied.toDouble(), 0, const Color(0xFFEF4444)),
+      _Stat(Icons.reviews_rounded, 'Total reviews', data.totalReviews.toDouble(), 0, brand),
+      _Stat(Icons.star_rounded, 'Avg rating', data.averageRating, 1, star),
+      _Stat(Icons.check_circle_rounded, 'Replied', data.replied.toDouble(), 0, good),
+      _Stat(Icons.hourglass_bottom_rounded, 'Unreplied', data.unreplied.toDouble(), 0, bad),
     ];
     return GridView.count(
       crossAxisCount: 2,
@@ -687,10 +780,10 @@ class _StatsRow extends StatelessWidget {
   }
 }
 
-class _StatData {
-  _StatData(this.emoji, this.label, this.value, this.decimals, this.color);
+class _Stat {
+  _Stat(this.icon, this.label, this.value, this.decimals, this.color);
 
-  final String emoji;
+  final IconData icon;
   final String label;
   final double value;
   final int decimals;
@@ -700,13 +793,13 @@ class _StatData {
 class _StatCard extends StatelessWidget {
   const _StatCard({required this.stat});
 
-  final _StatData stat;
+  final _Stat stat;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
+      decoration: cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -719,14 +812,14 @@ class _StatCard extends StatelessWidget {
                   color: stat.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(stat.emoji, style: const TextStyle(fontSize: 14)),
+                child: Icon(stat.icon, size: 16, color: stat.color),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   stat.label,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: _muted),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
                 ),
               ),
             ],
@@ -745,7 +838,7 @@ class _StatCard extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: _ink,
+                  color: ink,
                 ),
               ),
             ),
@@ -756,10 +849,81 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.emoji, required this.text});
+class _RatingBars extends StatelessWidget {
+  const _RatingBars({required this.data});
 
-  final String emoji;
+  final GbpOverview data;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = data.totalReviews == 0 ? 1 : data.totalReviews;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rating breakdown',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: ink,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (var s = 5; s >= 1; s--)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 30,
+                    child: Text(
+                      '$s',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: muted,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.star_rounded, size: 14, color: star),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: (data.ratingDistribution[s] ?? 0) / total,
+                        minHeight: 8,
+                        color: s >= 4 ? good : (s == 3 ? star : bad),
+                        backgroundColor: const Color(0xFFEEF1F7),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 36,
+                    child: Text(
+                      '${data.ratingDistribution[s] ?? 0}',
+                      textAlign: TextAlign.right,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
   final String text;
 
   @override
@@ -773,7 +937,7 @@ class _SectionTitle extends StatelessWidget {
             height: 18,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_brand, _brandDeep],
+                colors: [brand, brandDeep],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -782,11 +946,11 @@ class _SectionTitle extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Text(
-            '$emoji  $text',
+            text,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: _ink,
+              color: ink,
             ),
           ),
         ],
@@ -795,81 +959,106 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _DoNextCard extends StatelessWidget {
-  const _DoNextCard({required this.item});
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({required this.action, required this.onTap});
 
-  final DoNextItem item;
+  final HealthAction action;
+  final VoidCallback onTap;
 
-  Color get _impactColor {
-    switch (item.impact) {
+  Color get _color {
+    switch (action.priority) {
       case 'critical':
-        return const Color(0xFFEF4444);
+        return bad;
       case 'high':
-        return const Color(0xFFF97316);
+        return warn;
       case 'medium':
-        return const Color(0xFF4C6FFF);
+        return brand;
       default:
-        return _muted;
+        return muted;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _impactColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(item.icon, style: const TextStyle(fontSize: 20)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: cardDecoration(),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _ink,
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(action.icon, style: const TextStyle(fontSize: 20)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        action.title,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: ink,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        action.why,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: muted,
+                        ),
+                      ),
+                      if (action.cta.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '${action.cta} >',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: brand,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  item.why,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    action.priority.toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: _color,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _impactColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              item.impact.toUpperCase(),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: _impactColor,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -878,16 +1067,16 @@ class _DoNextCard extends StatelessWidget {
 class _LocationCard extends StatelessWidget {
   const _LocationCard({required this.loc, required this.index});
 
-  final LocationItem loc;
+  final GbpLocation loc;
   final int index;
 
   @override
   Widget build(BuildContext context) {
-    final gradients = [
-      [const Color(0xFF4C6FFF), const Color(0xFF7C5CFF)],
-      [const Color(0xFFF97316), const Color(0xFFF59E0B)],
-      [const Color(0xFF22C55E), const Color(0xFF14B8A6)],
-      [const Color(0xFFEC4899), const Color(0xFF8B5CF6)],
+    const gradients = [
+      [Color(0xFF4C6FFF), Color(0xFF7C5CFF)],
+      [Color(0xFFF97316), Color(0xFFF59E0B)],
+      [Color(0xFF22C55E), Color(0xFF14B8A6)],
+      [Color(0xFFEC4899), Color(0xFF8B5CF6)],
     ];
     final g = gradients[index % gradients.length];
 
@@ -913,7 +1102,7 @@ class _LocationCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            loc.title,
+            loc.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
@@ -932,9 +1121,9 @@ class _LocationCard extends StatelessWidget {
           const Spacer(),
           Row(
             children: [
-              _Pill(text: '⭐ ${loc.avgRating.toStringAsFixed(1)}'),
+              _Pill(icon: Icons.star_rounded, text: loc.rating.toStringAsFixed(1)),
               const SizedBox(width: 6),
-              _Pill(text: '💬 ${loc.totalReviews}'),
+              _Pill(icon: Icons.chat_bubble_rounded, text: '${loc.reviewCount}'),
             ],
           ),
         ],
@@ -944,8 +1133,9 @@ class _LocationCard extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.text});
+  const _Pill({required this.icon, required this.text});
 
+  final IconData icon;
   final String text;
 
   @override
@@ -956,13 +1146,20 @@ class _Pill extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.22),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -971,19 +1168,19 @@ class _Pill extends StatelessWidget {
 class _ReviewCard extends StatelessWidget {
   const _ReviewCard({required this.review});
 
-  final RecentReview review;
+  final GbpReview review;
 
   @override
   Widget build(BuildContext context) {
-    final initial = review.reviewerName.isEmpty
-        ? '💬'
-        : review.reviewerName[0].toUpperCase();
-    final avatarColor = healthColor(review.starRating * 20);
+    final initial = review.authorName.isEmpty
+        ? '?'
+        : review.authorName[0].toUpperCase();
+    final avatarColor = healthColor(review.rating * 20);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(),
+      decoration: cardDecoration(),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1007,40 +1204,61 @@ class _ReviewCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        review.reviewerName,
+                        review.authorName,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
                           fontWeight: FontWeight.w700,
-                          color: _ink,
+                          color: ink,
                         ),
                       ),
                     ),
                     for (var i = 0; i < 5; i++)
                       Icon(
-                        i < review.starRating
+                        i < review.rating
                             ? Icons.star_rounded
                             : Icons.star_outline_rounded,
                         size: 16,
-                        color: const Color(0xFFF59E0B),
+                        color: star,
                       ),
                   ],
                 ),
-                if (review.comment != null && review.comment!.isNotEmpty) ...[
+                if ((review.comment ?? '').isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     review.comment!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
                   ),
                 ],
-                if (review.locationTitle != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '📍 ${review.locationTitle}',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: _brand),
-                  ),
-                ],
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    if ((review.locationName ?? '').isNotEmpty)
+                      Expanded(
+                        child: Text(
+                          review.locationName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: brand,
+                          ),
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    Text(
+                      review.hasReply ? 'Replied' : 'Needs reply',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: review.hasReply ? good : warn,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -1049,47 +1267,3 @@ class _ReviewCard extends StatelessWidget {
     );
   }
 }
-
-class _FadeIn extends StatefulWidget {
-  const _FadeIn({required this.child, required this.delay});
-
-  final Widget child;
-  final int delay;
-
-  @override
-  State<_FadeIn> createState() => _FadeInState();
-}
-
-class _FadeInState extends State<_FadeIn> {
-  bool _show = false;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) setState(() => _show = true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: _show ? 1 : 0,
-      duration: const Duration(milliseconds: 550),
-      curve: Curves.easeOut,
-      child: AnimatedSlide(
-        offset: _show ? Offset.zero : const Offset(0, 0.04),
-        duration: const Duration(milliseconds: 550),
-        curve: Curves.easeOut,
-        child: AnimatedScale(
-          scale: _show ? 1 : 0.96,
-          duration: const Duration(milliseconds: 550),
-          curve: Curves.easeOutCubic,
-          child: widget.child,
-        ),
-      ),
-    );
-  }
-}
-
-BoxDecoration _cardDecoration() => cardDecoration();

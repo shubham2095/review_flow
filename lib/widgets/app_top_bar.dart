@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/brand.dart';
+import 'location_switcher.dart';
 
 const _gold = Color(0xFFD4AF37);
 
@@ -98,6 +99,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
+        const LocationSwitcher(),
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: GestureDetector(

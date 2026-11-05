@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../screens/pages.dart';
 import '../theme/brand.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -11,7 +12,6 @@ class AppDrawer extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.onLogout,
-    this.isAdmin = false,
   });
 
   final String name;
@@ -19,7 +19,6 @@ class AppDrawer extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onLogout;
-  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -32,198 +31,72 @@ class AppDrawer extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           _DrawerHeader(name: name, email: email, initial: initial),
-          if (isAdmin)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              child: InkWell(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onSelect(21);
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [royalIndigo, royalViolet]),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: royalGold.withValues(alpha: 0.6)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.admin_panel_settings_rounded, color: royalGold),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Super admin: open Admin panel',
-                          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right_rounded, color: Colors.white),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           const SizedBox(height: 12),
-          // Order and names follow the web app sidebar. The index passed to
-          // onSelect is the page index, so the order here can change freely.
           _SectionLabel('WORKSPACE'),
           _NavItem(
             icon: Icons.dashboard_rounded,
             label: 'Overview',
-            subtitle: 'Health score and overview',
-            selected: selectedIndex == 0,
-            onTap: () => onSelect(0),
-          ),
-          _NavItem(
-            icon: Icons.auto_awesome_rounded,
-            label: 'AI Tools',
-            subtitle: 'Optimize, audit, keywords, rank and chat',
-            selected: selectedIndex == 10,
-            onTap: () => onSelect(10),
+            subtitle: 'Health score and what to do next',
+            selected: selectedIndex == kPageOverview,
+            onTap: () => onSelect(kPageOverview),
           ),
           _NavItem(
             icon: Icons.rate_review_rounded,
             label: 'Reviews',
             subtitle: 'Reviews, replies and sync',
-            selected: selectedIndex == 1,
-            onTap: () => onSelect(1),
-          ),
-          _NavItem(
-            icon: Icons.insights_rounded,
-            label: 'Insights',
-            subtitle: 'Search, maps, calls and clicks',
-            selected: selectedIndex == 4,
-            onTap: () => onSelect(4),
+            selected: selectedIndex == kPageReviews,
+            onTap: () => onSelect(kPageReviews),
           ),
           _NavItem(
             icon: Icons.photo_library_rounded,
             label: 'Posts & Photos',
             subtitle: 'Google posts, offers and photos',
-            selected: selectedIndex == 7,
-            onTap: () => onSelect(7),
+            selected: selectedIndex == kPagePosts,
+            onTap: () => onSelect(kPagePosts),
           ),
           _NavItem(
-            icon: Icons.campaign_rounded,
-            label: 'Social',
-            subtitle: 'Facebook, Instagram, LinkedIn, X',
-            selected: selectedIndex == 3,
-            onTap: () => onSelect(3),
+            icon: Icons.insights_rounded,
+            label: 'Insights',
+            subtitle: 'Searches, calls, clicks and directions',
+            selected: selectedIndex == kPageInsights,
+            onTap: () => onSelect(kPageInsights),
           ),
           _NavItem(
-            icon: Icons.groups_rounded,
-            label: 'Leads CRM',
-            subtitle: 'Pipeline, new leads and stages',
-            selected: selectedIndex == 2,
-            onTap: () => onSelect(2),
+            icon: Icons.auto_awesome_rounded,
+            label: 'AI Tools',
+            subtitle: 'Audit, optimize and AI assistant',
+            selected: selectedIndex == kPageAiTools,
+            onTap: () => onSelect(kPageAiTools),
           ),
           _NavItem(
-            icon: Icons.chat_rounded,
-            label: 'WhatsApp',
-            subtitle: 'Template messages and history',
-            selected: selectedIndex == 15,
-            onTap: () => onSelect(15),
+            icon: Icons.storefront_rounded,
+            label: 'Business profile',
+            subtitle: 'Hours, contact and description',
+            selected: selectedIndex == kPageBusinessProfile,
+            onTap: () => onSelect(kPageBusinessProfile),
           ),
-          _NavItem(
-            icon: Icons.bar_chart_rounded,
-            label: 'Ads Reports',
-            subtitle: 'Google and Meta campaign performance',
-            selected: selectedIndex == 16,
-            onTap: () => onSelect(16),
-          ),
-          _NavItem(
-            icon: Icons.business_rounded,
-            label: 'Clients',
-            subtitle: 'Businesses, locations and connections',
-            selected: selectedIndex == 11,
-            onTap: () => onSelect(11),
-          ),
-          _NavItem(
-            icon: Icons.group_add_rounded,
-            label: 'Team',
-            subtitle: 'Add, edit and remove members',
-            selected: selectedIndex == 5,
-            onTap: () => onSelect(5),
-          ),
-          _NavItem(
-            icon: Icons.receipt_long_rounded,
-            label: 'Invoices',
-            subtitle: 'Create, send and track invoices',
-            selected: selectedIndex == 6,
-            onTap: () => onSelect(6),
-          ),
-          _NavItem(
-            icon: Icons.people_alt_rounded,
-            label: 'Customers',
-            subtitle: 'Billing customers and GSTIN',
-            selected: selectedIndex == 8,
-            onTap: () => onSelect(8),
-          ),
-          _NavItem(
-            icon: Icons.account_balance_wallet_rounded,
-            label: 'Expenses',
-            subtitle: 'Track spending by method',
-            selected: selectedIndex == 9,
-            onTap: () => onSelect(9),
-          ),
-          _NavItem(
-            icon: Icons.design_services_rounded,
-            label: 'Services',
-            subtitle: 'Service catalog with GST',
-            selected: selectedIndex == 12,
-            onTap: () => onSelect(12),
-          ),
-          _NavItem(
-            icon: Icons.image_search_rounded,
-            label: 'AI media',
-            subtitle: 'Generated images for your posts',
-            selected: selectedIndex == 20,
-            onTap: () => onSelect(20),
-          ),
-          _SectionLabel('BILLING'),
           _NavItem(
             icon: Icons.bolt_rounded,
-            label: 'Credits',
-            subtitle: 'AI credit balance and activity',
-            selected: selectedIndex == 17,
-            onTap: () => onSelect(17),
+            label: 'Automation',
+            subtitle: 'Auto replies and scheduled posts',
+            selected: selectedIndex == kPageAutomation,
+            onTap: () => onSelect(kPageAutomation),
           ),
+          _SectionLabel('ACCOUNT'),
           _NavItem(
             icon: Icons.workspace_premium_rounded,
             label: 'Plans & billing',
-            subtitle: 'Plans, credit packs and payment history',
-            selected: selectedIndex == 18,
-            onTap: () => onSelect(18),
-          ),
-          _NavItem(
-            icon: Icons.settings_suggest_rounded,
-            label: 'Billing Settings',
-            subtitle: 'Business details, bank and invoice defaults',
-            selected: selectedIndex == 13,
-            onTap: () => onSelect(13),
+            subtitle: 'Your plan, credits and payments',
+            selected: selectedIndex == kPageBilling,
+            onTap: () => onSelect(kPageBilling),
           ),
           _NavItem(
             icon: Icons.person_rounded,
             label: 'My Profile',
             subtitle: 'Your details and password',
-            selected: selectedIndex == 14,
-            onTap: () => onSelect(14),
+            selected: selectedIndex == kPageAccount,
+            onTap: () => onSelect(kPageAccount),
           ),
-          _NavItem(
-            icon: Icons.file_download_rounded,
-            label: 'Tally export',
-            subtitle: 'Download invoices as Tally XML',
-            selected: selectedIndex == 19,
-            onTap: () => onSelect(19),
-          ),
-          if (isAdmin)
-            _NavItem(
-              icon: Icons.admin_panel_settings_rounded,
-              label: 'Admin panel',
-              subtitle: 'Users, plans, credit packs and top-up',
-              selected: selectedIndex == 21,
-              onTap: () => onSelect(21),
-            ),
           const SizedBox(height: 12),
           const Divider(indent: 20, endIndent: 20, height: 24),
           _NavItem(

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
+import 'location_store.dart';
 
 /// The signed-in user as returned by GET /auth/me.
 class AppUser {
@@ -80,7 +81,10 @@ class Session {
     user.value = AppUser.fromJson(userJson);
   }
 
-  static void clear() => user.value = null;
+  static void clear() {
+    user.value = null;
+    LocationStore.clear();
+  }
 
   /// Reloads the user (and plan state) from the server.
   static Future<AppUser> refresh() async {
