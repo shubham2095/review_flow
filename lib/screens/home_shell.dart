@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
@@ -122,19 +122,19 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _loadMe() async {
+    var user = Session.current;
     try {
-      final me = await ApiService.instance.get('/me');
-      if (!mounted) return;
-      setState(() {
-        _name = (me['name'] ?? '').toString();
-        _email = (me['email'] ?? '').toString();
-        _isAdmin = me['role'] == 'SUPER_ADMIN';
-        _meLoaded = true;
-      });
+      user = await Session.refresh();
     } catch (_) {
-      // Naam nahi aaya to header mein default text dikhega.
-      if (mounted) setState(() => _meLoaded = true);
+      // Pehle se loaded user dikhate rahenge.
     }
+    if (!mounted) return;
+    setState(() {
+      _name = user?.name ?? '';
+      _email = user?.email ?? '';
+      _isAdmin = user?.isSuperAdmin ?? false;
+      _meLoaded = true;
+    });
   }
 
   Future<void> _confirmLogout() async {

@@ -11,7 +11,7 @@ const _violet = Color(0xFF3B2A8C);
 const _gold = Color(0xFFD4AF37);
 
 /// Native login and sign-up. Google login uses the phone's Google account,
-/// email login uses /api/login, and sign-up uses /api/register.
+/// email login uses /auth/login, and sign-up uses /auth/register.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.onLoggedIn});
 
@@ -22,6 +22,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _company = TextEditingController();
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -31,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _company.dispose();
     _name.dispose();
     _email.dispose();
     _password.dispose();
@@ -64,6 +66,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     if (_signUp) {
+      if (_company.text.trim().isEmpty) {
+        _snack('Business name is required');
+        return;
+      }
       if (_name.text.trim().isEmpty) {
         _snack('Name is required');
         return;
@@ -72,7 +78,14 @@ class _LoginScreenState extends State<LoginScreen> {
         _snack('Password must be at least 8 characters');
         return;
       }
-      await _run(() => AuthService.register(_name.text.trim(), email, password));
+      await _run(
+        () => AuthService.register(
+          companyName: _company.text.trim(),
+          name: _name.text.trim(),
+          email: email,
+          password: password,
+        ),
+      );
     } else {
       await _run(() => AuthService.loginWithEmail(email, password));
     }
@@ -211,6 +224,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 18),
                       if (_signUp) ...[
+                        TextField(
+                          controller: _company,
+                          decoration: _dec('Business name'),
+                        ),
+                        const SizedBox(height: 12),
                         TextField(controller: _name, decoration: _dec('Full name')),
                         const SizedBox(height: 12),
                       ],
