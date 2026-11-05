@@ -1,54 +1,32 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../models/account_models.dart';
+import '../services/account_service.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
 
-String _s(dynamic v) => v?.toString() ?? '';
-
-double _n(dynamic v) {
-  if (v is num) return v.toDouble();
-  return double.tryParse(_s(v)) ?? 0;
-}
-
-int _i(dynamic v) => num.tryParse((v)?.toString() ?? '')?.toInt() ?? 0;
-
-String _date(dynamic v) {
-  final t = _s(v);
-  return t.length >= 10 ? t.substring(0, 10) : t;
-}
-
-String _rupees(double v) => '₹${v.toStringAsFixed(2)}';
-
-/// Plan subscriptions and credit purchases are completed on the web, not in
-/// the app (Google Play requires Play Billing for in-app digital goods, and
-/// we use Razorpay instead). This screen only shows plans/credits/payment
-/// history and hands off to a pre-authenticated web session for buying.
+/// Your plan, AI credits, available plans and payment history. Nothing is bought
+/// in the app: every purchase button opens the web app, already signed in.
 class BillingScreen extends StatefulWidget {
-  const BillingScreen({super.key, required this.onSignedOut});
-
-  final VoidCallback onSignedOut;
+  const BillingScreen({super.key});
 
   @override
   State<BillingScreen> createState() => _BillingScreenState();
 }
 
 class _BillingScreenState extends State<BillingScreen> {
-  Map<String, dynamic> _plans = {};
-  Map<String, dynamic> _packs = {};
-  Map<String, dynamic> _history = {};
-  String? _error;
+  SubscriptionInfo? _subscription;
+  CreditsInfo? _credits;
+  List<PlanInfo> _plans = [];
+  List<CreditPackInfo> _packs = [];
+  List<BillingInvoice> _invoices = [];
   bool _loading = true;
-  bool _openingWeb = false;
+  bool _opening = false;
+  String? _error;
 
   @override
   void initState() {
@@ -56,268 +34,160 @@ class _BillingScreenState extends State<BillingScreen> {
     _load();
   }
 
+  /// One failing section (for example a role without billing access) should
+  /// not blank the rest of the page.
+  Future<T?> _safe<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } catch (e) {
+      _error ??= friendlyException(e).message;
+      return null;
+    }
+  }
+
   Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
-    try {
-      final results = await Future.wait([
-        ApiService.instance.get('/billing/plans'),
-        ApiService.instance.get('/billing/credit-packages'),
-        ApiService.instance.get('/billing/payments'),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _plans = results[0];
-        _packs = results[1];
-        _history = results[2];
-        _error = null;
-      });
-    } on ApiException catch (e) {
-      if (e.statusCode == 401) {
-        await AuthService.logout();
-        widget.onSignedOut();
-        return;
-      }
-      if (mounted) setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _snack(String text) {
+    _error = null;
+    final results = await Future.wait([
+      _safe(AccountService.subscription),
+      _safe(AccountService.credits),
+      _safe(AccountService.plans),
+      _safe(AccountService.creditPacks),
+      _safe(AccountService.invoices),
+    ]);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    setState(() {
+      _subscription = results[0] as SubscriptionInfo?;
+      _credits = results[1] as CreditsInfo?;
+      _plans = (results[2] as List<PlanInfo>?) ?? [];
+      _packs = (results[3] as List<CreditPackInfo>?) ?? [];
+      _invoices = (results[4] as List<BillingInvoice>?) ?? [];
+      _loading = false;
+    });
   }
 
-  /// Opens the web app in the browser, already signed in (one-time login
-  /// link), so the user doesn't have to log in again just to pay.
-  Future<void> _openWeb() async {
-    if (_openingWeb) return;
-    setState(() => _openingWeb = true);
+  Future<void> _web(String next) async {
+    if (_opening) return;
+    setState(() => _opening = true);
     try {
-      final res = await ApiService.instance.post('/web-session');
-      await launchUrl(
-        Uri.parse(res['login_url'] as String),
-        mode: LaunchMode.externalApplication,
-      );
-    } on ApiException catch (e) {
-      _snack(e.message);
+      await openInWeb(next: next);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyException(e).message)),
+        );
+      }
     } finally {
-      if (mounted) setState(() => _openingWeb = false);
-    }
-  }
-
-  Future<void> _shareInvoice(int paymentId) async {
-    try {
-      final inv = await ApiService.instance.get(
-        '/billing/payments/$paymentId/invoice',
-      );
-      await _sharePaymentPdf(inv);
-    } on ApiException catch (e) {
-      _snack(e.message);
+      if (mounted) setState(() => _opening = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentPlan = _s(_plans['current_plan']);
-    final plans = ((_plans['plans'] as List?) ?? [])
-        .cast<Map<String, dynamic>>();
-    final packs = ((_packs['packages'] as List?) ?? [])
-        .cast<Map<String, dynamic>>();
-    final payments = ((_history['payments'] as List?) ?? [])
-        .cast<Map<String, dynamic>>();
+    final sub = _subscription;
+    final credits = _credits;
+    final hasData = sub != null || credits != null || _plans.isNotEmpty;
 
     return Scaffold(
       backgroundColor: surface,
       body: RefreshIndicator(
         color: brand,
         onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-          children: [
-            if (_loading && _plans.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(40),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('😕', style: TextStyle(fontSize: 40)),
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.plusJakartaSans(color: muted),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              FadeIn(
-                child: _CurrentPlanCard(
-                  plan: currentPlan.isEmpty ? 'No active plan' : currentPlan,
-                  status: _s(_plans['status']),
-                  renewsAt: _date(_history['renews_at']),
-                  credits: _i(_plans['credit_balance']),
-                ),
-              ),
-              const SizedBox(height: 14),
-              FadeIn(
-                delay: 60,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: cardDecoration(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  if (!hasData && _error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Column(
                         children: [
-                          const Icon(Icons.language_rounded, color: brand),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Subscribing to a plan or buying AI credits',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.w800,
-                                color: ink,
-                              ),
-                            ),
+                          const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
+                          const SizedBox(height: 12),
+                          Text(_error!, textAlign: TextAlign.center),
+                          const SizedBox(height: 14),
+                          FilledButton(
+                            onPressed: () {
+                              setState(() => _loading = true);
+                              _load();
+                            },
+                            child: const Text('Try again'),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'For secure payment, this is completed on the web. Tap below to open the web app — you\'ll already be signed in.',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          color: muted,
-                          height: 1.4,
+                    )
+                  else ...[
+                    FadeIn(
+                      child: _PlanCard(
+                        subscription: sub,
+                        busy: _opening,
+                        onManage: () => _web('/billing'),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (credits != null)
+                      FadeIn(
+                        delay: 80,
+                        child: _CreditsCard(
+                          credits: credits,
+                          busy: _opening,
+                          onBuy: () => _web('/buy-credits'),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      FilledButton.icon(
-                        onPressed: _openingWeb ? null : _openWeb,
-                        icon: _openingWeb
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.open_in_new_rounded, size: 18),
-                        label: const Text('Continue on web'),
+                    const SizedBox(height: 6),
+                    const _WebNote(),
+                    if (_plans.isNotEmpty) ...[
+                      const _Title('Plans'),
+                      for (var i = 0; i < _plans.length; i++)
+                        FadeIn(
+                          delay: 120 + i * 70,
+                          child: _PlanTile(
+                            plan: _plans[i],
+                            current: sub != null &&
+                                sub.planName.toLowerCase() ==
+                                    _plans[i].name.toLowerCase(),
+                            busy: _opening,
+                            onChoose: () => _web('/plans'),
+                          ),
+                        ),
+                    ],
+                    if (_packs.isNotEmpty) ...[
+                      const _Title('Credit packs'),
+                      SizedBox(
+                        height: 108,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _packs.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 12),
+                          itemBuilder: (_, i) => _PackTile(
+                            pack: _packs[i],
+                            onTap: () => _web('/buy-credits'),
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                ),
+                    if (_invoices.isNotEmpty) ...[
+                      const _Title('Payment history'),
+                      for (final inv in _invoices) _InvoiceRow(invoice: inv),
+                    ],
+                  ],
+                ],
               ),
-              _Heading('Plans'),
-              for (final (i, p) in plans.indexed)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: FadeIn(
-                    delay: i < 10 ? i * 70 : 0,
-                    child: _PlanCard(
-                      plan: p,
-                      isCurrent: _s(p['code']) == currentPlan,
-                      onTap: _openingWeb ? null : _openWeb,
-                    ),
-                  ),
-                ),
-              _Heading('Buy AI credits'),
-              for (final (i, k) in packs.indexed)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: FadeIn(
-                    delay: i < 10 ? i * 70 : 0,
-                    child: _PackCard(
-                      pack: k,
-                      onTap: _openingWeb ? null : _openWeb,
-                    ),
-                  ),
-                ),
-              _Heading('Payment history'),
-              if (payments.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('No payments yet.'),
-                )
-              else
-                for (final (i, p) in payments.indexed)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: FadeIn(
-                      delay: i < 12 ? i * 60 : 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: cardDecoration(),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _s(p['plan']),
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontWeight: FontWeight.w800,
-                                      color: ink,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_date(p['created_at'])}  •  ${_s(p['status'])}',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11,
-                                      color: muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              _rupees(_n(p['amount'])),
-                              style: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.w800,
-                                color: ink,
-                              ),
-                            ),
-                            if (_s(p['status']) == 'PAID')
-                              IconButton(
-                                tooltip: 'Download invoice',
-                                onPressed: () => _shareInvoice(_i(p['id'])),
-                                icon: const Icon(
-                                  Icons.picture_as_pdf_rounded,
-                                  color: brand,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-            ],
-          ],
-        ),
       ),
     );
   }
 }
 
-class _Heading extends StatelessWidget {
-  const _Heading(this.text);
+class _Title extends StatelessWidget {
+  const _Title(this.text);
 
   final String text;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
+      padding: const EdgeInsets.fromLTRB(4, 24, 4, 12),
       child: Text(
         text,
         style: GoogleFonts.plusJakartaSans(
@@ -330,26 +200,79 @@ class _Heading extends StatelessWidget {
   }
 }
 
-class _CurrentPlanCard extends StatelessWidget {
-  const _CurrentPlanCard({
-    required this.plan,
-    required this.status,
-    required this.renewsAt,
-    required this.credits,
-  });
-
-  final String plan;
-  final String status;
-  final String renewsAt;
-  final int credits;
+class _WebNote extends StatelessWidget {
+  const _WebNote();
 
   @override
   Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_rounded, size: 14, color: muted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Payments are completed securely on the web. You stay signed in.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _statusColor(String status) {
+  switch (status) {
+    case 'active':
+    case 'trialing':
+    case 'paid':
+      return good;
+    case 'past_due':
+    case 'expired':
+    case 'cancelled':
+    case 'failed':
+      return bad;
+    default:
+      return muted;
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.subscription,
+    required this.busy,
+    required this.onManage,
+  });
+
+  final SubscriptionInfo? subscription;
+  final bool busy;
+  final VoidCallback onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final sub = subscription;
+    String detail = 'Choose a plan to unlock your workspace.';
+    if (sub != null) {
+      if (sub.status == 'trialing' && sub.trialEndsAt != null) {
+        detail = 'Trial ends ${fmtDate(sub.trialEndsAt!)}';
+      } else if (sub.currentPeriodEnd != null) {
+        detail = sub.status == 'active'
+            ? 'Renews ${fmtDate(sub.currentPeriodEnd!)}'
+            : 'Ended ${fmtDate(sub.currentPeriodEnd!)}';
+      }
+    }
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [brand, brandDeep]),
-        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [brand, brandDeep],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,24 +282,55 @@ class _CurrentPlanCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               color: Colors.white70,
               fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            plan.toUpperCase(),
-            style: GoogleFonts.plusJakartaSans(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  sub == null || sub.planName.isEmpty ? 'No active plan' : sub.planName,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (sub != null && sub.status.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    sub.status.toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(
-            'Status: ${status.isEmpty ? '-' : status}  •  Renews: ${renewsAt.isEmpty ? '-' : renewsAt}  •  Credits: $credits',
-            style: GoogleFonts.plusJakartaSans(
-              color: Colors.white,
-              fontSize: 12,
+            detail,
+            style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 13),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: busy ? null : onManage,
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: brand,
             ),
+            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+            label: Text(sub == null ? 'Choose a plan on web' : 'Manage plan on web'),
           ),
         ],
       ),
@@ -384,23 +338,133 @@ class _CurrentPlanCard extends StatelessWidget {
   }
 }
 
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({
-    required this.plan,
-    required this.isCurrent,
-    required this.onTap,
+class _CreditsCard extends StatelessWidget {
+  const _CreditsCard({
+    required this.credits,
+    required this.busy,
+    required this.onBuy,
   });
 
-  final Map<String, dynamic> plan;
-  final bool isCurrent;
-  final VoidCallback? onTap;
+  final CreditsInfo credits;
+  final bool busy;
+  final VoidCallback onBuy;
 
   @override
   Widget build(BuildContext context) {
-    final features = ((plan['features'] as List?) ?? [])
-        .map((e) => e.toString())
-        .toList();
+    final allowance = credits.allowance <= 0 ? 1 : credits.allowance;
+    final ratio = (credits.balance / allowance).clamp(0.0, 1.0);
+    final recent = credits.ledger.take(6).toList();
+
     return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bolt_rounded, color: star),
+              const SizedBox(width: 8),
+              Text(
+                'AI credits',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${credits.balance}',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 24,
+                  color: ink,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 8,
+              color: ratio < 0.2 ? bad : brand,
+              backgroundColor: const Color(0xFFEEF1F7),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            credits.resetAt == null
+                ? '${credits.allowance} credits per period'
+                : '${credits.allowance} credits per period, resets ${fmtDate(credits.resetAt!)}',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: busy ? null : onBuy,
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+            label: const Text('Buy more credits on web'),
+          ),
+          if (recent.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              'Recent activity',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final e in recent)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        e.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                      ),
+                    ),
+                    Text(
+                      e.delta > 0 ? '+${e.delta}' : '${e.delta}',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        color: e.delta > 0 ? good : ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanTile extends StatelessWidget {
+  const _PlanTile({
+    required this.plan,
+    required this.current,
+    required this.busy,
+    required this.onChoose,
+  });
+
+  final PlanInfo plan;
+  final bool current;
+  final bool busy;
+  final VoidCallback onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: cardDecoration(),
       child: Column(
@@ -410,77 +474,154 @@ class _PlanCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _s(plan['name']),
+                  plan.name,
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w800,
-                    fontSize: 16,
+                    fontSize: 17,
                     color: ink,
                   ),
                 ),
               ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, anim) =>
-                    ScaleTransition(scale: anim, child: child),
-                child: isCurrent
-                    ? Container(
-                        key: const ValueKey('current'),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: good.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Current',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: good,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(key: ValueKey('not-current')),
-              ),
+              if (current)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: good.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Current',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: good,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
-            '${_rupees(_n(plan['price']))} / month  •  ${_i(plan['credits'])} AI credits  •  GST ${_i(plan['gst_rate'])}%',
-            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+            plan.billingPeriod.isEmpty
+                ? plan.priceDisplay
+                : '${plan.priceDisplay} / ${plan.billingPeriod}',
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              color: brand,
+            ),
           ),
-          const SizedBox(height: 8),
-          for (final f in features)
+          if (plan.description.isNotEmpty) ...[
+            const SizedBox(height: 6),
             Text(
-              '✓ $f',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
+              plan.description,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: muted, height: 1.4),
             ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: isCurrent ? null : onTap,
-            icon: const Icon(Icons.open_in_new_rounded, size: 16),
-            label: Text(
-              isCurrent ? 'Current plan' : 'Choose ${_s(plan['name'])} on web',
+          ],
+          if (plan.features.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final f in plan.features.take(8))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: surface,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      f.replaceAll('_', ' '),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: ink),
+                    ),
+                  ),
+              ],
             ),
-          ),
+          ],
+          if (!current) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: busy ? null : onChoose,
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: Text('Choose ${plan.name} on web'),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _PackCard extends StatelessWidget {
-  const _PackCard({required this.pack, required this.onTap});
+class _PackTile extends StatelessWidget {
+  const _PackTile({required this.pack, required this.onTap});
 
-  final Map<String, dynamic> pack;
-  final VoidCallback? onTap;
+  final CreditPackInfo pack;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          width: 140,
+          padding: const EdgeInsets.all(14),
+          decoration: cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                pack.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: muted,
+                ),
+              ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${pack.credits} credits',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: ink,
+                  ),
+                ),
+              ),
+              Text(
+                '₹${pack.price.toStringAsFixed(pack.price % 1 == 0 ? 0 : 2)}',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: brand,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InvoiceRow extends StatelessWidget {
+  const _InvoiceRow({required this.invoice});
+
+  final BillingInvoice invoice;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _statusColor(invoice.status);
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: cardDecoration(),
       child: Row(
         children: [
@@ -489,98 +630,45 @@ class _PackCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _s(pack['name']),
+                  invoice.number,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: ink,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${_i(pack['credits'])} credits  •  ${_rupees(_n(pack['price']))} (GST ${_i(pack['gst_rate'])}%)',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    color: muted,
-                  ),
+                  invoice.issuedAt == null ? '' : fmtDate(invoice.issuedAt!),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
                 ),
               ],
             ),
           ),
-          OutlinedButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.open_in_new_rounded, size: 16),
-            label: const Text('Buy on web'),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                invoice.total,
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                invoice.status.toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
-}
-
-/// Invoice PDF for one payment. Uses "Rs." because the default PDF font has no rupee glyph.
-Future<void> _sharePaymentPdf(Map<String, dynamic> inv) async {
-  String money(dynamic v) => 'Rs. ${_n(v).toStringAsFixed(2)}';
-  final billedTo = (inv['billed_to'] as Map?) ?? {};
-  final doc = pw.Document();
-  doc.addPage(
-    pw.Page(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(40),
-      build: (_) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(
-                'ReviewFlow',
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Text(
-                'INVOICE',
-                style: pw.TextStyle(
-                  fontSize: 16,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          pw.SizedBox(height: 20),
-          pw.Text('Invoice: ${_s(inv['invoice_number'])}'),
-          pw.Text('Date: ${_s(inv['date'])}'),
-          pw.Text('Payment ID: ${_s(inv['payment_id'])}'),
-          pw.SizedBox(height: 16),
-          pw.Text(
-            'Billed to',
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-          ),
-          pw.Text(_s(billedTo['name'])),
-          pw.Text(_s(billedTo['email'])),
-          pw.SizedBox(height: 20),
-          pw.Text('Plan: ${_s(inv['plan_name'])}'),
-          pw.SizedBox(height: 10),
-          pw.Text('Subtotal: ${money(inv['base'])}'),
-          pw.Text('GST (${_i(inv['gst_rate'])}%): ${money(inv['gst'])}'),
-          pw.Text(
-            'Total: ${money(inv['total'])}',
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-          ),
-          pw.SizedBox(height: 10),
-          pw.Text('Status: ${_s(inv['status'])}'),
-        ],
-      ),
-    ),
-  );
-
-  final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/${_s(inv['invoice_number'])}.pdf');
-  await file.writeAsBytes(await doc.save());
-  await SharePlus.instance.share(
-    ShareParams(
-      files: [XFile(file.path, mimeType: 'application/pdf')],
-      subject: 'Invoice ${_s(inv['invoice_number'])}',
-    ),
-  );
 }

@@ -80,9 +80,14 @@ class AuthService {
   }
 
   /// One-time link that opens the web app already signed in (payments happen there).
-  static Future<String> webSessionUrl() async {
+  static Future<String> webSessionUrl({String? next}) async {
     final data = await ApiService.instance.post('/auth/web-session');
-    return data['login_url'] as String;
+    final url = data['login_url'] as String;
+    if (next == null) return url;
+    final uri = Uri.parse(url);
+    return uri
+        .replace(queryParameters: {...uri.queryParameters, 'next': next})
+        .toString();
   }
 
   static Future<void> logout() async {

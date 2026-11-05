@@ -11,6 +11,7 @@ class AppUser {
     required this.email,
     this.phone,
     this.avatarUrl,
+    this.address,
     this.isSuperAdmin = false,
     this.emailVerified = false,
     this.businessName,
@@ -30,6 +31,7 @@ class AppUser {
       email: (j['email'] ?? '').toString(),
       phone: j['phone']?.toString(),
       avatarUrl: j['avatar_url']?.toString(),
+      address: j['address']?.toString(),
       isSuperAdmin: j['is_super_admin'] == true,
       emailVerified: j['email_verified'] == true,
       businessName: tenant is Map
@@ -49,6 +51,7 @@ class AppUser {
   final String email;
   final String? phone;
   final String? avatarUrl;
+  final String? address;
   final bool isSuperAdmin;
   final bool emailVerified;
   final String? businessName;

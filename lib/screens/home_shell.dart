@@ -6,13 +6,15 @@ import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
-import '../widgets/coming_soon.dart';
 import 'ai_tools_screen.dart';
+import 'automation_screen.dart';
+import 'billing_screen.dart';
 import 'business_profile_screen.dart';
 import 'dashboard_screen.dart';
 import 'insights_screen.dart';
 import 'pages.dart';
 import 'posts_photos_screen.dart';
+import 'profile_screen.dart';
 import 'reviews_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -45,9 +47,9 @@ class _HomeShellState extends State<HomeShell> {
         () => InsightsScreen(onNavigate: _select),
         () => const AiToolsScreen(),
         () => const BusinessProfileScreen(),
-        () => const ComingSoon(title: 'Automation', icon: Icons.bolt_rounded),
-        () => const ComingSoon(title: 'Plans & billing', icon: Icons.workspace_premium_rounded),
-        () => const ComingSoon(title: 'My Profile', icon: Icons.person_rounded),
+        () => const AutomationScreen(),
+        () => const BillingScreen(),
+        () => ProfileScreen(onSignedOut: widget.onSignedOut),
       ];
 
   static const _titles = [
