@@ -89,6 +89,212 @@ class GbpService {
     );
   }
 
+  // ---- Posts ----
+
+  static String _locationQuery(String? id) => id == null ? '' : '?location=$id';
+
+  static Future<List<GbpPost>> posts({String? locationId}) async {
+    final res = await _api.get('/gbp/posts${_locationQuery(locationId)}');
+    return asMaps(res['posts']).map(GbpPost.fromJson).toList();
+  }
+
+  static Future<GbpPost> createPost(Map<String, dynamic> body) async {
+    final res = await _api.post('/gbp/posts', body: body);
+    return GbpPost.fromJson(asMap(res['post']));
+  }
+
+  static Future<GbpPost> updatePost(String id, Map<String, dynamic> body) async {
+    final res = await _api.put('/gbp/posts/$id', body: body);
+    return GbpPost.fromJson(asMap(res['post']));
+  }
+
+  /// Pushes the post to Google. Throws (502) with Google's reason if it refuses.
+  static Future<GbpPost> publishPost(String id) async {
+    final res = await _api.post('/gbp/posts/$id/publish', timeout: kAiTimeout);
+    return GbpPost.fromJson(asMap(res['post']));
+  }
+
+  static Future<void> deletePost(String id) async {
+    await _api.delete('/gbp/posts/$id');
+  }
+
+  static Future<AiText> generatePostText({
+    required String topic,
+    required String type,
+    String? locationId,
+    String? imageUrl,
+  }) async {
+    final res = await _api.post(
+      '/gbp/posts/generate',
+      body: {
+        'topic': topic,
+        'type': type,
+        'location': ?locationId,
+        if (imageUrl != null && imageUrl.isNotEmpty) 'image_url': imageUrl,
+      },
+      timeout: kAiTimeout,
+    );
+    return AiText(
+      text: asStr(res['text']),
+      source: asStr(res['source']),
+      credits: asInt(res['credits']),
+    );
+  }
+
+  /// AI content plan: creates [count] scheduled posts. Images make it much slower.
+  static Future<({int created, String message, int credits})> autoPlan({
+    String? locationId,
+    required int count,
+    required int cadenceDays,
+    required bool withImages,
+  }) async {
+    final res = await _api.post(
+      '/gbp/posts/auto-plan',
+      body: {
+        'location': ?locationId,
+        'count': count,
+        'cadence_days': cadenceDays,
+        'with_images': withImages,
+      },
+      timeout: const Duration(seconds: 240),
+    );
+    return (
+      created: asInt(res['created']),
+      message: asStr(res['message']),
+      credits: asInt(res['credits']),
+    );
+  }
+
+  // ---- Insights, audit, optimize, assistant ----
+
+  static Future<InsightsData> insights({
+    required int days,
+    String? locationId,
+  }) async {
+    final res = await _api.get(
+      '/gbp/insights?days=$days${locationId == null ? '' : '&location=$locationId'}',
+    );
+    return InsightsData.fromJson(res);
+  }
+
+  static Future<List<int>> insightsCsv({
+    required int days,
+    String? locationId,
+  }) {
+    return _api.getBytes(
+      '/gbp/insights/export?days=$days${locationId == null ? '' : '&location=$locationId'}',
+    );
+  }
+
+  static Future<GbpHealth> health() async =>
+      GbpHealth.fromJson(await _api.get('/gbp/health'));
+
+  /// One-click optimization plan. Costs credits when the AI answers.
+  static Future<OptimizeResult> optimize() async => OptimizeResult.fromJson(
+        await _api.post('/gbp/optimize', timeout: kAiTimeout),
+      );
+
+  static Future<AiText> assistantChat(String message) async {
+    final res = await _api.post(
+      '/assistant/chat',
+      body: {'message': message},
+      timeout: kAiTimeout,
+    );
+    return AiText(
+      text: asStr(res['answer']),
+      source: asStr(res['source']),
+      credits: asInt(res['credits']),
+    );
+  }
+
+  // ---- Business profile ----
+
+  static Future<BusinessProfile> profile({String? locationId}) async {
+    final res = await _api.get('/gbp/profile${_locationQuery(locationId)}');
+    return BusinessProfile.fromJson(asMap(res['profile']));
+  }
+
+  /// Saves in Eydia and, when Google is connected, pushes name, phone, website,
+  /// description and hours to Google. [message] says which of the two happened.
+  static Future<({BusinessProfile profile, bool syncedToGoogle, String message})>
+      updateProfile(String? locationId, Map<String, dynamic> body) async {
+    final res = await _api.put(
+      '/gbp/profile${_locationQuery(locationId)}',
+      body: body,
+    );
+    return (
+      profile: BusinessProfile.fromJson(asMap(res['profile'])),
+      syncedToGoogle: res['synced_to_google'] == true,
+      message: asStr(res['message']),
+    );
+  }
+
+  static Future<AiText> aiRewriteDescription({
+    String? locationId,
+    List<String> keywords = const [],
+  }) async {
+    final res = await _api.post(
+      '/gbp/profile/ai-rewrite',
+      body: {'location': ?locationId, if (keywords.isNotEmpty) 'keywords': keywords},
+      timeout: kAiTimeout,
+    );
+    return AiText(
+      text: asStr(res['description']),
+      source: asStr(res['source']),
+      credits: asInt(res['credits']),
+    );
+  }
+
+  // ---- Photos ----
+
+  static Future<List<GbpPhoto>> photos({String? locationId}) async {
+    final res = await _api.get('/gbp/photos${_locationQuery(locationId)}');
+    return asMaps(res['photos']).map(GbpPhoto.fromJson).toList();
+  }
+
+  static Future<GbpPhoto> createPhoto(Map<String, dynamic> body) async {
+    final res = await _api.post('/gbp/photos', body: body);
+    return GbpPhoto.fromJson(asMap(res['photo']));
+  }
+
+  static Future<GbpPhoto> publishPhoto(String id) async {
+    final res = await _api.post('/gbp/photos/$id/publish', timeout: kAiTimeout);
+    return GbpPhoto.fromJson(asMap(res['photo']));
+  }
+
+  static Future<void> deletePhoto(String id) async {
+    await _api.delete('/gbp/photos/$id');
+  }
+
+  static Future<AiText> photoCaption({
+    required String topic,
+    String? locationId,
+  }) async {
+    final res = await _api.post(
+      '/gbp/photos/caption',
+      body: {'topic': topic, 'location': ?locationId},
+      timeout: kAiTimeout,
+    );
+    return AiText(
+      text: asStr(res['text']),
+      source: asStr(res['source']),
+      credits: asInt(res['credits']),
+    );
+  }
+
+  /// Uploads an image and returns its public https URL (what posts and photos need).
+  static Future<String> uploadImage(List<int> bytes, String filename) async {
+    final res = await _api.upload(
+      '/gbp/upload',
+      field: 'file',
+      bytes: bytes,
+      filename: filename,
+    );
+    final url = asStr(res['url']);
+    if (url.isEmpty) throw ApiException('Image upload failed. Please try again.');
+    return url;
+  }
+
   static Future<void> disconnect() async {
     await _api.delete('/gbp/connection');
   }

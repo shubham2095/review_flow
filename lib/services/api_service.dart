@@ -153,6 +153,27 @@ class ApiService {
     return _asMap(_unwrap(res));
   }
 
+  /// Multipart upload of one file (field name as the endpoint expects, e.g. `file`).
+  Future<Map<String, dynamic>> upload(
+    String path, {
+    required String field,
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final res = await _authed(
+      (token) async {
+        final req = http.MultipartRequest('POST', _uri(path))
+          ..headers.addAll(_headers(token))
+          ..files.add(
+            http.MultipartFile.fromBytes(field, bytes, filename: filename),
+          );
+        return http.Response.fromStream(await req.send());
+      },
+      timeout: const Duration(seconds: 120),
+    );
+    return _asMap(_unwrap(res));
+  }
+
   Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? body}) =>
       _send('PUT', path, body: body);
 

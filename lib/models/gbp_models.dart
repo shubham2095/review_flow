@@ -284,3 +284,292 @@ class GbpSyncResult {
   final int reviews;
   final String message;
 }
+
+class GbpPost {
+  GbpPost({
+    required this.id,
+    required this.type,
+    required this.summary,
+    required this.status,
+    this.locationId,
+    this.locationName,
+    this.imageUrl,
+    this.ctaType,
+    this.ctaUrl,
+    this.title,
+    this.couponCode,
+    this.terms,
+    this.eventStart,
+    this.eventEnd,
+    this.publishedAt,
+    this.scheduledAt,
+    this.createdAt,
+  });
+
+  factory GbpPost.fromJson(Map<String, dynamic> j) {
+    final loc = j['location'];
+    return GbpPost(
+      id: asStr(j['id']),
+      type: asStr(j['type']).isEmpty ? 'STANDARD' : asStr(j['type']),
+      summary: asStr(j['summary']),
+      status: asStr(j['status']),
+      locationId: loc is Map ? asStr(loc['id']) : null,
+      locationName: loc is Map ? asStr(loc['name']) : null,
+      imageUrl: j['image_url']?.toString(),
+      ctaType: j['cta_type']?.toString(),
+      ctaUrl: j['cta_url']?.toString(),
+      title: j['title']?.toString(),
+      couponCode: j['coupon_code']?.toString(),
+      terms: j['terms']?.toString(),
+      eventStart: asDate(j['event_start']),
+      eventEnd: asDate(j['event_end']),
+      publishedAt: asDate(j['published_at']),
+      scheduledAt: asDate(j['scheduled_at']),
+      createdAt: asDate(j['created_at']),
+    );
+  }
+
+  final String id;
+  final String type;
+  final String summary;
+  final String status;
+  final String? locationId;
+  final String? locationName;
+  final String? imageUrl;
+  final String? ctaType;
+  final String? ctaUrl;
+  final String? title;
+  final String? couponCode;
+  final String? terms;
+  final DateTime? eventStart;
+  final DateTime? eventEnd;
+  final DateTime? publishedAt;
+  final DateTime? scheduledAt;
+  final DateTime? createdAt;
+
+  bool get isPublished => status == 'PUBLISHED';
+  bool get hasImage => (imageUrl ?? '').isNotEmpty;
+}
+
+class GbpPhoto {
+  GbpPhoto({
+    required this.id,
+    required this.imageUrl,
+    required this.category,
+    required this.status,
+    this.locationId,
+    this.locationName,
+    this.caption,
+    this.publishedAt,
+    this.scheduledAt,
+  });
+
+  factory GbpPhoto.fromJson(Map<String, dynamic> j) {
+    final loc = j['location'];
+    return GbpPhoto(
+      id: asStr(j['id']),
+      imageUrl: asStr(j['image_url']),
+      category: asStr(j['category']),
+      status: asStr(j['status']),
+      locationId: loc is Map ? asStr(loc['id']) : null,
+      locationName: loc is Map ? asStr(loc['name']) : null,
+      caption: j['caption']?.toString(),
+      publishedAt: asDate(j['published_at']),
+      scheduledAt: asDate(j['scheduled_at']),
+    );
+  }
+
+  final String id;
+  final String imageUrl;
+  final String category;
+  final String status;
+  final String? locationId;
+  final String? locationName;
+  final String? caption;
+  final DateTime? publishedAt;
+  final DateTime? scheduledAt;
+
+  bool get isPublished => status == 'PUBLISHED';
+}
+
+/// Text written by the AI (post body or photo caption).
+class AiText {
+  AiText({required this.text, required this.source, required this.credits});
+
+  final String text;
+  final String source;
+  final int credits;
+
+  bool get isAi => source == 'ai';
+}
+
+class DailyPoint {
+  DailyPoint(this.date, this.value);
+
+  final String date;
+  final int value;
+}
+
+class InsightsData {
+  InsightsData({
+    required this.connected,
+    required this.days,
+    required this.impressions,
+    required this.calls,
+    required this.websiteClicks,
+    required this.directions,
+    required this.series,
+    required this.message,
+    this.locationName,
+  });
+
+  factory InsightsData.fromJson(Map<String, dynamic> j) {
+    final m = asMap(j['metrics']);
+    final loc = asMap(j['location']);
+    return InsightsData(
+      connected: j['connected'] == true,
+      days: asInt(j['days']),
+      impressions: asInt(m['impressions']),
+      calls: asInt(m['CALL_CLICKS']),
+      websiteClicks: asInt(m['WEBSITE_CLICKS']),
+      directions: asInt(m['BUSINESS_DIRECTION_REQUESTS']),
+      series: asMaps(j['series'])
+          .map((p) => DailyPoint(asStr(p['date']), asInt(p['value'])))
+          .toList(),
+      message: asStr(j['message']),
+      locationName: loc.isEmpty ? null : asStr(loc['name']),
+    );
+  }
+
+  final bool connected;
+  final int days;
+  final int impressions;
+  final int calls;
+  final int websiteClicks;
+  final int directions;
+  final List<DailyPoint> series;
+  final String message;
+  final String? locationName;
+
+  int get interactions => calls + websiteClicks + directions;
+}
+
+class OptimizeResult {
+  OptimizeResult({
+    required this.source,
+    required this.summary,
+    required this.actions,
+    required this.health,
+    required this.credits,
+  });
+
+  factory OptimizeResult.fromJson(Map<String, dynamic> j) => OptimizeResult(
+        source: asStr(j['source']),
+        summary: asStr(j['summary']),
+        actions: asMaps(j['actions']).map(HealthAction.fromJson).toList(),
+        health: GbpHealth.fromJson(asMap(j['health'])),
+        credits: asInt(j['credits']),
+      );
+
+  final String source;
+  final String summary;
+  final List<HealthAction> actions;
+  final GbpHealth health;
+  final int credits;
+
+  bool get isAi => source == 'ai';
+}
+
+class HoursRow {
+  HoursRow({
+    required this.day,
+    required this.open,
+    required this.close,
+    required this.closed,
+  });
+
+  factory HoursRow.fromJson(Map<String, dynamic> j) => HoursRow(
+        day: asStr(j['day']),
+        open: asStr(j['open']).isEmpty ? '09:00' : asStr(j['open']),
+        close: asStr(j['close']).isEmpty ? '18:00' : asStr(j['close']),
+        closed: j['closed'] == true,
+      );
+
+  String day;
+  String open;
+  String close;
+  bool closed;
+
+  HoursRow copy() => HoursRow(day: day, open: open, close: close, closed: closed);
+
+  Map<String, dynamic> toJson() =>
+      {'day': day, 'open': open, 'close': close, 'closed': closed};
+}
+
+class BusinessProfile {
+  BusinessProfile({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.description,
+    required this.phone,
+    required this.chatUrl,
+    required this.website,
+    required this.address,
+    required this.serviceArea,
+    required this.hours,
+    required this.labels,
+    required this.openingDate,
+    required this.reviewUrl,
+    required this.shareWhatsapp,
+    required this.rating,
+    required this.reviewCount,
+    required this.isVerified,
+    required this.linkedToGoogle,
+  });
+
+  factory BusinessProfile.fromJson(Map<String, dynamic> j) {
+    final share = asMap(j['share']);
+    List<String> strings(dynamic v) =>
+        v is List ? v.map((e) => e.toString()).toList() : <String>[];
+    return BusinessProfile(
+      id: j['id']?.toString(),
+      name: asStr(j['name']),
+      category: asStr(j['category']),
+      description: asStr(j['description']),
+      phone: asStr(j['phone']),
+      chatUrl: asStr(j['chat_url']),
+      website: asStr(j['website']),
+      address: asStr(j['address']),
+      serviceArea: strings(j['service_area']),
+      hours: asMaps(j['hours']).map(HoursRow.fromJson).toList(),
+      labels: strings(j['labels']),
+      openingDate: asStr(j['opening_date']),
+      reviewUrl: asStr(j['review_url']),
+      shareWhatsapp: asStr(share['whatsapp']),
+      rating: asDouble(j['rating']),
+      reviewCount: asInt(j['review_count']),
+      isVerified: j['is_verified'] == true,
+      linkedToGoogle: asStr(j['google_location_id']).isNotEmpty,
+    );
+  }
+
+  final String? id;
+  final String name;
+  final String category;
+  final String description;
+  final String phone;
+  final String chatUrl;
+  final String website;
+  final String address;
+  final List<String> serviceArea;
+  final List<HoursRow> hours;
+  final List<String> labels;
+  final String openingDate;
+  final String reviewUrl;
+  final String shareWhatsapp;
+  final double rating;
+  final int reviewCount;
+  final bool isVerified;
+  final bool linkedToGoogle;
+}

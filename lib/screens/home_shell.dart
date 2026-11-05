@@ -7,8 +7,12 @@ import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/coming_soon.dart';
+import 'ai_tools_screen.dart';
+import 'business_profile_screen.dart';
 import 'dashboard_screen.dart';
+import 'insights_screen.dart';
 import 'pages.dart';
+import 'posts_photos_screen.dart';
 import 'reviews_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -37,10 +41,10 @@ class _HomeShellState extends State<HomeShell> {
   List<Widget Function()> get _pageBuilders => [
         () => DashboardScreen(onNavigate: _select),
         () => ReviewsScreen(onNavigate: _select),
-        () => const ComingSoon(title: 'Posts & Photos', icon: Icons.photo_library_rounded),
-        () => const ComingSoon(title: 'Insights', icon: Icons.insights_rounded),
-        () => const ComingSoon(title: 'AI Tools', icon: Icons.auto_awesome_rounded),
-        () => const ComingSoon(title: 'Business profile', icon: Icons.storefront_rounded),
+        () => PostsPhotosScreen(onNavigate: _select),
+        () => InsightsScreen(onNavigate: _select),
+        () => const AiToolsScreen(),
+        () => const BusinessProfileScreen(),
         () => const ComingSoon(title: 'Automation', icon: Icons.bolt_rounded),
         () => const ComingSoon(title: 'Plans & billing', icon: Icons.workspace_premium_rounded),
         () => const ComingSoon(title: 'My Profile', icon: Icons.person_rounded),

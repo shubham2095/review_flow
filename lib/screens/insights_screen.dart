@@ -1,67 +1,61 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../models/insights_models.dart';
+import '../models/gbp_models.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
+import '../services/gbp_service.dart';
+import '../services/location_store.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
+import 'pages.dart';
 
+/// Google performance for the selected location: views, calls, website
+/// clicks and direction requests, with a daily trend and CSV export.
 class InsightsScreen extends StatefulWidget {
-  const InsightsScreen({super.key, required this.onSignedOut});
+  const InsightsScreen({super.key, required this.onNavigate});
 
-  final VoidCallback onSignedOut;
+  final ValueChanged<int> onNavigate;
 
   @override
   State<InsightsScreen> createState() => _InsightsScreenState();
 }
 
 class _InsightsScreenState extends State<InsightsScreen> {
-  static const _rangeOptions = {7: '7 days', 30: '30 days', 90: '90 days', 180: '6 months'};
-
-  int _days = 30;
-  int? _locationId;
   InsightsData? _data;
-  String? _error;
+  int _days = 30;
   bool _loading = true;
+  bool _exporting = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
+    LocationStore.selectedId.addListener(_load);
     _load();
   }
 
-  String _fmt(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  @override
+  void dispose() {
+    LocationStore.selectedId.removeListener(_load);
+    super.dispose();
+  }
 
   Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
-    final end = DateTime.now();
-    final start = end.subtract(Duration(days: _days));
-    final query = StringBuffer('start=${_fmt(start)}&end=${_fmt(end)}');
-    if (_locationId != null) query.write('&location=$_locationId');
-
+    if (mounted && _data == null) setState(() => _loading = true);
     try {
-      final json = await ApiService.instance
-          .get('/insights?$query')
-          .timeout(const Duration(seconds: 45));
+      final data = await GbpService.insights(
+        days: _days,
+        locationId: LocationStore.selectedId.value,
+      );
       if (!mounted) return;
       setState(() {
-        _data = InsightsData.fromJson(json);
+        _data = data;
         _error = null;
       });
-    } on ApiException catch (e) {
-      if (e.statusCode == 401) {
-        await AuthService.logout();
-        widget.onSignedOut();
-        return;
-      }
-      if (mounted) setState(() => _error = e.message);
     } catch (e) {
       if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
@@ -71,34 +65,38 @@ class _InsightsScreenState extends State<InsightsScreen> {
 
   void _setDays(int days) {
     if (days == _days) return;
-    setState(() => _days = days);
+    setState(() {
+      _days = days;
+      _loading = true;
+    });
     _load();
   }
 
-  void _setLocation(int? id) {
-    if (id == _locationId) return;
-    setState(() => _locationId = id);
-    _load();
-  }
-
-  Future<void> _downloadCsv() async {
-    final end = DateTime.now();
-    final start = end.subtract(Duration(days: _days));
-    final query = StringBuffer('start=${_fmt(start)}&end=${_fmt(end)}');
-    if (_locationId != null) query.write('&location=$_locationId');
-
+  Future<void> _export() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
     try {
-      final bytes = await ApiService.instance.getBytes('/insights/download?$query');
+      final bytes = await GbpService.insightsCsv(
+        days: _days,
+        locationId: LocationStore.selectedId.value,
+      );
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/insights_${_fmt(end)}.csv');
+      final file = File('${dir.path}/eydia_insights_${_days}d.csv');
       await file.writeAsBytes(bytes);
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path, mimeType: 'text/csv')], subject: 'Insights ${_fmt(start)} to ${_fmt(end)}'),
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'text/csv')],
+          subject: 'Eydia insights, last $_days days',
+        ),
       );
-    } on ApiException catch (e) {
+    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyException(e).message)),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
     }
   }
 
@@ -106,159 +104,118 @@ class _InsightsScreenState extends State<InsightsScreen> {
   Widget build(BuildContext context) {
     final data = _data;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.white,
-        statusBarIconBrightness: Brightness.dark,
-      ),
-      child: Scaffold(
-        backgroundColor: surface,
-        body: RefreshIndicator(
-          color: brand,
-          onRefresh: _load,
-          child: data == null
-              ? ListView(
-                  children: [
-                    SizedBox(
-                      height: MediaQuery.sizeOf(context).height * 0.7,
-                      child: Center(
-                        child: _loading
-                            ? const CircularProgressIndicator()
-                            : FadeIn(child: _ErrorBox(message: _error ?? 'Could not load insights', onRetry: _load)),
-                      ),
-                    ),
-                  ],
-                )
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                  children: [
-                    FadeIn(
-                      child: _Filters(
-                        days: _days,
-                        rangeOptions: _rangeOptions,
-                        onDays: _setDays,
-                        locations: data.locations,
-                        locationId: _locationId,
-                        onLocation: _setLocation,
-                      ),
-                    ),
-                    if (data.hasGoogle) ...[
-                      const SizedBox(height: 12),
-                      FadeIn(
-                        delay: 60,
-                        child: OutlinedButton.icon(
-                          onPressed: _downloadCsv,
-                          icon: const Icon(Icons.download_rounded, size: 18),
-                          label: const Text('Download CSV'),
-                        ),
-                      ),
+    return Scaffold(
+      backgroundColor: surface,
+      body: RefreshIndicator(
+        color: brand,
+        onRefresh: _load,
+        child: _loading && data == null
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 7, label: Text('7 days')),
+                      ButtonSegment(value: 30, label: Text('30 days')),
+                      ButtonSegment(value: 90, label: Text('90 days')),
                     ],
-                    const SizedBox(height: 16),
-                    if (!data.hasGoogle)
-                      const FadeIn(
-                        child: _InfoCard(
-                          emoji: '🔌',
-                          text: 'Google Business Profile is not connected. Connect it from a client\'s page under "Clients" to see insights.',
-                        ),
-                      )
-                    else if (data.error != null)
-                      FadeIn(child: _InfoCard(emoji: '⚠️', text: data.error!))
-                    else ...[
-                      _KpiGrid(totals: data.totals),
-                      const SizedBox(height: 16),
-                      FadeIn(delay: 480, child: _SplitCard(totals: data.totals)),
-                      const SizedBox(height: 16),
-                      FadeIn(delay: 560, child: _TrendCard(daily: data.daily)),
-                      if (data.perLocation.length > 1) ...[
-                        const _SectionTitle('📍 By location'),
-                        for (var i = 0; i < data.perLocation.length; i++)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: FadeIn(
-                              delay: 640 + (i < 10 ? i * 60 : 0),
-                              child: _LocationRow(loc: data.perLocation[i]),
+                    selected: {_days},
+                    onSelectionChanged: (s) => _setDays(s.first),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_error != null && data == null)
+                    _Message(
+                      icon: Icons.cloud_off_rounded,
+                      title: 'Could not load insights',
+                      text: _error!,
+                      action: FilledButton(
+                        onPressed: _load,
+                        child: const Text('Try again'),
+                      ),
+                    )
+                  else if (data != null && !data.connected)
+                    _Message(
+                      icon: Icons.link_off_rounded,
+                      title: 'Google is not connected',
+                      text: data.message.isNotEmpty
+                          ? data.message
+                          : 'Connect your Google Business Profile to see live performance.',
+                      action: FilledButton(
+                        onPressed: () => widget.onNavigate(kPageOverview),
+                        child: const Text('Go to Overview'),
+                      ),
+                    )
+                  else if (data != null) ...[
+                    if ((data.locationName ?? '').isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.place_rounded, size: 16, color: brand),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                data.locationName!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.w700,
+                                  color: ink,
+                                ),
+                              ),
                             ),
-                          ),
-                      ],
-                    ],
+                          ],
+                        ),
+                      ),
+                    FadeIn(child: _Metrics(data: data)),
+                    const SizedBox(height: 16),
+                    FadeIn(delay: 120, child: _Trend(series: data.series)),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _exporting ? null : _export,
+                      icon: _exporting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.file_download_rounded, size: 18),
+                      label: Text(_exporting ? 'Preparing file...' : 'Export CSV'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(46),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
                   ],
-                ),
-        ),
+                ],
+              ),
       ),
     );
   }
 }
 
-class _Filters extends StatelessWidget {
-  const _Filters({
-    required this.days,
-    required this.rangeOptions,
-    required this.onDays,
-    required this.locations,
-    required this.locationId,
-    required this.onLocation,
-  });
-
-  final int days;
-  final Map<int, String> rangeOptions;
-  final ValueChanged<int> onDays;
-  final List<InsightLocation> locations;
-  final int? locationId;
-  final ValueChanged<int?> onLocation;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SegmentedButton<int>(
-          segments: [
-            for (final e in rangeOptions.entries)
-              ButtonSegment(value: e.key, label: Text(e.value)),
-          ],
-          selected: {days},
-          onSelectionChanged: (s) => onDays(s.first),
-        ),
-        if (locations.length > 1) ...[
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int?>(
-              isExpanded: true,
-              initialValue: locationId,
-            decoration: InputDecoration(
-              labelText: 'Location',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('All locations')),
-              for (final l in locations) DropdownMenuItem<int?>(value: l.id, child: Text(l.title)),
-            ],
-            onChanged: onLocation,
-          ),
-        ],
-      ],
-    );
-  }
+String _compact(num v) {
+  if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+  if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
+  return v.round().toString();
 }
 
-class _KpiGrid extends StatelessWidget {
-  const _KpiGrid({required this.totals});
+class _Metrics extends StatelessWidget {
+  const _Metrics({required this.data});
 
-  final Map<String, double> totals;
+  final InsightsData data;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      _Kpi('🔎', 'Search views', sumKeys(totals, searchKeys), brand),
-      _Kpi('🗺️', 'Maps views', sumKeys(totals, mapsKeys), brandDeep),
-      _Kpi('📞', 'Calls', sumKeys(totals, callKeys), good),
-      _Kpi('🧭', 'Directions', sumKeys(totals, directionKeys), star),
-      _Kpi('🌐', 'Website clicks', sumKeys(totals, websiteKeys), warn),
-      _Kpi('📅', 'Bookings', sumKeys(totals, bookingKeys), bad),
+      (Icons.visibility_rounded, 'Total views', data.impressions, brand),
+      (Icons.call_rounded, 'Calls', data.calls, good),
+      (Icons.language_rounded, 'Website clicks', data.websiteClicks, brandDeep),
+      (Icons.directions_rounded, 'Directions', data.directions, warn),
     ];
     return GridView.count(
       crossAxisCount: 2,
@@ -266,94 +223,70 @@ class _KpiGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      mainAxisExtent: 104,
+      mainAxisExtent: 112,
       children: [
-        for (var i = 0; i < items.length; i++)
-          FadeIn(delay: i * 70, child: items[i]),
+        for (final (icon, label, value, color) in items)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: cardDecoration(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, size: 16, color: color),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                      ),
+                    ),
+                  ],
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: value.toDouble()),
+                    duration: const Duration(milliseconds: 1000),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, v, _) => Text(
+                      _compact(v),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
 }
 
-class _Kpi extends StatelessWidget {
-  const _Kpi(this.emoji, this.label, this.value, this.color);
+class _Trend extends StatelessWidget {
+  const _Trend({required this.series});
 
-  final String emoji;
-  final String label;
-  final double value;
-  final Color color;
+  final List<DailyPoint> series;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(emoji, style: const TextStyle(fontSize: 14)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
-                ),
-              ),
-            ],
-          ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: value),
-              duration: const Duration(milliseconds: 1000),
-              curve: Curves.easeOutCubic,
-              builder: (_, v, _) => Text(
-                _compact(v),
-                maxLines: 1,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: ink,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _compact(double v) {
-  if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
-  if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K';
-  return v.round().toString();
-}
-
-class _SplitCard extends StatelessWidget {
-  const _SplitCard({required this.totals});
-
-  final Map<String, double> totals;
-
-  @override
-  Widget build(BuildContext context) {
-    final search = sumKeys(totals, searchKeys);
-    final maps = sumKeys(totals, mapsKeys);
-    final total = search + maps;
-    final searchShare = total == 0 ? 0.0 : search / total;
+    final points = series.length > 60 ? series.sublist(series.length - 60) : series;
+    final maxV = points.fold<int>(0, (m, p) => p.value > m ? p.value : m);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -362,83 +295,17 @@ class _SplitCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Where people find you',
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: searchShare),
-              duration: const Duration(milliseconds: 900),
-              curve: Curves.easeOutCubic,
-              builder: (_, v, _) => LinearProgressIndicator(
-                value: v,
-                minHeight: 14,
-                color: brand,
-                backgroundColor: brandDeep.withValues(alpha: 0.35),
-              ),
+            'Daily interactions',
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w800,
+              color: ink,
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _Legend(color: brand, text: 'Search ${(searchShare * 100).round()}%'),
-              const Spacer(),
-              _Legend(color: brandDeep, text: 'Maps ${((1 - searchShare) * 100).round()}%'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Legend extends StatelessWidget {
-  const _Legend({required this.color, required this.text});
-
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted)),
-      ],
-    );
-  }
-}
-
-class _TrendCard extends StatelessWidget {
-  const _TrendCard({required this.daily});
-
-  final List<DailyPoint> daily;
-
-  @override
-  Widget build(BuildContext context) {
-    final points = daily.length > 60 ? daily.sublist(daily.length - 60) : daily;
-    final maxV = points.fold<double>(0, (m, p) => p.views > m ? p.views : m);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Daily views',
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
           ),
           const SizedBox(height: 4),
           Text(
-            points.isEmpty ? 'No data for this range' : 'Peak: ${_compact(maxV)} views in a day',
+            points.isEmpty
+                ? 'No data for this range'
+                : 'Calls, website clicks and directions. Peak: ${_compact(maxV)} in a day',
             style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
           ),
           const SizedBox(height: 16),
@@ -452,7 +319,11 @@ class _TrendCard extends StatelessWidget {
                     curve: Curves.easeOutCubic,
                     builder: (_, progress, _) => CustomPaint(
                       size: Size.infinite,
-                      painter: _BarPainter(points: points, maxValue: maxV, progress: progress),
+                      painter: _BarPainter(
+                        points: points,
+                        maxValue: maxV,
+                        progress: progress,
+                      ),
                     ),
                   ),
           ),
@@ -460,9 +331,15 @@ class _TrendCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Text(points.first.date, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted)),
+                Text(
+                  points.first.date,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                ),
                 const Spacer(),
-                Text(points.last.date, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted)),
+                Text(
+                  points.last.date,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                ),
               ],
             ),
           ],
@@ -473,10 +350,14 @@ class _TrendCard extends StatelessWidget {
 }
 
 class _BarPainter extends CustomPainter {
-  _BarPainter({required this.points, required this.maxValue, required this.progress});
+  _BarPainter({
+    required this.points,
+    required this.maxValue,
+    required this.progress,
+  });
 
   final List<DailyPoint> points;
-  final double maxValue;
+  final int maxValue;
   final double progress;
 
   @override
@@ -492,13 +373,15 @@ class _BarPainter extends CustomPainter {
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     for (var i = 0; i < points.length; i++) {
-      final h = (points[i].views / maxValue) * size.height * progress;
+      final h = (points[i].value / maxValue) * size.height * progress;
       final x = i * slot + (slot - barWidth) / 2;
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, size.height - h, barWidth, h),
-        const Radius.circular(4),
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, size.height - h, barWidth, h),
+          const Radius.circular(4),
+        ),
+        paint,
       );
-      canvas.drawRRect(rect, paint);
     }
   }
 
@@ -507,115 +390,44 @@ class _BarPainter extends CustomPainter {
       old.progress != progress || old.points != points || old.maxValue != maxValue;
 }
 
-class _LocationRow extends StatelessWidget {
-  const _LocationRow({required this.loc});
+class _Message extends StatelessWidget {
+  const _Message({
+    required this.icon,
+    required this.title,
+    required this.text,
+    required this.action,
+  });
 
-  final LocationInsight loc;
+  final IconData icon;
+  final String title;
+  final String text;
+  final Widget action;
 
   @override
   Widget build(BuildContext context) {
-    final views = sumKeys(loc.totals, searchKeys) + sumKeys(loc.totals, mapsKeys);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: cardDecoration(),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '📞 ${_compact(sumKeys(loc.totals, callKeys))}   🧭 ${_compact(sumKeys(loc.totals, directionKeys))}   🌐 ${_compact(sumKeys(loc.totals, websiteKeys))}',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
-                ),
-              ],
-            ),
-          ),
+          Icon(icon, size: 44, color: muted),
+          const SizedBox(height: 12),
           Text(
-            _compact(views),
+            title,
+            textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.w800,
-              fontSize: 18,
-              color: brand,
+              fontSize: 16,
+              color: ink,
             ),
           ),
-          const SizedBox(width: 4),
-          Text('views', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: ink),
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.emoji, required this.text});
-
-  final String emoji;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: cardDecoration(),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 26)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: ink, height: 1.4),
-            ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorBox extends StatelessWidget {
-  const _ErrorBox({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('😕', style: TextStyle(fontSize: 40)),
-          const SizedBox(height: 8),
-          Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),
-          FilledButton(onPressed: onRetry, child: const Text('Try again')),
+          action,
         ],
       ),
     );

@@ -1,264 +1,202 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/invoice_models.dart';
+import '../models/gbp_models.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
+import '../services/gbp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
-import '../widgets/health_ring.dart';
-import 'ai_more_screens.dart';
+import '../widgets/health_card.dart';
 
-class _Tool {
-  const _Tool(this.emoji, this.title, this.subtitle, this.builder);
+/// Audit (health score), One-Click Optimize and the marketing assistant.
+class AiToolsScreen extends StatefulWidget {
+  const AiToolsScreen({super.key});
 
-  final String emoji;
-  final String title;
-  final String subtitle;
-  final WidgetBuilder builder;
+  @override
+  State<AiToolsScreen> createState() => _AiToolsScreenState();
 }
 
-class AiToolsScreen extends StatelessWidget {
-  const AiToolsScreen({super.key, required this.onSignedOut});
-
-  final VoidCallback onSignedOut;
+class _AiToolsScreenState extends State<AiToolsScreen> {
+  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
-    final tools = [
-      _Tool(
-        '⚡',
-        'One-Click Optimize',
-        'Profile score and AI fixes',
-        (_) => OptimizeScreen(onSignedOut: onSignedOut),
-      ),
-      _Tool(
-        '🔍',
-        'Google Audit',
-        'Audit a client\'s profile with AI tips',
-        (_) => AuditScreen(onSignedOut: onSignedOut),
-      ),
-      _Tool(
-        '🔑',
-        'Keywords',
-        'Local SEO keyword ideas',
-        (_) => KeywordsScreen(onSignedOut: onSignedOut),
-      ),
-      _Tool(
-        '📍',
-        'Rank Checker',
-        'See where you rank for a keyword',
-        (_) => RankCheckerScreen(onSignedOut: onSignedOut),
-      ),
-      _Tool(
-        '⚔️',
-        'Competitors',
-        'Compare with local competitors',
-        (_) => CompetitorScreen(onSignedOut: onSignedOut),
-      ),
-      _Tool(
-        '💬',
-        'AI Mode',
-        'Ask the marketing assistant',
-        (_) => AiChatScreen(onSignedOut: onSignedOut),
-      ),
-    ];
-
     return Scaffold(
       backgroundColor: surface,
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      body: Column(
         children: [
-          FadeIn(
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: cardDecoration(),
-              child: Text(
-                'AI tools use credits. Check your balance in "Credits".',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(
+                    value: 0,
+                    icon: Icon(Icons.fact_check_rounded),
+                    label: Text('Audit'),
+                  ),
+                  ButtonSegment(
+                    value: 1,
+                    icon: Icon(Icons.rocket_launch_rounded),
+                    label: Text('Optimize'),
+                  ),
+                  ButtonSegment(
+                    value: 2,
+                    icon: Icon(Icons.chat_rounded),
+                    label: Text('Assistant'),
+                  ),
+                ],
+                selected: {_tab},
+                onSelectionChanged: (s) => setState(() => _tab = s.first),
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          for (final (i, t) in tools.indexed)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FadeIn(
-                delay: 60 + i * 70,
-                child: Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () => Navigator.of(
-                      context,
-                    ).push(MaterialPageRoute(builder: t.builder)),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: cardDecoration(),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 46,
-                            height: 46,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [brand, brandDeep],
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Text(
-                              t.emoji,
-                              style: const TextStyle(fontSize: 20),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  t.title,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontWeight: FontWeight.w800,
-                                    color: ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  t.subtitle,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    color: muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: muted),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              children: const [_AuditTab(), _OptimizeTab(), _AssistantTab()],
             ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Shared page scaffold for AI tool screens.
-class ToolPage extends StatelessWidget {
-  const ToolPage({super.key, required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: surface,
-      appBar: AppBar(
-        backgroundColor: brand,
-        foregroundColor: Colors.white,
-        title: Text(
-          title,
-          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [child],
-      ),
-    );
+Color _priorityColor(String priority) {
+  switch (priority) {
+    case 'critical':
+      return bad;
+    case 'high':
+      return warn;
+    case 'medium':
+      return brand;
+    default:
+      return muted;
   }
 }
 
-class ResultCard extends StatelessWidget {
-  const ResultCard({super.key, required this.title, required this.child});
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({required this.action, this.index});
 
-  final String title;
-  final Widget child;
+  final HealthAction action;
+  final int? index;
 
   @override
   Widget build(BuildContext context) {
-    return FadeIn(
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(top: 14),
-        padding: const EdgeInsets.all(16),
-        decoration: cardDecoration(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.plusJakartaSans(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: ink,
-              ),
+    final color = _priorityColor(action.priority);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: cardDecoration(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(height: 10),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class BulletList extends StatelessWidget {
-  const BulletList({super.key, required this.items});
-
-  final List<String> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final i in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            child: action.icon.isNotEmpty
+                ? Text(action.icon, style: const TextStyle(fontSize: 18))
+                : Text(
+                    '${(index ?? 0) + 1}',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  action.title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                    height: 1.35,
+                  ),
+                ),
+                if (action.why.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    action.why,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Text(
-              '•  $i',
+              action.priority.toUpperCase(),
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                color: ink,
-                height: 1.4,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: color,
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-void showToolError(BuildContext context, Object e) {
-  final text = e is ApiException ? e.message : friendlyException(e).message;
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-}
+class _Failure extends StatelessWidget {
+  const _Failure({required this.message, required this.onRetry});
 
-// ---------- One-Click Optimize ----------
-
-class OptimizeScreen extends StatefulWidget {
-  const OptimizeScreen({super.key, required this.onSignedOut});
-
-  final VoidCallback onSignedOut;
+  final String message;
+  final VoidCallback onRetry;
 
   @override
-  State<OptimizeScreen> createState() => _OptimizeScreenState();
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+          ),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: onRetry, child: const Text('Try again')),
+        ],
+      ),
+    );
+  }
 }
 
-class _OptimizeScreenState extends State<OptimizeScreen> {
-  Map<String, dynamic>? _data;
-  List<Map<String, dynamic>> _actions = [];
+// ---------------------------------------------------------------- Audit
+
+class _AuditTab extends StatefulWidget {
+  const _AuditTab();
+
+  @override
+  State<_AuditTab> createState() => _AuditTabState();
+}
+
+class _AuditTabState extends State<_AuditTab> {
+  GbpHealth? _health;
   bool _loading = true;
-  bool _running = false;
+  String? _error;
 
   @override
   void initState() {
@@ -268,444 +206,427 @@ class _OptimizeScreenState extends State<OptimizeScreen> {
 
   Future<void> _load() async {
     try {
-      final json = await ApiService.instance.get('/optimization');
-      if (mounted) setState(() => _data = json);
-    } on ApiException catch (e) {
-      if (e.statusCode == 401) {
-        await AuthService.logout();
-        widget.onSignedOut();
-        return;
-      }
-      if (mounted) showToolError(context, e);
+      final h = await GbpService.health();
+      if (!mounted) return;
+      setState(() {
+        _health = h;
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _run() async {
-    setState(() => _running = true);
-    try {
-      final res = await ApiService.instance.post(
-        '/optimization/run',
-        timeout: kAiTimeout,
-      );
-      final rawActions = res['actions'];
-      final actions = rawActions is List
-          ? rawActions
-                .whereType<Map>()
-                .map((e) => e.cast<String, dynamic>())
-                .toList()
-          : <Map<String, dynamic>>[];
-      if (mounted) {
-        setState(() => _actions = actions);
-        if (actions.isEmpty) {
-          showToolError(
-            context,
-            ApiException(
-              'Optimization ran, but returned no actions. Please try again.',
-            ),
-          );
-        }
-        _load();
-      }
-    } catch (e) {
-      // ApiException ke alawa koi bhi unexpected error (jaise galat response
-      // shape) bhi user ko dikhna chahiye — chup-chaap fail nahi hona chahiye.
-      if (mounted) showToolError(context, e);
-    } finally {
-      if (mounted) setState(() => _running = false);
-    }
-  }
-
-  Color _catColor(String name) {
-    switch (name) {
-      case 'amber':
-        return star;
-      case 'blue':
-        return brand;
-      case 'green':
-        return good;
-      case 'purple':
-        return brandDeep;
-      case 'rose':
-        return bad;
-      default:
-        return muted;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final d = _data;
-    return ToolPage(
-      title: 'One-Click Optimize',
-      child: _loading
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          : d == null
-          ? const Text('Could not load optimization data.')
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    final h = _health;
+    return RefreshIndicator(
+      color: brand,
+      onRefresh: _load,
+      child: _loading && h == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                FadeIn(
-                  child: Center(
-                    child: HealthRing(
-                      score:
-                          num.tryParse(
-                            (d['overall_score'])?.toString() ?? '',
-                          )?.toInt() ??
-                          0,
-                      size: 150,
+                if (_error != null && h == null)
+                  _Failure(message: _error!, onRetry: _load)
+                else if (h != null) ...[
+                  FadeIn(child: HealthCard(health: h)),
+                  if (h.actions.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 22, 4, 12),
+                      child: Text(
+                        'Fix these first',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: ink,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FadeIn(
-                  delay: 120,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: cardDecoration(),
-                    child: Column(
-                      children: [
-                        for (final (ci, c)
-                            in (d['categories'] as List? ?? [])
-                                .cast<Map<String, dynamic>>()
-                                .indexed)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        c['label']?.toString() ?? '',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontWeight: FontWeight.w700,
-                                          color: ink,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      '${c['score']}%',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontWeight: FontWeight.w800,
-                                        color: _catColor(
-                                          c['color']?.toString() ?? '',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: TweenAnimationBuilder<double>(
-                                    tween: Tween(
-                                      begin: 0,
-                                      end:
-                                          (num.tryParse(
-                                                (c['score'])?.toString() ?? '',
-                                              )?.toDouble() ??
-                                              0) /
-                                          100,
-                                    ),
-                                    duration: Duration(
-                                      milliseconds: 800 + ci * 120,
-                                    ),
-                                    curve: Curves.easeOutCubic,
-                                    builder: (_, v, _) =>
-                                        LinearProgressIndicator(
-                                          value: v,
-                                          minHeight: 8,
-                                          color: _catColor(
-                                            c['color']?.toString() ?? '',
-                                          ),
-                                          backgroundColor: muted.withValues(
-                                            alpha: 0.15,
-                                          ),
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  onPressed: _running ? null : _run,
-                  icon: _running
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.bolt_rounded),
-                  label: const Text('Run full optimization'),
-                ),
-                if (_actions.isNotEmpty)
-                  ResultCard(
-                    title: 'Actions taken',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final a in _actions)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  a['title']?.toString() ?? '',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontWeight: FontWeight.w700,
-                                    color: ink,
-                                  ),
-                                ),
-                                Text(
-                                  a['detail']?.toString() ?? '',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    color: muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                    for (var i = 0; i < h.actions.length; i++)
+                      FadeIn(
+                        delay: 120 + i * 70,
+                        child: _ActionTile(action: h.actions[i], index: i),
+                      ),
+                  ],
+                ],
               ],
             ),
     );
   }
 }
 
-// ---------- Google Audit ----------
+// ------------------------------------------------------------- Optimize
 
-class AuditScreen extends StatefulWidget {
-  const AuditScreen({super.key, required this.onSignedOut});
-
-  final VoidCallback onSignedOut;
+class _OptimizeTab extends StatefulWidget {
+  const _OptimizeTab();
 
   @override
-  State<AuditScreen> createState() => _AuditScreenState();
+  State<_OptimizeTab> createState() => _OptimizeTabState();
 }
 
-class _AuditScreenState extends State<AuditScreen> {
-  List<CustomerOption> _clients = [];
-  int? _clientId;
-  Map<String, dynamic>? _result;
-  bool _loading = true;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadClients();
-  }
-
-  Future<void> _loadClients() async {
-    try {
-      final list = await ApiService.instance.getList('/invoicing/customers');
-      if (!mounted) return;
-      setState(() {
-        _clients = list
-            .cast<Map<String, dynamic>>()
-            .map(CustomerOption.fromJson)
-            .toList();
-        if (_clients.isNotEmpty) _clientId = _clients.first.id;
-      });
-    } on ApiException catch (e) {
-      if (e.statusCode == 401) {
-        await AuthService.logout();
-        widget.onSignedOut();
-        return;
-      }
-      if (mounted) showToolError(context, e);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
+class _OptimizeTabState extends State<_OptimizeTab> {
+  OptimizeResult? _result;
+  bool _running = false;
+  String? _error;
 
   Future<void> _run() async {
-    if (_clientId == null) return;
-    setState(() => _busy = true);
+    if (_running) return;
+    setState(() {
+      _running = true;
+      _error = null;
+    });
     try {
-      final res = await ApiService.instance.post(
-        '/audit',
-        body: {'client_id': _clientId},
-        timeout: kAiTimeout,
-      );
-      if (mounted) setState(() => _result = res);
-    } on ApiException catch (e) {
-      if (mounted) showToolError(context, e);
+      final r = await GbpService.optimize();
+      if (!mounted) return;
+      setState(() => _result = r);
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _running = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final r = _result;
-    final tips = (r?['ai_tips'] ?? '').toString();
-    return ToolPage(
-      title: 'Google Audit',
-      child: _loading
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          : _clients.isEmpty
-          ? const Text('Add a client first to run an audit.')
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  initialValue: _clientId,
-                  decoration: InputDecoration(
-                    labelText: 'Client',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [royalIndigo, royalViolet]),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: royalGold.withValues(alpha: 0.5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.rocket_launch_rounded, color: royalGold),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'One-Click Optimize',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  items: [
-                    for (final c in _clients)
-                      DropdownMenuItem(value: c.id, child: Text(c.name)),
-                  ],
-                  onChanged: (v) => setState(() => _clientId = v),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The AI studies your profile score and gives a prioritized plan '
+                'built for your business. It uses AI credits.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.4,
                 ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _run,
-                  icon: _busy
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.analytics_rounded),
-                  label: const Text('Analyze profile'),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: _running ? null : _run,
+                style: FilledButton.styleFrom(
+                  backgroundColor: royalGold,
+                  foregroundColor: royalNavy,
                 ),
-                if (r != null) ...[
-                  ResultCard(
-                    title: 'Audit score',
-                    child: Column(
-                      children: [
-                        Center(
-                          child: HealthRing(
-                            score:
-                                num.tryParse(
-                                  (r['score'])?.toString() ?? '',
-                                )?.toInt() ??
-                                0,
-                            size: 130,
-                          ),
+                icon: _running
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: royalNavy,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          r['grade']?.toString() ?? '',
+                      )
+                    : const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: Text(
+                  _running
+                      ? 'Analyzing your profile...'
+                      : (r == null ? 'Run optimization' : 'Run again'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Text(
+              _error!,
+              style: GoogleFonts.plusJakartaSans(color: bad, fontSize: 13),
+            ),
+          ),
+        if (r != null) ...[
+          const SizedBox(height: 16),
+          FadeIn(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: cardDecoration(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Summary',
                           style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.w800,
                             color: ink,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  ResultCard(
-                    title: 'Checks',
-                    child: Column(
-                      children: [
-                        for (final (chi, c)
-                            in (r['checks'] as List? ?? [])
-                                .cast<Map<String, dynamic>>()
-                                .indexed)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TweenAnimationBuilder<double>(
-                                  tween: Tween(begin: 0, end: 1),
-                                  duration: Duration(
-                                    milliseconds: 260 + chi * 70,
-                                  ),
-                                  curve: Curves.easeOutBack,
-                                  builder: (_, v, child) =>
-                                      Transform.scale(scale: v, child: child),
-                                  child: Icon(
-                                    c['ok'] == true
-                                        ? Icons.check_circle_rounded
-                                        : Icons.error_outline_rounded,
-                                    color: c['ok'] == true ? good : warn,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        c['label']?.toString() ?? '',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontWeight: FontWeight.w700,
-                                          color: ink,
-                                        ),
-                                      ),
-                                      Text(
-                                        c['note']?.toString() ?? '',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 12,
-                                          color: muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (r.isAi ? good : muted).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          r.isAi ? 'AI PLAN' : 'STANDARD PLAN',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: r.isAi ? good : muted,
                           ),
-                      ],
-                    ),
-                  ),
-                  if (tips.isNotEmpty)
-                    ResultCard(
-                      title: 'AI tips',
-                      child: Text(
-                        tips,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          color: ink,
-                          height: 1.5,
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    r.summary,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: ink,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Credits left: ${r.credits}',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                  ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (var i = 0; i < r.actions.length; i++)
+            FadeIn(
+              delay: 100 + i * 70,
+              child: _ActionTile(action: r.actions[i], index: i),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+// ------------------------------------------------------------ Assistant
+
+class _ChatMessage {
+  _ChatMessage(this.text, {required this.fromUser, this.isError = false});
+
+  final String text;
+  final bool fromUser;
+  final bool isError;
+}
+
+class _AssistantTab extends StatefulWidget {
+  const _AssistantTab();
+
+  @override
+  State<_AssistantTab> createState() => _AssistantTabState();
+}
+
+class _AssistantTabState extends State<_AssistantTab> {
+  final _controller = TextEditingController();
+  final _scroll = ScrollController();
+  final List<_ChatMessage> _messages = [
+    _ChatMessage(
+      'Hi, I am Eydia AI. Ask me how to get more Google reviews, write better '
+      'posts or improve your local ranking.',
+      fromUser: false,
+    ),
+  ];
+  bool _sending = false;
+  int? _credits;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _scrollToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _sending) return;
+    _controller.clear();
+    setState(() {
+      _messages.add(_ChatMessage(text, fromUser: true));
+      _sending = true;
+    });
+    _scrollToEnd();
+    try {
+      final res = await GbpService.assistantChat(text);
+      if (!mounted) return;
+      setState(() {
+        _messages.add(_ChatMessage(res.text, fromUser: false));
+        _credits = res.credits;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add(
+            _ChatMessage(friendlyException(e).message, fromUser: false, isError: true),
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+      _scrollToEnd();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            controller: _scroll,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            itemCount: _messages.length + (_sending ? 1 : 0),
+            itemBuilder: (context, i) {
+              if (i == _messages.length) {
+                return const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.all(8),
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
+              return _Bubble(message: _messages[i]);
+            },
+          ),
+        ),
+        if (_credits != null)
+          Text(
+            'Credits left: $_credits',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+          ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    maxLength: 2000,
+                    buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
+                        null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _send(),
+                    decoration: InputDecoration(
+                      hintText: 'Ask anything about your business...',
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: _sending ? null : _send,
+                  icon: const Icon(Icons.send_rounded),
+                ),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Bubble extends StatelessWidget {
+  const _Bubble({required this.message});
+
+  final _ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = message.fromUser;
+    final bg = user
+        ? brand
+        : (message.isError ? bad.withValues(alpha: 0.1) : Colors.white);
+    final fg = user ? Colors.white : (message.isError ? bad : ink);
+
+    return Align(
+      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.8,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(user ? 18 : 4),
+            bottomRight: Radius.circular(user ? 4 : 18),
+          ),
+        ),
+        child: SelectableText(
+          message.text,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13.5, height: 1.4, color: fg),
+        ),
+      ),
     );
   }
 }

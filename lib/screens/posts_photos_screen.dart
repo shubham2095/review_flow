@@ -1,14 +1,451 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../models/gbp_content_models.dart';
+import '../models/gbp_models.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
+import '../services/gbp_service.dart';
+import '../services/location_store.dart';
 import '../theme/brand.dart';
+import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/image_upload.dart';
+import 'auto_plan_sheet.dart';
+import 'pages.dart';
+import 'photo_editor_sheet.dart';
+import 'post_editor_sheet.dart';
+
+enum _PostFilter { all, published, scheduled, drafts }
+
+/// Google posts and photos for the selected location (or all locations).
+class PostsPhotosScreen extends StatefulWidget {
+  const PostsPhotosScreen({super.key, required this.onNavigate});
+
+  final ValueChanged<int> onNavigate;
+
+  @override
+  State<PostsPhotosScreen> createState() => _PostsPhotosScreenState();
+}
+
+class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
+  int _section = 0;
+  List<GbpPost> _posts = [];
+  List<GbpPhoto> _photos = [];
+  bool _loading = true;
+  bool _uploading = false;
+  String? _error;
+  _PostFilter _filter = _PostFilter.all;
+  final Set<String> _busyIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    LocationStore.selectedId.addListener(_load);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    LocationStore.selectedId.removeListener(_load);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    if (mounted && _posts.isEmpty && _photos.isEmpty) {
+      setState(() => _loading = true);
+    }
+    try {
+      final id = LocationStore.selectedId.value;
+      final results = await Future.wait([
+        GbpService.posts(locationId: id),
+        GbpService.photos(locationId: id),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _posts = results[0] as List<GbpPost>;
+        _photos = results[1] as List<GbpPhoto>;
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  List<GbpLocation> get _locations => LocationStore.locations.value;
+
+  bool _needLocations() {
+    if (_locations.isNotEmpty) return false;
+    _snack('Connect Google and import your locations first.');
+    widget.onNavigate(kPageOverview);
+    return true;
+  }
+
+  Future<void> _newPost([GbpPost? post]) async {
+    if (post == null && _needLocations()) return;
+    final result = await showModalBottomSheet<PostEditResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => PostEditorSheet(
+        post: post,
+        locations: _locations,
+        initialLocationId: LocationStore.selectedId.value,
+      ),
+    );
+    if (result == null) return;
+    _snack(
+      result.warning != null
+          ? 'Saved as a draft, but Google said: ${result.warning}'
+          : (result.post.isPublished ? 'Post published to Google' : 'Post saved'),
+    );
+    await _load();
+  }
+
+  Future<void> _publishPost(GbpPost post) async {
+    setState(() => _busyIds.add(post.id));
+    try {
+      final updated = await GbpService.publishPost(post.id);
+      if (!mounted) return;
+      setState(() {
+        _posts = [for (final p in _posts) p.id == updated.id ? updated : p];
+      });
+      _snack('Post published to Google');
+    } catch (e) {
+      _snack(friendlyException(e).message);
+      await _load();
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(post.id));
+    }
+  }
+
+  Future<bool> _confirmDelete(String what) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete this $what?'),
+        content: const Text(
+          'If it is already on Google it will be removed there too where possible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: bad),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _deletePost(GbpPost post) async {
+    if (!await _confirmDelete('post')) return;
+    setState(() => _busyIds.add(post.id));
+    try {
+      await GbpService.deletePost(post.id);
+      if (!mounted) return;
+      setState(() => _posts = _posts.where((p) => p.id != post.id).toList());
+    } catch (e) {
+      _snack(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(post.id));
+    }
+  }
+
+  Future<void> _autoPlan() async {
+    if (_needLocations()) return;
+    final message = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => AutoPlanSheet(locationId: LocationStore.selectedId.value),
+    );
+    if (message == null) return;
+    _snack(message);
+    await _load();
+  }
+
+  Future<void> _newPhoto() async {
+    if (_needLocations() || _uploading) return;
+    setState(() => _uploading = true);
+    UploadedImage? image;
+    try {
+      image = await pickAndUploadImage(context);
+    } catch (e) {
+      _snack(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+    if (image == null || !mounted) return;
+
+    final result = await showModalBottomSheet<PhotoEditResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => PhotoEditorSheet(
+        image: image!,
+        locations: _locations,
+        initialLocationId: LocationStore.selectedId.value,
+      ),
+    );
+    if (result == null) return;
+    _snack(
+      result.warning != null
+          ? 'Saved as a draft, but Google said: ${result.warning}'
+          : (result.photo.isPublished ? 'Photo published to Google' : 'Photo saved'),
+    );
+    await _load();
+  }
+
+  Future<void> _photoActions(GbpPhoto photo) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!photo.isPublished)
+              ListTile(
+                leading: const Icon(Icons.cloud_upload_rounded),
+                title: const Text('Publish to Google now'),
+                onTap: () => Navigator.pop(ctx, 'publish'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: bad),
+              title: const Text('Delete', style: TextStyle(color: bad)),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    if (action == 'delete') {
+      if (!await _confirmDelete('photo')) return;
+      setState(() => _busyIds.add(photo.id));
+      try {
+        await GbpService.deletePhoto(photo.id);
+        if (!mounted) return;
+        setState(() => _photos = _photos.where((p) => p.id != photo.id).toList());
+      } catch (e) {
+        _snack(friendlyException(e).message);
+      } finally {
+        if (mounted) setState(() => _busyIds.remove(photo.id));
+      }
+    } else {
+      setState(() => _busyIds.add(photo.id));
+      try {
+        final updated = await GbpService.publishPhoto(photo.id);
+        if (!mounted) return;
+        setState(() {
+          _photos = [for (final p in _photos) p.id == updated.id ? updated : p];
+        });
+        _snack('Photo published to Google');
+      } catch (e) {
+        _snack(friendlyException(e).message);
+        await _load();
+      } finally {
+        if (mounted) setState(() => _busyIds.remove(photo.id));
+      }
+    }
+  }
+
+  List<GbpPost> get _visiblePosts {
+    switch (_filter) {
+      case _PostFilter.all:
+        return _posts;
+      case _PostFilter.published:
+        return _posts.where((p) => p.status == 'PUBLISHED').toList();
+      case _PostFilter.scheduled:
+        return _posts.where((p) => p.status == 'SCHEDULED').toList();
+      case _PostFilter.drafts:
+        return _posts
+            .where((p) => p.status == 'DRAFT' || p.status == 'FAILED')
+            .toList();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: surface,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _section == 0 ? () => _newPost() : _newPhoto,
+        backgroundColor: brand,
+        foregroundColor: Colors.white,
+        icon: _uploading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : Icon(_section == 0 ? Icons.edit_rounded : Icons.add_a_photo_rounded),
+        label: Text(_section == 0 ? 'New post' : 'Add photo'),
+      ),
+      body: RefreshIndicator(
+        color: brand,
+        onRefresh: _load,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SegmentedButton<int>(
+                    segments: [
+                      ButtonSegment(
+                        value: 0,
+                        icon: const Icon(Icons.article_rounded),
+                        label: Text('Posts (${_posts.length})'),
+                      ),
+                      ButtonSegment(
+                        value: 1,
+                        icon: const Icon(Icons.photo_library_rounded),
+                        label: Text('Photos (${_photos.length})'),
+                      ),
+                    ],
+                    selected: {_section},
+                    onSelectionChanged: (s) => setState(() => _section = s.first),
+                  ),
+                  const SizedBox(height: 14),
+                  if (_error != null)
+                    _ErrorBox(message: _error!, onRetry: _load)
+                  else if (_section == 0)
+                    ..._postsSection()
+                  else
+                    ..._photosSection(),
+                ],
+              ),
+      ),
+    );
+  }
+
+  List<Widget> _postsSection() {
+    final visible = _visiblePosts;
+    String label(_PostFilter f) {
+      switch (f) {
+        case _PostFilter.all:
+          return 'All';
+        case _PostFilter.published:
+          return 'Published';
+        case _PostFilter.scheduled:
+          return 'Scheduled';
+        case _PostFilter.drafts:
+          return 'Drafts';
+      }
+    }
+
+    return [
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final f in _PostFilter.values)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(label(f)),
+                  selected: _filter == f,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _filter = f),
+                ),
+              ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        onPressed: _autoPlan,
+        icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+        label: const Text('AI content plan'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(44),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+      const SizedBox(height: 14),
+      if (visible.isEmpty)
+        _EmptyBox(
+          icon: Icons.article_outlined,
+          title: _posts.isEmpty ? 'No posts yet' : 'No posts in this view',
+          text: _posts.isEmpty
+              ? 'Share offers, events and updates on your Google profile.'
+              : 'Try another filter.',
+        )
+      else
+        for (var i = 0; i < visible.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FadeIn(
+              delay: i < 6 ? i * 60 : 0,
+              child: _PostCard(
+                post: visible[i],
+                busy: _busyIds.contains(visible[i].id),
+                showLocation:
+                    LocationStore.selectedId.value == null && _locations.length > 1,
+                onPublish: () => _publishPost(visible[i]),
+                onEdit: () => _newPost(visible[i]),
+                onDelete: () => _deletePost(visible[i]),
+              ),
+            ),
+          ),
+    ];
+  }
+
+  List<Widget> _photosSection() {
+    if (_photos.isEmpty) {
+      return const [
+        _EmptyBox(
+          icon: Icons.photo_library_outlined,
+          title: 'No photos yet',
+          text: 'Businesses with 10 or more photos get more clicks on Google.',
+        ),
+      ];
+    }
+    return [
+      GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _photos.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          mainAxisExtent: 200,
+        ),
+        itemBuilder: (_, i) => FadeIn(
+          delay: i < 8 ? i * 50 : 0,
+          child: _PhotoTile(
+            photo: _photos[i],
+            busy: _busyIds.contains(_photos[i].id),
+            onTap: () => _photoActions(_photos[i]),
+          ),
+        ),
+      ),
+    ];
+  }
+}
 
 Color _statusColor(String status) {
   switch (status) {
@@ -36,629 +473,8 @@ String _statusLabel(String status) {
   }
 }
 
-class PostsPhotosScreen extends StatefulWidget {
-  const PostsPhotosScreen({super.key, required this.onSignedOut});
-
-  final VoidCallback onSignedOut;
-
-  @override
-  State<PostsPhotosScreen> createState() => _PostsPhotosScreenState();
-}
-
-class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
-  GbpContentBoard? _board;
-  List<LocationOption> _locations = [];
-  String? _error;
-  bool _loading = true;
-  int _section = 0; // 0 = posts, 1 = photos
-  String _filter = 'ALL'; // ALL, PUBLISHED, SCHEDULED, OTHER
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
-    try {
-      final results = await Future.wait([
-        ApiService.instance.get('/gbp-content'),
-        ApiService.instance.getList('/reviews'),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _board = GbpContentBoard.fromJson(results[0] as Map<String, dynamic>);
-        _locations = (results[1] as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map(LocationOption.fromJson)
-            .toList();
-        _error = null;
-      });
-    } on ApiException catch (e) {
-      if (e.statusCode == 401) {
-        await AuthService.logout();
-        widget.onSignedOut();
-        return;
-      }
-      if (mounted) setState(() => _error = e.message);
-    } catch (e) {
-      if (mounted) setState(() => _error = friendlyException(e).message);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _snack(String text) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  Future<void> _run(
-    Future<Map<String, dynamic>> Function() action,
-    String success,
-  ) async {
-    try {
-      final res = await action();
-      if (!mounted) return;
-      final status = res['status']?.toString();
-      if (status == 'FAILED') {
-        _snack('Google did not accept it. Please try again later.');
-      } else {
-        _snack(success);
-      }
-      _load();
-    } on ApiException catch (e) {
-      _snack(e.message);
-    }
-  }
-
-  Future<void> _openPostSheet({GbpPostItem? post}) async {
-    if (_locations.isEmpty) {
-      _snack('No locations found. Connect Google first.');
-      return;
-    }
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => _PostSheet(post: post, locations: _locations),
-    );
-    if (result == 'saved') {
-      _snack(post == null ? 'Post created ✅' : 'Post updated ✅');
-      _load();
-    } else if (result == 'failed') {
-      _snack('Google did not accept the post');
-      _load();
-    }
-  }
-
-  Future<void> _addPhoto() async {
-    if (_locations.isEmpty) {
-      _snack('No locations found. Connect Google first.');
-      return;
-    }
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1080,
-      imageQuality: 85,
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    final mime = picked.mimeType ?? 'image/jpeg';
-    final dataUri = 'data:$mime;base64,${base64Encode(bytes)}';
-
-    if (!mounted) return;
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => _PhotoSheet(imageData: dataUri, locations: _locations),
-    );
-    if (result == 'uploaded') {
-      _snack('Photo uploaded ✅');
-      _load();
-    } else if (result == 'failed') {
-      _snack('Google did not accept the photo');
-      _load();
-    }
-  }
-
-  bool _matchesFilter(String status) {
-    switch (_filter) {
-      case 'PUBLISHED':
-        return status == 'PUBLISHED';
-      case 'SCHEDULED':
-        return status == 'SCHEDULED';
-      case 'OTHER':
-        return status == 'DRAFT' || status == 'FAILED';
-      default:
-        return true;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final board = _board;
-
-    return Scaffold(
-      backgroundColor: surface,
-      floatingActionButton: board == null
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _section == 0 ? () => _openPostSheet() : _addPhoto,
-              backgroundColor: brand,
-              foregroundColor: Colors.white,
-              icon: Icon(
-                _section == 0
-                    ? Icons.edit_rounded
-                    : Icons.add_photo_alternate_rounded,
-              ),
-              label: Text(
-                _section == 0 ? 'New post' : 'Upload photo',
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-              ),
-            ),
-      body: RefreshIndicator(
-        color: brand,
-        onRefresh: _load,
-        child: board == null
-            ? ListView(
-                children: [
-                  SizedBox(
-                    height: MediaQuery.sizeOf(context).height * 0.7,
-                    child: Center(
-                      child: _loading
-                          ? const CircularProgressIndicator()
-                          : Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _error ?? 'Could not load posts',
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  FilledButton(
-                                    onPressed: _load,
-                                    child: const Text('Try again'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
-              )
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                children: [
-                  FadeIn(child: _StatsRow(board: board)),
-                  const SizedBox(height: 14),
-                  FadeIn(
-                    delay: 70,
-                    child: SegmentedButton<int>(
-                      segments: const [
-                        ButtonSegment(value: 0, label: Text('Posts')),
-                        ButtonSegment(value: 1, label: Text('Photos')),
-                      ],
-                      selected: {_section},
-                      onSelectionChanged: (s) =>
-                          setState(() => _section = s.first),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_section == 0) ...[
-                    FadeIn(
-                      delay: 130,
-                      child: Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final f in const [
-                            ['ALL', 'All'],
-                            ['PUBLISHED', 'Published'],
-                            ['SCHEDULED', 'Scheduled'],
-                            ['OTHER', 'Draft / Failed'],
-                          ])
-                            ChoiceChip(
-                              label: Text(f[1]),
-                              selected: _filter == f[0],
-                              onSelected: (_) => setState(() => _filter = f[0]),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (board.posts
-                        .where((p) => _matchesFilter(p.status))
-                        .isEmpty)
-                      const FadeIn(
-                        delay: 180,
-                        child: _Empty(
-                          emoji: '📝',
-                          text: 'No posts yet. Create your first post.',
-                        ),
-                      )
-                    else
-                      for (final (pi, p)
-                          in board.posts
-                              .where((p) => _matchesFilter(p.status))
-                              .toList()
-                              .indexed)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: FadeIn(
-                            delay: pi < 12 ? pi * 60 : 0,
-                            child: _PostCard(
-                              post: p,
-                              onEdit: () => _openPostSheet(post: p),
-                              onPublish: () => _run(
-                                () async => ApiService.instance.post(
-                                  '/gbp-content/posts/${p.id}/publish',
-                                ),
-                                'Post published ✅',
-                              ),
-                              onDelete: () => _confirmDelete(
-                                'Delete this post?',
-                                () => ApiService.instance.delete(
-                                  '/gbp-content/posts/${p.id}',
-                                ),
-                                'Post deleted',
-                              ),
-                            ),
-                          ),
-                        ),
-                  ] else ...[
-                    if (board.photos.isEmpty)
-                      const FadeIn(
-                        delay: 130,
-                        child: _Empty(
-                          emoji: '📷',
-                          text: 'No photos yet. Upload your first photo.',
-                        ),
-                      )
-                    else
-                      GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.82,
-                        children: [
-                          for (final (phi, ph) in board.photos.indexed)
-                            FadeIn(
-                              delay: phi < 16 ? phi * 50 : 0,
-                              child: _PhotoTile(
-                                photo: ph,
-                                onPublish: () => _run(
-                                  () async => ApiService.instance.post(
-                                    '/gbp-content/photos/${ph.id}/publish',
-                                  ),
-                                  'Photo published ✅',
-                                ),
-                                onDelete: () => _confirmDelete(
-                                  'Delete this photo?',
-                                  () => ApiService.instance.delete(
-                                    '/gbp-content/photos/${ph.id}',
-                                  ),
-                                  'Photo deleted',
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                  ],
-                ],
-              ),
-      ),
-    );
-  }
-
-  Future<void> _confirmDelete(
-    String title,
-    Future<Map<String, dynamic>> Function() action,
-    String success,
-  ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    try {
-      await action();
-      _snack(success);
-      _load();
-    } on ApiException catch (e) {
-      _snack(e.message);
-    }
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.board});
-
-  final GbpContentBoard board;
-
-  @override
-  Widget build(BuildContext context) {
-    final published = board.posts.where((p) => p.status == 'PUBLISHED').length;
-    final scheduled = board.posts.where((p) => p.status == 'SCHEDULED').length;
-
-    Widget tile(String emoji, String value, String label, Color color) =>
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: cardDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(emoji, style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 6),
-                Text(
-                  value,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: color,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
-                    color: muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-
-    return Row(
-      children: [
-        tile('📝', '${board.posts.length}', 'Posts', brand),
-        const SizedBox(width: 8),
-        tile('✅', '$published', 'Published', good),
-        const SizedBox(width: 8),
-        tile('🗓️', '$scheduled', 'Scheduled', brandDeep),
-        const SizedBox(width: 8),
-        tile('📷', '${board.photos.length}', 'Photos', warn),
-      ],
-    );
-  }
-}
-
-class _PostCard extends StatelessWidget {
-  const _PostCard({
-    required this.post,
-    required this.onEdit,
-    required this.onPublish,
-    required this.onDelete,
-  });
-
-  final GbpPostItem post;
-  final VoidCallback onEdit;
-  final VoidCallback onPublish;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _statusColor(post.status);
-    final canPublish = post.status == 'DRAFT' || post.status == 'FAILED';
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                postTypeEmoji[post.type] ?? '📰',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                postTypeLabels[post.type] ?? post.type,
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  color: ink,
-                ),
-              ),
-              const Spacer(),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, anim) =>
-                    ScaleTransition(scale: anim, child: child),
-                child: _Badge(
-                  key: ValueKey(post.status),
-                  text: _statusLabel(post.status),
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          if (post.imageUrl != null) ...[
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                post.imageUrl!,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                frameBuilder: (_, child, frame, _) => AnimatedOpacity(
-                  opacity: frame == null ? 0 : 1,
-                  duration: const Duration(milliseconds: 300),
-                  child: child,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Text(
-            post.body,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              color: ink,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '📍 ${post.locationTitle}${post.dateLabel.isEmpty ? '' : '  •  ${post.dateLabel}'}',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              if (canPublish)
-                FilledButton.tonalIcon(
-                  onPressed: onPublish,
-                  icon: const Icon(Icons.send_rounded, size: 16),
-                  label: const Text('Publish'),
-                ),
-              const Spacer(),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, color: brand),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded, color: bad),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({
-    required this.photo,
-    required this.onPublish,
-    required this.onDelete,
-  });
-
-  final GbpPhotoItem photo;
-  final VoidCallback onPublish;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _statusColor(photo.status);
-    return Container(
-      decoration: cardDecoration(),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: photo.imageUrl.isEmpty
-                ? const SizedBox.shrink()
-                : Image.network(
-                    photo.imageUrl,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Center(child: Text('🖼️')),
-                    frameBuilder: (_, child, frame, _) => AnimatedOpacity(
-                      opacity: frame == null ? 0 : 1,
-                      duration: const Duration(milliseconds: 300),
-                      child: child,
-                    ),
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, anim) =>
-                            ScaleTransition(scale: anim, child: child),
-                        child: _Badge(
-                          key: ValueKey(photo.status),
-                          text: _statusLabel(photo.status),
-                          color: color,
-                        ),
-                      ),
-                    ),
-                    if (photo.status != 'PUBLISHED')
-                      InkWell(
-                        onTap: onPublish,
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(
-                            Icons.send_rounded,
-                            size: 18,
-                            color: brand,
-                          ),
-                        ),
-                      ),
-                    InkWell(
-                      onTap: onDelete,
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.delete_outline_rounded,
-                          size: 18,
-                          color: bad,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  photo.locationTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    color: muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _Badge extends StatelessWidget {
-  const _Badge({super.key, required this.text, required this.color});
+  const _Badge({required this.text, required this.color});
 
   final String text;
   final Color color;
@@ -666,10 +482,10 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         text,
@@ -683,466 +499,286 @@ class _Badge extends StatelessWidget {
   }
 }
 
-class _Empty extends StatelessWidget {
-  const _Empty({required this.emoji, required this.text});
+class _PostCard extends StatelessWidget {
+  const _PostCard({
+    required this.post,
+    required this.busy,
+    required this.showLocation,
+    required this.onPublish,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
-  final String emoji;
+  final GbpPost post;
+  final bool busy;
+  final bool showLocation;
+  final VoidCallback onPublish;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  String get _dateText {
+    if (post.isPublished && post.publishedAt != null) {
+      return 'Published ${fmtDate(post.publishedAt!)}';
+    }
+    if (post.status == 'SCHEDULED' && post.scheduledAt != null) {
+      return 'Goes live ${fmtDateTime(post.scheduledAt!)}';
+    }
+    if (post.createdAt != null) return 'Created ${fmtDate(post.createdAt!)}';
+    return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: cardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (post.hasImage)
+            Image.network(
+              post.imageUrl!,
+              height: 150,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                height: 150,
+                color: surface,
+                alignment: Alignment.center,
+                child: const Icon(Icons.broken_image_outlined, color: muted),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _Badge(text: post.type, color: brand),
+                    const SizedBox(width: 6),
+                    _Badge(
+                      text: _statusLabel(post.status).toUpperCase(),
+                      color: _statusColor(post.status),
+                    ),
+                    const Spacer(),
+                    Flexible(
+                      child: Text(
+                        _dateText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                      ),
+                    ),
+                  ],
+                ),
+                if ((post.title ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    post.title!,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: ink,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Text(
+                  post.summary,
+                  maxLines: 6,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: ink,
+                  ),
+                ),
+                if (showLocation && (post.locationName ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.place_rounded, size: 13, color: brand),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          post.locationName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: brand,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 10),
+                if (busy)
+                  const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      if (!post.isPublished)
+                        FilledButton.tonalIcon(
+                          onPressed: onPublish,
+                          icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                          label: const Text('Publish'),
+                        ),
+                      const Spacer(),
+                      if (!post.isPublished)
+                        IconButton(
+                          tooltip: 'Edit',
+                          onPressed: onEdit,
+                          icon: const Icon(Icons.edit_rounded, color: muted),
+                        ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_outline_rounded, color: bad),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoTile extends StatelessWidget {
+  const _PhotoTile({required this.photo, required this.busy, required this.onTap});
+
+  final GbpPhoto photo;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: busy ? null : onTap,
+      child: Container(
+        decoration: cardDecoration(),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              photo.imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                color: surface,
+                alignment: Alignment.center,
+                child: const Icon(Icons.broken_image_outlined, color: muted),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              top: 8,
+              child: _Badge(
+                text: _statusLabel(photo.status).toUpperCase(),
+                color: _statusColor(photo.status),
+              ),
+            ),
+            if ((photo.caption ?? '').isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  color: Colors.black.withValues(alpha: 0.5),
+                  child: Text(
+                    photo.caption!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+            if (busy)
+              Container(
+                color: Colors.white.withValues(alpha: 0.6),
+                alignment: Alignment.center,
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyBox extends StatelessWidget {
+  const _EmptyBox({required this.icon, required this.title, required this.text});
+
+  final IconData icon;
+  final String title;
   final String text;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 40)),
-            const SizedBox(height: 8),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PostSheet extends StatefulWidget {
-  const _PostSheet({this.post, required this.locations});
-
-  final GbpPostItem? post;
-  final List<LocationOption> locations;
-
-  @override
-  State<_PostSheet> createState() => _PostSheetState();
-}
-
-class _PostSheetState extends State<_PostSheet> {
-  late final _body = TextEditingController(text: widget.post?.body ?? '');
-  late final _cta = TextEditingController(text: widget.post?.ctaUrl ?? '');
-  late String _type = widget.post?.type ?? 'UPDATE';
-  late int _locationId = widget.locations.first.id;
-  DateTime? _scheduledAt;
-  bool _busy = false;
-
-  bool get _isEdit => widget.post != null;
-
-  @override
-  void initState() {
-    super.initState();
-    _body.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _body.dispose();
-    _cta.dispose();
-    super.dispose();
-  }
-
-  void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  Future<void> _pickSchedule() async {
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: now.add(const Duration(hours: 1)),
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
-    );
-    if (time == null) return;
-    setState(
-      () => _scheduledAt = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      ),
-    );
-  }
-
-  Future<void> _aiWrite() async {
-    final business = widget.locations
-        .firstWhere((l) => l.id == _locationId)
-        .title;
-    setState(() => _busy = true);
-    try {
-      final res = await ApiService.instance.post(
-        '/gbp-content/generate-post',
-        body: {'type': _type, 'business': business},
-        timeout: kAiTimeout,
-      );
-      _body.text = (res['body'] ?? '').toString();
-    } on ApiException catch (e) {
-      _message(e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _save() async {
-    final text = _body.text.trim();
-    if (text.isEmpty) {
-      _message('Post cannot be empty');
-      return;
-    }
-    if (text.length > 1500) {
-      _message('Post can have max 1500 characters');
-      return;
-    }
-
-    setState(() => _busy = true);
-    try {
-      if (_isEdit) {
-        await ApiService.instance.put(
-          '/gbp-content/posts/${widget.post!.id}',
-          body: {
-            'type': _type,
-            'body': text,
-            'cta_url': _cta.text.trim().isEmpty ? null : _cta.text.trim(),
-          },
-        );
-        if (mounted) Navigator.of(context).pop('saved');
-      } else {
-        final res = await ApiService.instance.post(
-          '/gbp-content/posts',
-          body: {
-            'gbp_location_id': _locationId,
-            'type': _type,
-            'body': text,
-            if (_cta.text.trim().isNotEmpty) 'cta_url': _cta.text.trim(),
-            if (_scheduledAt != null)
-              'scheduled_at': _scheduledAt!.toIso8601String(),
-          },
-        );
-        if (mounted) {
-          Navigator.of(
-            context,
-          ).pop(res['status'] == 'FAILED' ? 'failed' : 'saved');
-        }
-      }
-    } on ApiException catch (e) {
-      _message(e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  InputDecoration _dec(String label) => InputDecoration(
-    labelText: label,
-    filled: true,
-    fillColor: surface,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide.none,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final count = _body.text.length;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        12,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: muted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _isEdit ? 'Edit post' : 'New Google post',
-              style: GoogleFonts.plusJakartaSans(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                color: ink,
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (!_isEdit) ...[
-              DropdownButtonFormField<int>(
-                isExpanded: true,
-                initialValue: _locationId,
-                decoration: _dec('Location'),
-                items: [
-                  for (final l in widget.locations)
-                    DropdownMenuItem(value: l.id, child: Text(l.title)),
-                ],
-                onChanged: (v) =>
-                    setState(() => _locationId = v ?? _locationId),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final t in postTypeLabels.entries)
-                  ChoiceChip(
-                    label: Text('${postTypeEmoji[t.key]} ${t.value}'),
-                    selected: _type == t.key,
-                    onSelected: (_) => setState(() => _type = t.key),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _body,
-              maxLines: 6,
-              minLines: 4,
-              decoration: _dec('What do you want to share?'),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                '$count / 1500',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  color: count > 1500 ? bad : muted,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _aiWrite,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome_rounded, size: 18),
-              label: const Text('Write with AI (uses credits)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _cta,
-              keyboardType: TextInputType.url,
-              decoration: _dec('Button link (optional)'),
-            ),
-            if (!_isEdit) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _pickSchedule,
-                icon: const Icon(Icons.schedule_rounded, size: 18),
-                label: Text(
-                  _scheduledAt == null
-                      ? 'Publish now (tap to schedule)'
-                      : 'Scheduled: ${_scheduledAt!.day}/${_scheduledAt!.month}/${_scheduledAt!.year} '
-                            '${_scheduledAt!.hour.toString().padLeft(2, '0')}:${_scheduledAt!.minute.toString().padLeft(2, '0')}',
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _busy ? null : _save,
-              child: _busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(
-                      _isEdit
-                          ? 'Save changes'
-                          : (_scheduledAt == null ? 'Publish' : 'Schedule'),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PhotoSheet extends StatefulWidget {
-  const _PhotoSheet({required this.imageData, required this.locations});
-
-  final String imageData;
-  final List<LocationOption> locations;
-
-  @override
-  State<_PhotoSheet> createState() => _PhotoSheetState();
-}
-
-class _PhotoSheetState extends State<_PhotoSheet> {
-  final _caption = TextEditingController();
-  late int _locationId = widget.locations.first.id;
-  bool _busy = false;
-
-  @override
-  void dispose() {
-    _caption.dispose();
-    super.dispose();
-  }
-
-  void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  Future<void> _upload() async {
-    setState(() => _busy = true);
-    try {
-      final res = await ApiService.instance.post(
-        '/gbp-content/photos',
-        body: {
-          'gbp_location_id': _locationId,
-          'image': widget.imageData,
-          if (_caption.text.trim().isNotEmpty) 'caption': _caption.text.trim(),
-        },
-      );
-      if (mounted) {
-        Navigator.of(
-          context,
-        ).pop(res['status'] == 'FAILED' ? 'failed' : 'uploaded');
-      }
-    } on ApiException catch (e) {
-      _message(e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _suggestCaption() async {
-    final business = widget.locations
-        .firstWhere((l) => l.id == _locationId)
-        .title;
-    setState(() => _busy = true);
-    try {
-      final res = await ApiService.instance.post(
-        '/gbp-content/generate-caption',
-        timeout: kAiTimeout,
-        body: {'business': business},
-      );
-      if (mounted) _caption.text = (res['caption'] ?? '').toString();
-    } on ApiException catch (e) {
-      _message(e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        12,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: muted.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
+          Icon(icon, size: 44, color: muted),
+          const SizedBox(height: 12),
           Text(
-            'Upload photo',
+            title,
+            textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.w800,
-              fontSize: 18,
+              fontSize: 16,
               color: ink,
             ),
           ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<int>(
-            isExpanded: true,
-            initialValue: _locationId,
-            decoration: InputDecoration(
-              labelText: 'Location',
-              filled: true,
-              fillColor: surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            items: [
-              for (final l in widget.locations)
-                DropdownMenuItem(value: l.id, child: Text(l.title)),
-            ],
-            onChanged: (v) => setState(() => _locationId = v ?? _locationId),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorBox extends StatelessWidget {
+  const _ErrorBox({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off_rounded, size: 44, color: muted),
           const SizedBox(height: 12),
-          TextField(
-            controller: _caption,
-            maxLength: 500,
-            decoration: InputDecoration(
-              labelText: 'Caption (optional)',
-              filled: true,
-              fillColor: surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
           ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _busy ? null : _suggestCaption,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome_rounded, size: 18),
-              label: const Text('Suggest caption with AI'),
-            ),
-          ),
-          const SizedBox(height: 4),
-          FilledButton(
-            onPressed: _busy ? null : _upload,
-            child: _busy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Upload to Google'),
-          ),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: onRetry, child: const Text('Try again')),
         ],
       ),
     );
