@@ -5,6 +5,16 @@ import 'api_service.dart';
 
 enum GbpConnectStatus { success, cancelled, invalidState, tokenFailed }
 
+class ReplyDraft {
+  ReplyDraft({required this.draft, required this.source, required this.credits});
+
+  final String draft;
+  final String source;
+  final int credits;
+
+  bool get isAi => source == 'ai';
+}
+
 /// Calls for the Google Business Profile module (/gbp/*).
 class GbpService {
   GbpService._();
@@ -50,6 +60,34 @@ class GbpService {
   static Future<GbpSyncResult> sync() async => GbpSyncResult.fromJson(
         await _api.post('/gbp/sync', timeout: kAiTimeout),
       );
+
+  /// Latest reviews (the API returns at most 200). Pass a location UUID to narrow it.
+  static Future<List<GbpReview>> reviews({String? locationId}) async {
+    final query = locationId == null ? '' : '?location=$locationId';
+    final res = await _api.get('/gbp/reviews$query');
+    return asMaps(res['reviews']).map(GbpReview.fromJson).toList();
+  }
+
+  /// Posts the reply to Google and stores it. Returns the updated review.
+  static Future<GbpReview> replyToReview(String id, String reply) async {
+    final res = await _api.post(
+      '/gbp/reviews/$id/reply',
+      body: {'reply': reply},
+      timeout: kAiTimeout,
+    );
+    return GbpReview.fromJson(asMap(res['review']));
+  }
+
+  /// AI draft for a review. Costs credits; the server falls back to a template
+  /// when AI is unavailable (source == 'fallback', no credits charged).
+  static Future<ReplyDraft> suggestReply(String id) async {
+    final res = await _api.post('/gbp/reviews/$id/suggest', timeout: kAiTimeout);
+    return ReplyDraft(
+      draft: asStr(res['draft']),
+      source: asStr(res['source']),
+      credits: asInt(res['credits']),
+    );
+  }
 
   static Future<void> disconnect() async {
     await _api.delete('/gbp/connection');

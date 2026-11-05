@@ -9,6 +9,7 @@ import '../widgets/app_top_bar.dart';
 import '../widgets/coming_soon.dart';
 import 'dashboard_screen.dart';
 import 'pages.dart';
+import 'reviews_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.onSignedOut});
@@ -35,7 +36,7 @@ class _HomeShellState extends State<HomeShell> {
 
   List<Widget Function()> get _pageBuilders => [
         () => DashboardScreen(onNavigate: _select),
-        () => const ComingSoon(title: 'Reviews', icon: Icons.rate_review_rounded),
+        () => ReviewsScreen(onNavigate: _select),
         () => const ComingSoon(title: 'Posts & Photos', icon: Icons.photo_library_rounded),
         () => const ComingSoon(title: 'Insights', icon: Icons.insights_rounded),
         () => const ComingSoon(title: 'AI Tools', icon: Icons.auto_awesome_rounded),
