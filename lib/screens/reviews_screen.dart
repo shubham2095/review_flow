@@ -9,10 +9,27 @@ import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import 'pages.dart';
 
-enum _Filter { all, unreplied, negative, positive }
+enum _Filter { all, unreplied, r5, r4, r3, r2, r1 }
 
-/// Google reviews for the selected location (or all locations): filters,
-/// reply with an optional AI draft, and sync from Google.
+int? _ratingOf(_Filter f) {
+  switch (f) {
+    case _Filter.r5:
+      return 5;
+    case _Filter.r4:
+      return 4;
+    case _Filter.r3:
+      return 3;
+    case _Filter.r2:
+      return 2;
+    case _Filter.r1:
+      return 1;
+    default:
+      return null;
+  }
+}
+
+/// Google reviews for the selected location (or all locations): server-side
+/// filters, infinite scroll, reply with an optional AI draft, and sync.
 class ReviewsScreen extends StatefulWidget {
   const ReviewsScreen({super.key, required this.onNavigate});
 
@@ -23,8 +40,13 @@ class ReviewsScreen extends StatefulWidget {
 }
 
 class _ReviewsScreenState extends State<ReviewsScreen> {
-  List<GbpReview> _all = [];
+  final _scroll = ScrollController();
+  List<GbpReview> _reviews = [];
+  PageMeta? _meta;
+  int _totalAll = 0;
+  int _unreplied = 0;
   bool _loading = true;
+  bool _loadingMore = false;
   bool _syncing = false;
   String? _error;
   _Filter _filter = _Filter.all;
@@ -32,25 +54,49 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   @override
   void initState() {
     super.initState();
-    LocationStore.selectedId.addListener(_load);
-    _load();
+    _scroll.addListener(_onScroll);
+    LocationStore.selectedId.addListener(_reloadAll);
+    _reloadAll();
   }
 
   @override
   void dispose() {
-    LocationStore.selectedId.removeListener(_load);
+    _scroll.dispose();
+    LocationStore.selectedId.removeListener(_reloadAll);
     super.dispose();
   }
 
-  Future<void> _load() async {
-    if (mounted && _all.isEmpty) setState(() => _loading = true);
-    try {
-      final list = await GbpService.reviews(
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 400) {
+      _loadMore();
+    }
+  }
+
+  Future<PagedResult<GbpReview>> _fetch(int page) => GbpService.reviewsPage(
+        page: page,
         locationId: LocationStore.selectedId.value,
+        unreplied: _filter == _Filter.unreplied,
+        rating: _ratingOf(_filter),
       );
+
+  /// Reloads the first page and the header counts (location changed, pull to
+  /// refresh, sync).
+  Future<void> _reloadAll() async {
+    if (mounted && _reviews.isEmpty) setState(() => _loading = true);
+    final id = LocationStore.selectedId.value;
+    try {
+      final results = await Future.wait([
+        _fetch(1),
+        GbpService.reviewsPage(page: 1, perPage: 1, locationId: id),
+        GbpService.reviewsPage(page: 1, perPage: 1, locationId: id, unreplied: true),
+      ]);
       if (!mounted) return;
       setState(() {
-        _all = list;
+        _reviews = results[0].items;
+        _meta = results[0].meta;
+        _totalAll = results[1].meta.total;
+        _unreplied = results[2].meta.total;
         _error = null;
       });
     } catch (e) {
@@ -58,6 +104,52 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Reloads only the list when the filter changes.
+  Future<void> _reloadList() async {
+    setState(() => _loading = true);
+    try {
+      final r = await _fetch(1);
+      if (!mounted) return;
+      setState(() {
+        _reviews = r.items;
+        _meta = r.meta;
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    final meta = _meta;
+    if (_loadingMore || _loading || meta == null || !meta.hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final r = await _fetch(meta.currentPage + 1);
+      if (!mounted) return;
+      setState(() {
+        _reviews = [..._reviews, ...r.items];
+        _meta = r.meta;
+      });
+    } catch (e) {
+      _snack(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _setFilter(_Filter f) {
+    if (f == _filter) return;
+    setState(() {
+      _filter = f;
+      _reviews = [];
+      _meta = null;
+    });
+    _reloadList();
   }
 
   void _snack(String text) {
@@ -75,7 +167,8 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             ? res.message
             : 'Synced ${res.reviews} reviews from Google.',
       );
-      await _load();
+      await LocationStore.refresh().catchError((_) {});
+      await _reloadAll();
     } catch (e) {
       _snack(friendlyException(e).message);
     } finally {
@@ -95,75 +188,91 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     );
     if (updated == null || !mounted) return;
     setState(() {
-      _all = [for (final r in _all) r.id == updated.id ? updated : r];
+      if (!review.hasReply && _unreplied > 0) _unreplied--;
+      _reviews = _filter == _Filter.unreplied
+          ? _reviews.where((r) => r.id != updated.id).toList()
+          : [for (final r in _reviews) r.id == updated.id ? updated : r];
     });
     _snack('Reply posted to Google');
   }
 
-  List<GbpReview> get _visible {
-    switch (_filter) {
-      case _Filter.all:
-        return _all;
-      case _Filter.unreplied:
-        return _all.where((r) => !r.hasReply).toList();
-      case _Filter.negative:
-        return _all.where((r) => r.rating <= 2).toList();
-      case _Filter.positive:
-        return _all.where((r) => r.rating >= 4).toList();
-    }
+  double get _avgRating {
+    final selected = LocationStore.selected;
+    if (selected != null) return selected.rating;
+    final all = LocationStore.locations.value;
+    final count = all.fold<int>(0, (s, l) => s + l.reviewCount);
+    if (count == 0) return 0;
+    return all.fold<double>(0, (s, l) => s + l.rating * l.reviewCount) / count;
   }
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visible;
     final showLocation =
         LocationStore.selectedId.value == null &&
         LocationStore.locations.value.length > 1;
+    final hasMore = _meta?.hasMore ?? false;
+    final empty = _reviews.isEmpty;
+    // header + (cards, or one empty/loading row) + optional "loading more" row
+    final count = 1 + (empty ? 1 : _reviews.length) + (!empty && hasMore ? 1 : 0);
 
     return Scaffold(
       backgroundColor: surface,
       body: RefreshIndicator(
         color: brand,
-        onRefresh: _load,
-        child: _loading && _all.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: visible.isEmpty ? 2 : visible.length + 1,
-                itemBuilder: (context, i) {
-                  if (i == 0) {
-                    return _Header(
-                      reviews: _all,
-                      filter: _filter,
-                      syncing: _syncing,
-                      onFilter: (f) => setState(() => _filter = f),
-                      onSync: _sync,
-                    );
-                  }
-                  if (visible.isEmpty) {
-                    return _Empty(
-                      error: _error,
-                      hasAny: _all.isNotEmpty,
-                      onSync: _sync,
-                      onRetry: _load,
-                      onOverview: () => widget.onNavigate(kPageOverview),
-                    );
-                  }
-                  final review = visible[i - 1];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: FadeIn(
-                      delay: i < 8 ? i * 50 : 0,
-                      child: _ReviewCard(
-                        review: review,
-                        showLocation: showLocation,
-                        onReply: () => _openReply(review),
-                      ),
-                    ),
-                  );
-                },
+        onRefresh: _reloadAll,
+        child: ListView.builder(
+          controller: _scroll,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: count,
+          itemBuilder: (context, i) {
+            if (i == 0) {
+              return _Header(
+                total: _totalAll,
+                avg: _avgRating,
+                unreplied: _unreplied,
+                filter: _filter,
+                syncing: _syncing,
+                onFilter: _setFilter,
+                onSync: _sync,
+              );
+            }
+            if (empty) {
+              if (_loading) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 60),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return _Empty(
+                error: _error,
+                hasAny: _filter != _Filter.all || _totalAll > 0,
+                onSync: _sync,
+                onRetry: _reloadAll,
+                onOverview: () => widget.onNavigate(kPageOverview),
+              );
+            }
+            final index = i - 1;
+            if (index >= _reviews.length) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
+            final review = _reviews[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: FadeIn(
+                delay: index < 8 ? index * 50 : 0,
+                child: _ReviewCard(
+                  review: review,
+                  showLocation: showLocation,
+                  onReply: () => _openReply(review),
+                ),
               ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -171,14 +280,18 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
 class _Header extends StatelessWidget {
   const _Header({
-    required this.reviews,
+    required this.total,
+    required this.avg,
+    required this.unreplied,
     required this.filter,
     required this.syncing,
     required this.onFilter,
     required this.onSync,
   });
 
-  final List<GbpReview> reviews;
+  final int total;
+  final double avg;
+  final int unreplied;
   final _Filter filter;
   final bool syncing;
   final ValueChanged<_Filter> onFilter;
@@ -186,13 +299,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = reviews.length;
-    final avg = total == 0
-        ? 0.0
-        : reviews.fold<int>(0, (s, r) => s + r.rating) / total;
-    final unreplied = reviews.where((r) => !r.hasReply).length;
-    final negative = reviews.where((r) => r.rating <= 2).length;
-
     Widget stat(IconData icon, String value, String label, Color color) {
       return Expanded(
         child: Container(
@@ -230,13 +336,11 @@ class _Header extends StatelessWidget {
     String label(_Filter f) {
       switch (f) {
         case _Filter.all:
-          return 'All ($total)';
+          return 'All';
         case _Filter.unreplied:
-          return 'Unreplied ($unreplied)';
-        case _Filter.negative:
-          return 'Negative ($negative)';
-        case _Filter.positive:
-          return 'Positive';
+          return 'Unreplied';
+        default:
+          return '${_ratingOf(f)} star';
       }
     }
 
@@ -250,20 +354,18 @@ class _Header extends StatelessWidget {
               children: [
                 stat(Icons.reviews_rounded, '$total', 'Total', brand),
                 const SizedBox(width: 8),
-                stat(Icons.star_rounded, avg.toStringAsFixed(1), 'Avg', star),
+                stat(
+                  Icons.star_rounded,
+                  avg == 0 ? '-' : avg.toStringAsFixed(1),
+                  'Avg rating',
+                  star,
+                ),
                 const SizedBox(width: 8),
                 stat(
                   Icons.hourglass_bottom_rounded,
                   '$unreplied',
                   'Unreplied',
                   unreplied > 0 ? warn : good,
-                ),
-                const SizedBox(width: 8),
-                stat(
-                  Icons.thumb_down_alt_rounded,
-                  '$negative',
-                  'Negative',
-                  negative > 0 ? bad : good,
                 ),
               ],
             ),

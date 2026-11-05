@@ -80,14 +80,25 @@ class AuthService {
   }
 
   /// One-time link that opens the web app already signed in (payments happen there).
+  /// [next] (/billing, /plans or /buy-credits) must go in the request body: the
+  /// server stores it with the one-time code and ignores it on the link itself.
   static Future<String> webSessionUrl({String? next}) async {
-    final data = await ApiService.instance.post('/auth/web-session');
-    final url = data['login_url'] as String;
-    if (next == null) return url;
-    final uri = Uri.parse(url);
-    return uri
-        .replace(queryParameters: {...uri.queryParameters, 'next': next})
-        .toString();
+    final data = await ApiService.instance.post(
+      '/auth/web-session',
+      body: {'next': ?next},
+    );
+    return data['login_url'] as String;
+  }
+
+  /// Permanently deletes the account. Email users confirm with their password,
+  /// Google users with a fresh Google ID token. Clears the local session after.
+  static Future<void> deleteAccount({String? password, String? idToken}) async {
+    await ApiService.instance.delete(
+      '/auth/account',
+      body: {'password': ?password, 'id_token': ?idToken},
+    );
+    await ApiService.instance.clearToken();
+    Session.clear();
   }
 
   static Future<void> logout() async {

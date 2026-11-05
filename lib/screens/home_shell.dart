@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/auth_service.dart';
+import '../services/location_store.dart';
 import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
@@ -32,6 +33,14 @@ class _HomeShellState extends State<HomeShell> {
 
   // Pages open for the first time only, so startup does not fire every API call.
   final Set<int> _visited = {kPageOverview};
+
+  @override
+  void initState() {
+    super.initState();
+    // Best effort: the switcher list for every module. A failure just means the
+    // Overview fills it later.
+    LocationStore.refresh().catchError((_) {});
+  }
 
   void _select(int i) {
     setState(() {

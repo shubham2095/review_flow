@@ -164,29 +164,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _deleteAccount() async {
-    final ok = await showDialog<bool>(
+    final deleted = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete your account?'),
-        content: const Text(
-          'This removes your account and its data. Invoices and payment records '
-          'are kept where the law requires it. We will open the deletion page '
-          'where you can send your request.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: bad),
-            child: const Text('Continue'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      builder: (_) => const _DeleteAccountSheet(),
     );
-    if (ok == true) await openPublicPage('/delete-account');
+    if (deleted == true && mounted) widget.onSignedOut();
   }
 
   InputDecoration _dec(String label) => InputDecoration(
@@ -610,6 +597,134 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('Update password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteAccountSheet extends StatefulWidget {
+  const _DeleteAccountSheet();
+
+  @override
+  State<_DeleteAccountSheet> createState() => _DeleteAccountSheetState();
+}
+
+class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
+  final _password = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _message(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        _message(friendlyException(e).message);
+      }
+    }
+  }
+
+  Future<void> _withPassword() async {
+    if (_password.text.isEmpty) {
+      _message('Enter your password to confirm.');
+      return;
+    }
+    await _run(() => AuthService.deleteAccount(password: _password.text));
+  }
+
+  Future<void> _withGoogle() async {
+    await _run(() async {
+      final idToken = await AuthService.googleIdToken();
+      await AuthService.deleteAccount(idToken: idToken);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: bad),
+                const SizedBox(width: 8),
+                Text(
+                  'Delete your account',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: ink,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'This permanently removes your profile, connected Google tokens and '
+              'synced data. If you are the only member of your workspace, the '
+              'workspace is deleted too. Invoices and payment records are kept '
+              'only as long as the law requires.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _password,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Your password',
+                filled: true,
+                fillColor: surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            FilledButton(
+              onPressed: _busy ? null : _withPassword,
+              style: FilledButton.styleFrom(backgroundColor: bad),
+              child: _busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Delete my account'),
+            ),
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: _busy ? null : _withGoogle,
+              icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
+              label: const Text('I signed in with Google: confirm with Google'),
+            ),
+            TextButton(
+              onPressed: _busy ? null : () => openPublicPage('/delete-account'),
+              child: const Text('Prefer email? See the deletion page'),
             ),
           ],
         ),

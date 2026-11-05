@@ -61,11 +61,56 @@ class GbpService {
         await _api.post('/gbp/sync', timeout: kAiTimeout),
       );
 
-  /// Latest reviews (the API returns at most 200). Pass a location UUID to narrow it.
-  static Future<List<GbpReview>> reviews({String? locationId}) async {
-    final query = locationId == null ? '' : '?location=$locationId';
-    final res = await _api.get('/gbp/reviews$query');
-    return asMaps(res['reviews']).map(GbpReview.fromJson).toList();
+  /// Lightweight location list (the full overview is much heavier). Hidden
+  /// locations are included with isHidden set; callers filter as needed.
+  static Future<List<GbpLocation>> locations() async {
+    final res = await _api.get('/gbp/locations');
+    return asMaps(res['locations']).map(GbpLocation.fromJson).toList();
+  }
+
+  /// Connection status, including the Google account and whether to reconnect.
+  static Future<GbpConnection> connection() async =>
+      GbpConnection.fromJson(await _api.get('/gbp/connection'));
+
+  static String _pageQuery({
+    required int page,
+    required int perPage,
+    String? locationId,
+    Map<String, String> extra = const {},
+  }) {
+    return Uri(
+      queryParameters: {
+        'page': '$page',
+        'per_page': '$perPage',
+        'location': ?locationId,
+        ...extra,
+      },
+    ).query;
+  }
+
+  /// One page of reviews, newest first. [rating] and [unreplied] filter on the server.
+  static Future<PagedResult<GbpReview>> reviewsPage({
+    required int page,
+    int perPage = 30,
+    String? locationId,
+    bool unreplied = false,
+    int? rating,
+  }) async {
+    final query = _pageQuery(
+      page: page,
+      perPage: perPage,
+      locationId: locationId,
+      extra: {
+        if (unreplied) 'unreplied': '1',
+        if (rating != null) 'rating': '$rating',
+      },
+    );
+    final res = await _api.get('/gbp/reviews?$query');
+    final items = asMaps(res['reviews']).map(GbpReview.fromJson).toList();
+    return PagedResult(
+      items,
+      PageMeta.fromJson(asMap(res['meta']), fallbackTotal: items.length),
+    );
   }
 
   /// Posts the reply to Google and stores it. Returns the updated review.
@@ -93,9 +138,19 @@ class GbpService {
 
   static String _locationQuery(String? id) => id == null ? '' : '?location=$id';
 
-  static Future<List<GbpPost>> posts({String? locationId}) async {
-    final res = await _api.get('/gbp/posts${_locationQuery(locationId)}');
-    return asMaps(res['posts']).map(GbpPost.fromJson).toList();
+  static Future<PagedResult<GbpPost>> postsPage({
+    required int page,
+    int perPage = 20,
+    String? locationId,
+  }) async {
+    final res = await _api.get(
+      '/gbp/posts?${_pageQuery(page: page, perPage: perPage, locationId: locationId)}',
+    );
+    final items = asMaps(res['posts']).map(GbpPost.fromJson).toList();
+    return PagedResult(
+      items,
+      PageMeta.fromJson(asMap(res['meta']), fallbackTotal: items.length),
+    );
   }
 
   static Future<GbpPost> createPost(Map<String, dynamic> body) async {
@@ -247,9 +302,19 @@ class GbpService {
 
   // ---- Photos ----
 
-  static Future<List<GbpPhoto>> photos({String? locationId}) async {
-    final res = await _api.get('/gbp/photos${_locationQuery(locationId)}');
-    return asMaps(res['photos']).map(GbpPhoto.fromJson).toList();
+  static Future<PagedResult<GbpPhoto>> photosPage({
+    required int page,
+    int perPage = 20,
+    String? locationId,
+  }) async {
+    final res = await _api.get(
+      '/gbp/photos?${_pageQuery(page: page, perPage: perPage, locationId: locationId)}',
+    );
+    final items = asMaps(res['photos']).map(GbpPhoto.fromJson).toList();
+    return PagedResult(
+      items,
+      PageMeta.fromJson(asMap(res['meta']), fallbackTotal: items.length),
+    );
   }
 
   static Future<GbpPhoto> createPhoto(Map<String, dynamic> body) async {

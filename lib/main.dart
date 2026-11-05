@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'screens/app_gate.dart';
 import 'screens/auth_gate.dart';
 import 'theme/brand.dart';
 
@@ -87,7 +88,7 @@ class ReviewFlowApp extends StatelessWidget {
       title: 'Eydia',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
-      home: const AuthGate(),
+      home: const AppGate(child: AuthGate()),
     );
   }
 }

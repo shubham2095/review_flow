@@ -573,3 +573,63 @@ class BusinessProfile {
   final bool isVerified;
   final bool linkedToGoogle;
 }
+
+class PageMeta {
+  PageMeta({
+    required this.total,
+    required this.perPage,
+    required this.currentPage,
+    required this.lastPage,
+  });
+
+  factory PageMeta.fromJson(Map<String, dynamic> j, {required int fallbackTotal}) =>
+      PageMeta(
+        total: j.containsKey('total') ? asInt(j['total']) : fallbackTotal,
+        perPage: asInt(j['per_page']),
+        currentPage: j.containsKey('current_page') ? asInt(j['current_page']) : 1,
+        lastPage: j.containsKey('last_page') ? asInt(j['last_page']) : 1,
+      );
+
+  final int total;
+  final int perPage;
+  final int currentPage;
+  final int lastPage;
+
+  bool get hasMore => currentPage < lastPage;
+}
+
+class PagedResult<T> {
+  PagedResult(this.items, this.meta);
+
+  final List<T> items;
+  final PageMeta meta;
+}
+
+class GbpConnection {
+  GbpConnection({
+    required this.connected,
+    required this.needsReconnect,
+    this.googleEmail,
+    this.connectedAt,
+    this.lastSyncedAt,
+    this.lastError,
+  });
+
+  factory GbpConnection.fromJson(Map<String, dynamic> j) => GbpConnection(
+        connected: j['connected'] == true,
+        needsReconnect: j['needs_reconnect'] == true,
+        googleEmail: j['google_email']?.toString(),
+        connectedAt: asDate(j['connected_at']),
+        lastSyncedAt: asDate(j['last_synced_at']),
+        lastError: j['last_error']?.toString(),
+      );
+
+  final bool connected;
+
+  /// A connection exists but Google no longer accepts its token.
+  final bool needsReconnect;
+  final String? googleEmail;
+  final DateTime? connectedAt;
+  final DateTime? lastSyncedAt;
+  final String? lastError;
+}

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/gbp_models.dart';
+import 'gbp_service.dart';
 
 /// The business locations of the signed-in account and the one the user is
 /// looking at. A null selection means "all locations". Modules read [selectedId]
@@ -40,6 +41,13 @@ class LocationStore {
     if (id != null && !list.any((l) => l.id == id)) {
       await select(null);
     }
+  }
+
+  /// Loads the visible locations from /gbp/locations, so every module has the
+  /// switcher list even if the Overview was never opened.
+  static Future<void> refresh() async {
+    final all = await GbpService.locations();
+    await setLocations(all.where((l) => !l.isHidden).toList());
   }
 
   static Future<void> select(String? id) async {

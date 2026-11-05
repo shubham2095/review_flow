@@ -27,10 +27,14 @@ class PostsPhotosScreen extends StatefulWidget {
 }
 
 class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
+  final _scroll = ScrollController();
   int _section = 0;
   List<GbpPost> _posts = [];
   List<GbpPhoto> _photos = [];
+  PageMeta? _postsMeta;
+  PageMeta? _photosMeta;
   bool _loading = true;
+  bool _loadingMore = false;
   bool _uploading = false;
   String? _error;
   _PostFilter _filter = _PostFilter.all;
@@ -39,14 +43,23 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScroll);
     LocationStore.selectedId.addListener(_load);
     _load();
   }
 
   @override
   void dispose() {
+    _scroll.dispose();
     LocationStore.selectedId.removeListener(_load);
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 400) {
+      _loadMore();
+    }
   }
 
   Future<void> _load() async {
@@ -55,20 +68,51 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
     }
     try {
       final id = LocationStore.selectedId.value;
-      final results = await Future.wait([
-        GbpService.posts(locationId: id),
-        GbpService.photos(locationId: id),
-      ]);
+      final posts = GbpService.postsPage(page: 1, locationId: id);
+      final photos = GbpService.photosPage(page: 1, locationId: id);
+      final p = await posts;
+      final ph = await photos;
       if (!mounted) return;
       setState(() {
-        _posts = results[0] as List<GbpPost>;
-        _photos = results[1] as List<GbpPhoto>;
+        _posts = p.items;
+        _postsMeta = p.meta;
+        _photos = ph.items;
+        _photosMeta = ph.meta;
         _error = null;
       });
     } catch (e) {
       if (mounted) setState(() => _error = friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Infinite scroll: next page of whichever tab is open.
+  Future<void> _loadMore() async {
+    final id = LocationStore.selectedId.value;
+    final meta = _section == 0 ? _postsMeta : _photosMeta;
+    if (_loadingMore || _loading || meta == null || !meta.hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      if (_section == 0) {
+        final r = await GbpService.postsPage(page: meta.currentPage + 1, locationId: id);
+        if (!mounted) return;
+        setState(() {
+          _posts = [..._posts, ...r.items];
+          _postsMeta = r.meta;
+        });
+      } else {
+        final r = await GbpService.photosPage(page: meta.currentPage + 1, locationId: id);
+        if (!mounted) return;
+        setState(() {
+          _photos = [..._photos, ...r.items];
+          _photosMeta = r.meta;
+        });
+      }
+    } catch (e) {
+      _snack(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -309,6 +353,7 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
+                controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
@@ -317,12 +362,12 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                       ButtonSegment(
                         value: 0,
                         icon: const Icon(Icons.article_rounded),
-                        label: Text('Posts (${_posts.length})'),
+                        label: Text('Posts (${_postsMeta?.total ?? _posts.length})'),
                       ),
                       ButtonSegment(
                         value: 1,
                         icon: const Icon(Icons.photo_library_rounded),
-                        label: Text('Photos (${_photos.length})'),
+                        label: Text('Photos (${_photosMeta?.total ?? _photos.length})'),
                       ),
                     ],
                     selected: {_section},
@@ -335,6 +380,11 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                     ..._postsSection()
                   else
                     ..._photosSection(),
+                  if (_loadingMore)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
                 ],
               ),
       ),

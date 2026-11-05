@@ -177,7 +177,19 @@ class ApiService {
   Future<Map<String, dynamic>> put(String path, {Map<String, dynamic>? body}) =>
       _send('PUT', path, body: body);
 
-  Future<Map<String, dynamic>> delete(String path) => _send('DELETE', path);
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    Map<String, dynamic>? body,
+  }) => _send('DELETE', path, body: body);
+
+  /// GET without a token, for public endpoints such as /app/config.
+  Future<Map<String, dynamic>> getPublic(String path, {Duration? timeout}) async {
+    final res = await _run(
+      () => http.get(_uri(path), headers: {'Accept': 'application/json'}),
+      timeout: timeout,
+    );
+    return _asMap(_unwrap(res));
+  }
 
   Future<Map<String, dynamic>> _send(
     String method,

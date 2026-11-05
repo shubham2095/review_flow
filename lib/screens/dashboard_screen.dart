@@ -35,8 +35,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _future = _load();
   }
 
+  GbpConnection? _connection;
+
   Future<GbpOverview> _load() async {
+    // The connection call is a bonus (Google account, reconnect prompt): a
+    // failure there must never blank the dashboard.
+    final connection = GbpService.connection().then<GbpConnection?>(
+      (c) => c,
+      onError: (Object _) => null,
+    );
     final data = await GbpService.overview();
+    _connection = await connection;
     await LocationStore.setLocations(data.locations);
     return data;
   }
@@ -146,6 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
               return _DashboardBody(
                 data: snapshot.requireData,
+                connection: _connection,
                 syncing: _syncing,
                 connecting: _connecting,
                 onSync: _sync,
@@ -280,6 +290,7 @@ class _DashboardSkeletonState extends State<_DashboardSkeleton>
 class _DashboardBody extends StatelessWidget {
   const _DashboardBody({
     required this.data,
+    required this.connection,
     required this.syncing,
     required this.connecting,
     required this.onSync,
@@ -288,6 +299,7 @@ class _DashboardBody extends StatelessWidget {
   });
 
   final GbpOverview data;
+  final GbpConnection? connection;
   final bool syncing;
   final bool connecting;
   final VoidCallback onSync;
@@ -296,15 +308,30 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final connected = data.googleConnected;
+    final needsReconnect = connection?.needsReconnect ?? false;
+    final connected = (connection?.connected ?? data.googleConnected) && !needsReconnect;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        FadeIn(child: _Header(data: data)),
+        FadeIn(child: _Header(data: data, connection: connection)),
         const SizedBox(height: 16),
-        if (!connected)
+        if (needsReconnect)
+          FadeIn(
+            delay: 80,
+            child: _SetupCard(
+              icon: Icons.sync_problem_rounded,
+              title: 'Reconnect your Google account',
+              text: (connection?.lastError ?? '').isNotEmpty
+                  ? 'Google stopped accepting the connection: ${connection!.lastError}'
+                  : 'Google no longer accepts the saved connection. Reconnect to keep reviews and posts working.',
+              button: 'Reconnect Google',
+              busy: connecting,
+              onTap: onConnect,
+            ),
+          )
+        else if (!connected)
           FadeIn(
             delay: 80,
             child: _SetupCard(
@@ -330,7 +357,8 @@ class _DashboardBody extends StatelessWidget {
               onTap: onSync,
             ),
           ),
-        if (!connected || data.locations.isEmpty) const SizedBox(height: 16),
+        if (needsReconnect || !connected || data.locations.isEmpty)
+          const SizedBox(height: 16),
         FadeIn(delay: 120, child: HealthCard(health: data.health)),
         const SizedBox(height: 20),
         FadeIn(delay: 220, child: _StatsGrid(data: data)),
@@ -411,9 +439,10 @@ String _ago(DateTime? t) {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.data});
+  const _Header({required this.data, required this.connection});
 
   final GbpOverview data;
+  final GbpConnection? connection;
 
   String get _greeting {
     final h = DateTime.now().hour;
@@ -439,6 +468,9 @@ class _Header extends StatelessWidget {
     final name = Session.current?.name.trim() ?? '';
     final first = name.isEmpty ? '' : name.split(' ').first;
     final count = data.locations.length;
+    final needsReconnect = connection?.needsReconnect ?? false;
+    final connected = (connection?.connected ?? data.googleConnected) && !needsReconnect;
+    final email = connection?.googleEmail ?? '';
 
     return ClipRRect(
       borderRadius: const BorderRadius.only(
@@ -483,18 +515,20 @@ class _Header extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _HeaderChip(
-                  icon: data.googleConnected
+                  icon: connected
                       ? Icons.check_circle_rounded
                       : Icons.error_outline_rounded,
-                  text: data.googleConnected
-                      ? 'Google connected'
-                      : 'Google not connected',
+                  text: needsReconnect
+                      ? 'Reconnect needed'
+                      : (connected
+                          ? (email.isEmpty ? 'Google connected' : email)
+                          : 'Google not connected'),
                 ),
                 _HeaderChip(
                   icon: Icons.place_rounded,
                   text: '$count ${count == 1 ? 'location' : 'locations'}',
                 ),
-                if (data.googleConnected)
+                if (connected)
                   _HeaderChip(
                     icon: Icons.schedule_rounded,
                     text: _ago(data.lastSyncedAt),
