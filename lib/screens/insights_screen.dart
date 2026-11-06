@@ -156,6 +156,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                               ButtonSegment(value: 90, label: Text('90 days')),
                             ],
                             selected: {_days},
+                            showSelectedIcon: false,
                             onSelectionChanged: (s) => _setDays(s.first),
                             style: SegmentedButton.styleFrom(
                               backgroundColor: Colors.white,

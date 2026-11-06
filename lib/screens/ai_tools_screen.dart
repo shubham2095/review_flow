@@ -14,6 +14,7 @@ import '../widgets/pressable.dart';
 import '../widgets/sheet_notice.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/tab_label.dart';
 import 'pages.dart';
 
 /// Audit (health score), One-Click Optimize and the marketing assistant.
@@ -42,25 +43,15 @@ class _AiToolsScreenState extends State<AiToolsScreen> {
               width: double.infinity,
               child: SegmentedButton<int>(
                 segments: const [
-                  ButtonSegment(
-                    value: 0,
-                    icon: Icon(Icons.fact_check_rounded),
-                    label: Text('Audit'),
-                  ),
-                  ButtonSegment(
-                    value: 1,
-                    icon: Icon(Icons.rocket_launch_rounded),
-                    label: Text('Optimize'),
-                  ),
-                  ButtonSegment(
-                    value: 2,
-                    icon: Icon(Icons.chat_rounded),
-                    label: Text('Assistant'),
-                  ),
+                  ButtonSegment(value: 0, label: TabLabel("Audit")),
+                  ButtonSegment(value: 1, label: TabLabel("Optimize")),
+                  ButtonSegment(value: 2, label: TabLabel("Assistant")),
                 ],
                 selected: {_tab},
+                showSelectedIcon: false,
                 onSelectionChanged: (s) => setState(() => _tab = s.first),
                 style: SegmentedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
                   backgroundColor: Colors.white,
                   selectedBackgroundColor: brand.withValues(alpha: 0.14),
                   selectedForegroundColor: brand,

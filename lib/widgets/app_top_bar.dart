@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/brand.dart';
+import 'user_avatar.dart';
 import 'location_switcher.dart';
 
 const _gold = Color(0xFFD4AF37);
@@ -111,15 +112,12 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
               width: 48,
               height: 48,
               child: Center(
-                child: CircleAvatar(
+                child: UserAvatar(
                   radius: 17,
                   backgroundColor: brand.withValues(alpha: 0.12),
-                  child: Text(
-                    initial,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: brand,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  initialStyle: GoogleFonts.plusJakartaSans(
+                    color: brand,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),

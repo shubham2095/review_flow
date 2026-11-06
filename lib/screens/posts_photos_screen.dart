@@ -12,6 +12,7 @@ import '../widgets/fade_in.dart';
 import '../widgets/image_upload.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/tab_label.dart';
 import 'auto_plan_sheet.dart';
 import 'pages.dart';
 import 'photo_editor_sheet.dart';
@@ -411,20 +412,19 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                     segments: [
                       ButtonSegment(
                         value: 0,
-                        icon: const Icon(Icons.article_rounded),
-                        label: Text(
-                          'Posts (${_postsMeta?.total ?? _posts.length})',
+                        label: TabLabel(
+                          "Posts (${_postsMeta?.total ?? _posts.length})",
                         ),
                       ),
                       ButtonSegment(
                         value: 1,
-                        icon: const Icon(Icons.photo_library_rounded),
-                        label: Text(
-                          'Photos (${_photosMeta?.total ?? _photos.length})',
+                        label: TabLabel(
+                          "Photos (${_photosMeta?.total ?? _photos.length})",
                         ),
                       ),
                     ],
                     selected: {_section},
+                    showSelectedIcon: false,
                     onSelectionChanged: (s) {
                       setState(() => _section = s.first);
                       // Each tab is a different list: start it from the top.

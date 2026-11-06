@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../screens/pages.dart';
 import '../theme/brand.dart';
+import 'user_avatar.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
@@ -178,16 +179,13 @@ class _DrawerHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: royalGold, width: 1.6),
                 ),
-                child: CircleAvatar(
+                child: UserAvatar(
                   radius: 26,
                   backgroundColor: Colors.white.withValues(alpha: 0.14),
-                  child: Text(
-                    initial,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  initialStyle: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
