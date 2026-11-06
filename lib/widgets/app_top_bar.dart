@@ -100,23 +100,33 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         const LocationSwitcher(),
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: GestureDetector(
+        // 34dp circle inside a 48dp touch area, named for screen readers.
+        Semantics(
+          button: true,
+          label: 'Open menu',
+          child: InkResponse(
             onTap: onAvatarTap,
-            child: CircleAvatar(
-              radius: 17,
-              backgroundColor: brand.withValues(alpha: 0.12),
-              child: Text(
-                initial,
-                style: GoogleFonts.plusJakartaSans(
-                  color: brand,
-                  fontWeight: FontWeight.w800,
+            radius: 24,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Center(
+                child: CircleAvatar(
+                  radius: 17,
+                  backgroundColor: brand.withValues(alpha: 0.12),
+                  child: Text(
+                    initial,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: brand,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
         ),
+        const SizedBox(width: 4),
       ],
     );
   }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import '../widgets/sheet_notice.dart';
 
 /// Asks the AI for a batch of scheduled Google posts. Pops with the server's
 /// confirmation message when the plan was created.
@@ -22,8 +25,24 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
   bool _withImages = false;
   bool _busy = false;
 
+  // Shown inside the sheet: a snack bar would sit behind it and go unseen.
+  String? _notice;
+  bool _outOfCredits = false;
+
+  Future<void> _openBuyCredits() async {
+    try {
+      await openInWeb(next: '/buy-credits');
+    } catch (e) {
+      if (mounted) setState(() => _notice = friendlyException(e).message);
+    }
+  }
+
   Future<void> _generate() async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _notice = null;
+      _outOfCredits = false;
+    });
     try {
       final res = await GbpService.autoPlan(
         locationId: widget.locationId,
@@ -37,10 +56,13 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyException(e).message)),
-      );
+      final err = friendlyException(e);
+      HapticFeedback.lightImpact();
+      setState(() {
+        _busy = false;
+        _notice = err.message;
+        _outOfCredits = err.isCreditsInsufficient;
+      });
     }
   }
 
@@ -115,7 +137,19 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
               value: _withImages,
               onChanged: _busy ? null : (v) => setState(() => _withImages = v),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            // What the settings above add up to, in plain words.
+            Text(
+              '${_count.round()} ${_count.round() == 1 ? 'post' : 'posts'} over '
+              '${(_count.round() * _cadence.round())} days, starting soon.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+            ),
+            const SizedBox(height: 12),
+            SheetNotice(
+              _notice,
+              actionLabel: _outOfCredits ? 'Buy credits' : null,
+              onAction: _outOfCredits ? _openBuyCredits : null,
+            ),
             FilledButton.icon(
               onPressed: _busy ? null : _generate,
               icon: _busy

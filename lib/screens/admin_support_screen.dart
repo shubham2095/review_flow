@@ -64,9 +64,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     );
     if (updated == null) return;
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reply sent')),
-      );
+      NoticeScope.show(context, 'Reply sent');
     }
     await _load();
   }
@@ -208,9 +206,7 @@ class _TicketSheetState extends State<_TicketSheet> {
 
   Future<void> _send() async {
     if (_reply.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Write a reply first.')),
-      );
+      NoticeScope.show(context, 'Write a reply first.');
       return;
     }
     setState(() => _busy = true);
@@ -224,9 +220,7 @@ class _TicketSheetState extends State<_TicketSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyException(e).message)),
-        );
+        NoticeScope.show(context, friendlyException(e).message);
       }
     }
   }

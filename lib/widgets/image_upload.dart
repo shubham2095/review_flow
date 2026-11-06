@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../services/api_service.dart';
 import '../services/gbp_service.dart';
 
 class UploadedImage {
@@ -39,14 +40,28 @@ Future<UploadedImage?> pickAndUploadImage(BuildContext context) async {
   );
   if (source == null) return null;
 
-  final picked = await ImagePicker().pickImage(
-    source: source,
-    maxWidth: 1600,
-    imageQuality: 85,
-  );
+  // Opening the camera or gallery can fail (permission refused, no camera):
+  // say what to do, instead of a vague "something went wrong".
+  final XFile? picked;
+  try {
+    picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+  } catch (_) {
+    throw ApiException(
+      source == ImageSource.camera
+          ? 'Could not open the camera. Allow camera access for Eydia in your phone settings, or choose from the gallery.'
+          : 'Could not open your photos. Allow photo access for Eydia in your phone settings.',
+    );
+  }
   if (picked == null) return null;
 
   final bytes = await picked.readAsBytes();
+  if (bytes.isEmpty) {
+    throw ApiException('That photo could not be read. Please pick another one.');
+  }
   var name = picked.name.isEmpty ? 'photo.jpg' : picked.name;
   if (!name.contains('.')) name = '$name.jpg';
 

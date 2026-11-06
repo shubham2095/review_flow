@@ -109,7 +109,7 @@ class _HomeShellState extends State<HomeShell> {
     () => ReviewsScreen(onNavigate: _select),
     () => PostsPhotosScreen(onNavigate: _select),
     () => InsightsScreen(onNavigate: _select),
-    () => const AiToolsScreen(),
+    () => AiToolsScreen(onNavigate: _select),
     () => const BusinessProfileScreen(),
     () => const AutomationScreen(),
     () => const BillingScreen(),

@@ -51,6 +51,16 @@ class AuthService {
     await _store(data);
   }
 
+  /// Emails a password reset link. The server answers the same way whether or
+  /// not the address has an account, so this never reveals who is registered.
+  static Future<void> forgotPassword(String email) async {
+    await ApiService.instance.post(
+      '/auth/forgot-password',
+      body: {'email': email},
+      auth: false,
+    );
+  }
+
   static Future<void> register({
     required String companyName,
     required String name,

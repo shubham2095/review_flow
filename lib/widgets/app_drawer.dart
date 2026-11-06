@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../screens/pages.dart';
 import '../theme/brand.dart';
@@ -30,7 +31,19 @@ class AppDrawer extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          _DrawerHeader(name: name, email: email, initial: initial),
+          // The person's own card opens their profile.
+          Semantics(
+            button: true,
+            label: 'Open my profile',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Navigator.of(context).pop();
+                onSelect(kPageAccount);
+              },
+              child: _DrawerHeader(name: name, email: email, initial: initial),
+            ),
+          ),
           const SizedBox(height: 12),
           _SectionLabel('WORKSPACE'),
           _NavItem(
@@ -107,9 +120,18 @@ class AppDrawer extends StatelessWidget {
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.paddingOf(context).bottom + 16),
-            child: Text(
-              'Eydia • v1.0',
-              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+            // The real version, so support can ask "which version are you on?".
+            child: FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snap) {
+                final info = snap.data;
+                return Text(
+                  info == null
+                      ? 'Eydia'
+                      : 'Eydia  ·  v${info.version} (${info.buildNumber})',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                );
+              },
             ),
           ),
         ],
@@ -269,7 +291,10 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = danger ? bad : (selected ? royalIndigo : ink);
-    return Padding(
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Material(
         color: selected ? royalIndigo.withValues(alpha: 0.07) : Colors.transparent,
@@ -331,6 +356,7 @@ class _NavItem extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/health_card.dart';
+import '../widgets/pressable.dart';
+import '../widgets/sheet_notice.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import 'pages.dart';
 
 /// Audit (health score), One-Click Optimize and the marketing assistant.
 class AiToolsScreen extends StatefulWidget {
-  const AiToolsScreen({super.key});
+  const AiToolsScreen({super.key, required this.onNavigate});
+
+  /// Opens another page of the app (a suggested fix points at one).
+  final ValueChanged<int> onNavigate;
 
   @override
   State<AiToolsScreen> createState() => _AiToolsScreenState();
@@ -69,7 +77,11 @@ class _AiToolsScreenState extends State<AiToolsScreen> {
           Expanded(
             child: FadeIndexedStack(
               index: _tab,
-              children: const [_AuditTab(), _OptimizeTab(), _AssistantTab()],
+              children: [
+                _AuditTab(onNavigate: widget.onNavigate),
+                _OptimizeTab(onNavigate: widget.onNavigate),
+                const _AssistantTab(),
+              ],
             ),
           ),
         ],
@@ -92,15 +104,18 @@ Color _priorityColor(String priority) {
 }
 
 class _ActionTile extends StatelessWidget {
-  const _ActionTile({required this.action, this.index});
+  const _ActionTile({required this.action, this.index, this.onTap});
 
   final HealthAction action;
   final int? index;
 
+  /// Opens the page the fix is about; null when there is nothing to open.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     final color = _priorityColor(action.priority);
-    return Container(
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: cardDecoration(),
@@ -143,7 +158,10 @@ class _ActionTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     action.why,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: muted,
+                    ),
                   ),
                 ],
               ],
@@ -165,9 +183,30 @@ class _ActionTile extends StatelessWidget {
               ),
             ),
           ),
+          if (onTap != null)
+            const Padding(
+              padding: EdgeInsets.only(left: 2),
+              child: Icon(Icons.chevron_right_rounded, color: muted),
+            ),
         ],
       ),
     );
+    return onTap == null
+        ? card
+        : Pressable(onTap: onTap, scale: 0.985, child: card);
+  }
+}
+
+/// Buy-more-credits shortcut, shown wherever an AI call ran out of credits.
+Future<void> _openBuyCredits(BuildContext context) async {
+  try {
+    await openInWeb(next: '/buy-credits');
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendlyException(e).message)));
+    }
   }
 }
 
@@ -190,13 +229,20 @@ class _Failure extends StatelessWidget {
 // ---------------------------------------------------------------- Audit
 
 class _AuditTab extends StatefulWidget {
-  const _AuditTab();
+  const _AuditTab({required this.onNavigate});
+
+  final ValueChanged<int> onNavigate;
 
   @override
   State<_AuditTab> createState() => _AuditTabState();
 }
 
 class _AuditTabState extends State<_AuditTab> {
+  VoidCallback? _tapFor(HealthAction a) {
+    final page = pageForActionHint(a.module, a.cta);
+    return page == null ? null : () => widget.onNavigate(page);
+  }
+
   GbpHealth? _health;
   bool _loading = true;
   String? _error;
@@ -258,7 +304,11 @@ class _AuditTabState extends State<_AuditTab> {
                     for (var i = 0; i < h.actions.length; i++)
                       FadeIn(
                         delay: 120 + i * 70,
-                        child: _ActionTile(action: h.actions[i], index: i),
+                        child: _ActionTile(
+                          action: h.actions[i],
+                          index: i,
+                          onTap: _tapFor(h.actions[i]),
+                        ),
                       ),
                   ],
                 ],
@@ -271,29 +321,44 @@ class _AuditTabState extends State<_AuditTab> {
 // ------------------------------------------------------------- Optimize
 
 class _OptimizeTab extends StatefulWidget {
-  const _OptimizeTab();
+  const _OptimizeTab({required this.onNavigate});
+
+  final ValueChanged<int> onNavigate;
 
   @override
   State<_OptimizeTab> createState() => _OptimizeTabState();
 }
 
 class _OptimizeTabState extends State<_OptimizeTab> {
+  VoidCallback? _tapFor(HealthAction a) {
+    final page = pageForActionHint(a.module, a.cta);
+    return page == null ? null : () => widget.onNavigate(page);
+  }
+
   OptimizeResult? _result;
   bool _running = false;
   String? _error;
+  bool _outOfCredits = false;
 
   Future<void> _run() async {
     if (_running) return;
     setState(() {
       _running = true;
       _error = null;
+      _outOfCredits = false;
     });
     try {
       final r = await GbpService.optimize();
       if (!mounted) return;
       setState(() => _result = r);
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyException(e).message);
+      if (mounted) {
+        final err = friendlyException(e);
+        setState(() {
+          _error = err.message;
+          _outOfCredits = err.isCreditsInsufficient;
+        });
+      }
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -370,9 +435,10 @@ class _OptimizeTabState extends State<_OptimizeTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 14),
-            child: Text(
-              _error!,
-              style: GoogleFonts.plusJakartaSans(color: bad, fontSize: 13),
+            child: SheetNotice(
+              _error,
+              actionLabel: _outOfCredits ? 'Buy credits' : 'Try again',
+              onAction: _outOfCredits ? () => _openBuyCredits(context) : _run,
             ),
           ),
         if (r != null) ...[
@@ -401,7 +467,9 @@ class _OptimizeTabState extends State<_OptimizeTab> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: (r.isAi ? good : muted).withValues(alpha: 0.12),
+                          color: (r.isAi ? good : muted).withValues(
+                            alpha: 0.12,
+                          ),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -427,7 +495,10 @@ class _OptimizeTabState extends State<_OptimizeTab> {
                   const SizedBox(height: 8),
                   Text(
                     'Credits left: ${r.credits}',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: muted,
+                    ),
                   ),
                 ],
               ),
@@ -437,7 +508,11 @@ class _OptimizeTabState extends State<_OptimizeTab> {
           for (var i = 0; i < r.actions.length; i++)
             FadeIn(
               delay: 100 + i * 70,
-              child: _ActionTile(action: r.actions[i], index: i),
+              child: _ActionTile(
+                action: r.actions[i],
+                index: i,
+                onTap: _tapFor(r.actions[i]),
+              ),
             ),
         ],
       ],
@@ -448,11 +523,21 @@ class _OptimizeTabState extends State<_OptimizeTab> {
 // ------------------------------------------------------------ Assistant
 
 class _ChatMessage {
-  _ChatMessage(this.text, {required this.fromUser, this.isError = false});
+  _ChatMessage(
+    this.text, {
+    required this.fromUser,
+    this.isError = false,
+    this.retryText,
+    this.outOfCredits = false,
+  });
 
   final String text;
   final bool fromUser;
   final bool isError;
+
+  /// For a failed answer: the question to send again.
+  final String? retryText;
+  final bool outOfCredits;
 }
 
 class _AssistantTab extends StatefulWidget {
@@ -509,10 +594,13 @@ class _AssistantTabState extends State<_AssistantTab> {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
     _controller.clear();
-    setState(() {
-      _messages.add(_ChatMessage(text, fromUser: true));
-      _sending = true;
-    });
+    setState(() => _messages.add(_ChatMessage(text, fromUser: true)));
+    await _answer(text);
+  }
+
+  /// Sends [text] (already shown as the person's message) and adds the answer.
+  Future<void> _answer(String text) async {
+    setState(() => _sending = true);
     _scrollToEnd();
     try {
       final res = await GbpService.assistantChat(text);
@@ -523,9 +611,16 @@ class _AssistantTabState extends State<_AssistantTab> {
       });
     } catch (e) {
       if (mounted) {
+        final err = friendlyException(e);
         setState(() {
           _messages.add(
-            _ChatMessage(friendlyException(e).message, fromUser: false, isError: true),
+            _ChatMessage(
+              err.message,
+              fromUser: false,
+              isError: true,
+              retryText: text,
+              outOfCredits: err.isCreditsInsufficient,
+            ),
           );
         });
       }
@@ -533,6 +628,48 @@ class _AssistantTabState extends State<_AssistantTab> {
       if (mounted) setState(() => _sending = false);
       _scrollToEnd();
     }
+  }
+
+  /// A failed answer is replaced by a fresh try at the same question, so the
+  /// person never has to type it again.
+  Future<void> _retry(_ChatMessage failed) async {
+    final text = failed.retryText;
+    if (text == null || _sending) return;
+    setState(() => _messages.remove(failed));
+    await _answer(text);
+  }
+
+  Future<void> _copy(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    HapticFeedback.selectionClick();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Copied')));
+  }
+
+  Future<void> _clearChat() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear this chat?'),
+        content: const Text(
+          'The conversation will be removed from this screen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _messages.removeRange(1, _messages.length));
   }
 
   @override
@@ -548,7 +685,19 @@ class _AssistantTabState extends State<_AssistantTab> {
               if (i == _messages.length) {
                 return const _TypingBubble();
               }
-              return _Bubble(message: _messages[i]);
+              final m = _messages[i];
+              return _Bubble(
+                message: m,
+                onRetry: m.retryText == null || m.outOfCredits
+                    ? null
+                    : () => _retry(m),
+                onBuyCredits: m.outOfCredits
+                    ? () => _openBuyCredits(context)
+                    : null,
+                onCopy: m.fromUser || m.isError || i == 0
+                    ? null
+                    : () => _copy(m.text),
+              );
             },
           ),
         ),
@@ -562,7 +711,11 @@ class _AssistantTabState extends State<_AssistantTab> {
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, i) => ActionChip(
                 label: Text(_suggestions[i]),
-                avatar: const Icon(Icons.auto_awesome_rounded, size: 14, color: brand),
+                avatar: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 14,
+                  color: brand,
+                ),
                 backgroundColor: Colors.white,
                 side: BorderSide(color: brand.withValues(alpha: 0.25)),
                 labelStyle: GoogleFonts.plusJakartaSans(
@@ -574,10 +727,36 @@ class _AssistantTabState extends State<_AssistantTab> {
               ),
             ),
           ),
-        if (_credits != null)
-          Text(
-            'Credits left: $_credits',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+        if (_credits != null || _messages.length > 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                if (_credits != null)
+                  Text(
+                    'Credits left: $_credits',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: muted,
+                    ),
+                  ),
+                const Spacer(),
+                if (_messages.length > 1)
+                  TextButton(
+                    onPressed: _sending ? null : _clearChat,
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 40),
+                    ),
+                    child: Text(
+                      'Clear chat',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        color: muted,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         SafeArea(
           top: false,
@@ -591,8 +770,13 @@ class _AssistantTabState extends State<_AssistantTab> {
                     minLines: 1,
                     maxLines: 4,
                     maxLength: 2000,
-                    buildCounter: (_, {required currentLength, required isFocused, maxLength}) =>
-                        null,
+                    buildCounter:
+                        (
+                          _, {
+                          required currentLength,
+                          required isFocused,
+                          maxLength,
+                        }) => null,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: InputDecoration(
@@ -644,9 +828,17 @@ class _AiAvatar extends StatelessWidget {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message});
+  const _Bubble({
+    required this.message,
+    this.onRetry,
+    this.onBuyCredits,
+    this.onCopy,
+  });
 
   final _ChatMessage message;
+  final VoidCallback? onRetry;
+  final VoidCallback? onBuyCredits;
+  final VoidCallback? onCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -681,18 +873,94 @@ class _Bubble extends StatelessWidget {
                   ),
                 ],
         ),
-        child: SelectableText(
-          message.text,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13.5, height: 1.4, color: fg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SelectableText(
+              message.text,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13.5,
+                height: 1.4,
+                color: fg,
+              ),
+            ),
+            if (onRetry != null || onBuyCredits != null || onCopy != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(
+                  spacing: 4,
+                  children: [
+                    if (onRetry != null)
+                      _BubbleAction(
+                        icon: Icons.refresh_rounded,
+                        label: 'Try again',
+                        color: bad,
+                        onTap: onRetry!,
+                      ),
+                    if (onBuyCredits != null)
+                      _BubbleAction(
+                        icon: Icons.add_circle_outline_rounded,
+                        label: 'Buy credits',
+                        color: bad,
+                        onTap: onBuyCredits!,
+                      ),
+                    if (onCopy != null)
+                      _BubbleAction(
+                        icon: Icons.copy_rounded,
+                        label: 'Copy',
+                        color: muted,
+                        onTap: onCopy!,
+                      ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );
 
     return FadeIn(
       child: Row(
-        mainAxisAlignment: user ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: user
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: user ? [bubble] : [const _AiAvatar(), bubble],
+      ),
+    );
+  }
+}
+
+class _BubbleAction extends StatelessWidget {
+  const _BubbleAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 15, color: color),
+      label: Text(
+        label,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
     );
   }
@@ -750,7 +1018,8 @@ class _TypingBubbleState extends State<_TypingBubble>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: brand.withValues(
-                        alpha: 0.25 +
+                        alpha:
+                            0.25 +
                             0.6 *
                                 (1 - ((_c.value * 3 - i) % 3).clamp(0.0, 1.0)),
                       ),

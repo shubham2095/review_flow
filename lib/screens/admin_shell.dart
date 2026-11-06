@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/session.dart';
+import '../widgets/fade_indexed_stack.dart';
 import '../theme/brand.dart';
 import 'admin_companies_screen.dart';
 import 'admin_packs_screen.dart';
@@ -58,12 +59,38 @@ class _AdminShellState extends State<AdminShell> {
     if (mounted) widget.onSignedOut();
   }
 
+  DateTime? _lastBack;
+
   void _pick(int i) {
     Navigator.of(context).pop();
     setState(() {
       _section = i;
       _visited.add(i);
     });
+  }
+
+  /// Back returns to Companies first; there, a second press within 2 seconds
+  /// leaves the app. Open sheets and the drawer close before this runs.
+  void _onBack() {
+    if (_section != 0) {
+      setState(() => _section = 0);
+      return;
+    }
+    final now = DateTime.now();
+    final last = _lastBack;
+    if (last != null && now.difference(last) < const Duration(seconds: 2)) {
+      SystemNavigator.pop();
+      return;
+    }
+    _lastBack = now;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text("Press back again to exit"),
+          duration: Duration(seconds: 2),
+        ),
+      );
   }
 
   Widget _page(int i) {
@@ -94,7 +121,12 @@ class _AdminShellState extends State<AdminShell> {
         statusBarColor: royalNavy,
         statusBarIconBrightness: Brightness.light,
       ),
-      child: Scaffold(
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _onBack();
+        },
+        child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: surface,
         appBar: AppBar(
@@ -147,7 +179,11 @@ class _AdminShellState extends State<AdminShell> {
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: GestureDetector(
+              child: Semantics(
+                button: true,
+                label: 'Open menu',
+                child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => _scaffoldKey.currentState?.openDrawer(),
                 child: Container(
                   padding: const EdgeInsets.all(2),
@@ -168,6 +204,7 @@ class _AdminShellState extends State<AdminShell> {
                     ),
                   ),
                 ),
+              ),
               ),
             ),
           ],
@@ -289,12 +326,13 @@ class _AdminShellState extends State<AdminShell> {
             ],
           ),
         ),
-        body: IndexedStack(
+        body: FadeIndexedStack(
           index: _section,
           children: [
             for (var i = 0; i < _items.length; i++)
               _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
           ],
+        ),
         ),
       ),
     );

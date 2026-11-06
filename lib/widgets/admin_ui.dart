@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/brand.dart';
+import 'notice_scope.dart';
 import 'state_view.dart';
+
+export 'notice_scope.dart' show NoticeScope;
 
 /// Shared building blocks for the super admin screens.
 
@@ -25,7 +28,8 @@ Future<T?> showAdminSheet<T>(BuildContext context, WidgetBuilder builder) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: builder,
+    // Messages raised inside the sheet show inside it, not behind it.
+    builder: (ctx) => NoticeScope(child: builder(ctx)),
   );
 }
 

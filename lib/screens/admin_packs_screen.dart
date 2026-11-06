@@ -46,7 +46,7 @@ class _AdminPacksScreenState extends State<AdminPacksScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    NoticeScope.show(context, text);
   }
 
   Future<void> _form([AdminCreditPack? pack]) async {
@@ -245,7 +245,7 @@ class _PackFormState extends State<_PackForm> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    NoticeScope.show(context, text);
   }
 
   Future<void> _save() async {

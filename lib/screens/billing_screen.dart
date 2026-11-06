@@ -4,12 +4,16 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/account_models.dart';
 import '../services/account_service.dart';
 import '../services/api_service.dart';
+import '../services/session.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import '../widgets/count_up.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/text_scale.dart';
 
 /// Your plan, AI credits, available plans and payment history. Nothing is bought
 /// in the app: every purchase button opens the web app, already signed in.
@@ -20,7 +24,8 @@ class BillingScreen extends StatefulWidget {
   State<BillingScreen> createState() => _BillingScreenState();
 }
 
-class _BillingScreenState extends State<BillingScreen> {
+class _BillingScreenState extends State<BillingScreen>
+    with WidgetsBindingObserver {
   SubscriptionInfo? _subscription;
   CreditsInfo? _credits;
   List<PlanInfo> _plans = [];
@@ -28,12 +33,31 @@ class _BillingScreenState extends State<BillingScreen> {
   List<BillingInvoice> _invoices = [];
   bool _loading = true;
   bool _opening = false;
+  bool _wentToWeb = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Coming back from the web (after paying) shows the new plan and credits
+  /// without anyone having to pull down.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _wentToWeb) {
+      _wentToWeb = false;
+      _load();
+      Session.refresh().then((_) {}, onError: (_) {});
+    }
   }
 
   /// One failing section (for example a role without billing access) should
@@ -72,6 +96,7 @@ class _BillingScreenState extends State<BillingScreen> {
     setState(() => _opening = true);
     try {
       await openInWeb(next: next);
+      _wentToWeb = true;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,6 +135,33 @@ class _BillingScreenState extends State<BillingScreen> {
                       },
                     )
                   else ...[
+                    // Some sections loaded, some did not: say so instead of
+                    // quietly showing a shorter page.
+                    if (_error != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: warn.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: warn.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline_rounded, size: 18, color: warn),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Some details could not load. Pull down to try again.',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12.5,
+                                  color: ink,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     FadeIn(
                       child: _PlanCard(
                         subscription: sub,
@@ -147,7 +199,7 @@ class _BillingScreenState extends State<BillingScreen> {
                     if (_packs.isNotEmpty) ...[
                       const _Title('Credit packs'),
                       SizedBox(
-                        height: 108,
+                        height: textScaled(context, 108),
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _packs.length,
@@ -314,6 +366,36 @@ class _PlanCard extends StatelessWidget {
             detail,
             style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 13),
           ),
+          // A plan that has run out should say what to do, not just a date.
+          if (sub != null &&
+              const {'past_due', 'expired', 'cancelled'}.contains(sub.status)) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 18, color: royalGold),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      sub.status == 'past_due'
+                          ? 'Your last payment did not go through. Update it on the web to keep your workspace active.'
+                          : 'Your plan is no longer active. Renew on the web to keep using Eydia.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: busy ? null : onManage,
@@ -365,8 +447,8 @@ class _CreditsCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                '${credits.balance}',
+              CountUp(
+                value: credits.balance,
                 style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.w800,
                   fontSize: 24,
@@ -378,13 +460,41 @@ class _CreditsCard extends StatelessWidget {
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 8,
-              color: ratio < 0.2 ? bad : brand,
-              backgroundColor: const Color(0xFFEEF1F7),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: ratio),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, _) => LinearProgressIndicator(
+                value: v,
+                minHeight: 8,
+                color: ratio < 0.2 ? bad : brand,
+                backgroundColor: const Color(0xFFEEF1F7),
+              ),
             ),
           ),
+          if (ratio < 0.2) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, size: 15, color: bad),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    credits.balance <= 0
+                        ? 'You are out of credits. AI drafts and posts will not work until you add more.'
+                        : 'Credits are running low.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: bad,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 6),
           Text(
             credits.resetAt == null
@@ -440,6 +550,12 @@ class _CreditsCard extends StatelessWidget {
   }
 }
 
+/// "review_replies" -> "Review replies".
+String _featureLabel(String key) {
+  final text = key.replaceAll('_', ' ').trim();
+  return text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);
+}
+
 class _PlanTile extends StatelessWidget {
   const _PlanTile({
     required this.plan,
@@ -458,7 +574,12 @@ class _PlanTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(),
+      decoration: cardDecoration().copyWith(
+        border: Border.all(
+          color: current ? brand.withValues(alpha: 0.5) : const Color(0xFFEEF1F7),
+          width: current ? 1.6 : 1,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -523,7 +644,7 @@ class _PlanTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      f.replaceAll('_', ' '),
+                      _featureLabel(f),
                       style: GoogleFonts.plusJakartaSans(fontSize: 11, color: ink),
                     ),
                   ),
@@ -552,51 +673,46 @@ class _PackTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          width: 140,
-          padding: const EdgeInsets.all(14),
-          decoration: cardDecoration(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                pack.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: muted,
-                ),
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.all(14),
+        decoration: cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              pack.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: muted,
               ),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${pack.credits} credits',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    color: ink,
-                  ),
-                ),
-              ),
-              Text(
-                '₹${pack.price.toStringAsFixed(pack.price % 1 == 0 ? 0 : 2)}',
+            ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${pack.credits} credits',
                 style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.w800,
-                  color: brand,
+                  fontSize: 18,
+                  color: ink,
                 ),
               ),
-            ],
-          ),
+            ),
+            Text(
+              '₹${pack.price.toStringAsFixed(pack.price % 1 == 0 ? 0 : 2)}',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                color: brand,
+              ),
+            ),
+          ],
         ),
       ),
     );

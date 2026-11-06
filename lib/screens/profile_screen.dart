@@ -1,8 +1,8 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../services/account_service.dart';
 import '../services/api_service.dart';
@@ -10,6 +10,9 @@ import '../services/auth_service.dart';
 import '../services/session.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import '../widgets/fade_in.dart';
+import '../widgets/password_rules.dart';
+import '../widgets/sheet_notice.dart';
 import '../widgets/skeleton.dart';
 import 'support_screen.dart';
 
@@ -32,10 +35,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _saving = false;
   bool _uploadingPhoto = false;
   AppUser? _user;
+  String? _nameError;
+  String? _phoneError;
 
   @override
   void initState() {
     super.initState();
+    // A field's red message goes away as soon as it is edited.
+    _name.addListener(() {
+      if (_nameError != null) setState(() => _nameError = null);
+    });
+    _phone.addListener(() {
+      if (_phoneError != null) setState(() => _phoneError = null);
+    });
     _load();
   }
 
@@ -66,11 +78,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _fill(u));
     } catch (e) {
       final cached = Session.current;
-      if (cached != null && mounted) setState(() => _fill(cached));
+      if (cached != null && mounted && _user == null) setState(() => _fill(cached));
       _message(friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Pull to refresh reloads the form, so ask before throwing edits away.
+  Future<void> _refresh() async {
+    if (_dirty) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Discard your changes?'),
+          content: const Text('What you edited has not been saved yet.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep editing'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: bad),
+              child: const Text('Discard'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    await _load();
+  }
+
+  void _discard() {
+    final u = _user;
+    if (u == null) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _fill(u);
+      _nameError = null;
+      _phoneError = null;
+    });
   }
 
   bool get _dirty {
@@ -83,8 +132,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _save() async {
     final name = _name.text.trim();
-    if (name.isEmpty) {
-      _message('Your name cannot be empty.');
+    final phone = _phone.text.trim();
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final nameError = name.isEmpty ? 'Your name cannot be empty.' : null;
+    final phoneError = phone.isNotEmpty &&
+            (!RegExp(r'^[+\d\s\-()]+$').hasMatch(phone) ||
+                digits.length < 7 ||
+                digits.length > 15)
+        ? 'Enter a valid mobile number, like +91 98765 43210.'
+        : null;
+    if (nameError != null || phoneError != null) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _nameError = nameError;
+        _phoneError = phoneError;
+      });
       return;
     }
     setState(() => _saving = true);
@@ -106,11 +168,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _changePhoto() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 400,
-      imageQuality: 80,
-    );
+    XFile? picked;
+    try {
+      picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 400,
+        imageQuality: 80,
+      );
+    } catch (_) {
+      _message('Could not open your photos. Check the photo permission for Eydia.');
+      return;
+    }
     if (picked == null) return;
     setState(() => _uploadingPhoto = true);
     try {
@@ -197,50 +265,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? const SkeletonList(count: 3, itemHeight: 130, headerHeight: 150)
           : RefreshIndicator(
               color: brand,
-              onRefresh: _load,
+              onRefresh: _refresh,
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 physics: const AlwaysScrollableScrollPhysics(),
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
-                  if (u != null) _Header(user: u, uploading: _uploadingPhoto, onPhoto: _changePhoto),
+                  if (u != null)
+                    FadeIn(
+                      child: _Header(
+                        user: u,
+                        uploading: _uploadingPhoto,
+                        onPhoto: _changePhoto,
+                      ),
+                    ),
                   const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: cardDecoration(),
-                    child: ListenableBuilder(
-                      listenable: Listenable.merge([_name, _phone, _address]),
-                      builder: (context, _) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          TextField(controller: _name, decoration: _dec('Full name')),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _phone,
-                            keyboardType: TextInputType.phone,
-                            decoration: _dec('Mobile number'),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _address,
-                            minLines: 2,
-                            maxLines: 4,
-                            decoration: _dec('Address'),
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: (_dirty && !_saving) ? _save : null,
-                            child: _saving
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
+                  FadeIn(
+                    delay: 80,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: cardDecoration(),
+                      child: ListenableBuilder(
+                        listenable: Listenable.merge([_name, _phone, _address]),
+                        builder: (context, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Your details',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: ink,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _name,
+                              textInputAction: TextInputAction.next,
+                              textCapitalization: TextCapitalization.words,
+                              autofillHints: const [AutofillHints.name],
+                              decoration: _dec('Full name').copyWith(errorText: _nameError),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _phone,
+                              keyboardType: TextInputType.phone,
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const [AutofillHints.telephoneNumber],
+                              decoration: _dec('Mobile number').copyWith(errorText: _phoneError),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _address,
+                              minLines: 2,
+                              maxLines: 4,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: _dec('Address'),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                if (_dirty) ...[
+                                  OutlinedButton(
+                                    onPressed: _saving ? null : _discard,
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size(0, 50),
                                     ),
-                                  )
-                                : const Text('Save changes'),
-                          ),
-                        ],
+                                    child: const Text('Discard'),
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: (_dirty && !_saving) ? _save : null,
+                                    child: _saving
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Save changes'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -283,9 +396,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: _deleteAccount,
                     ),
                   ]),
+                  const SizedBox(height: 18),
+                  // Support asks which version of the app someone is on.
+                  const _VersionFooter(),
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _VersionFooter extends StatelessWidget {
+  const _VersionFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snap) {
+        final info = snap.data;
+        if (info == null) return const SizedBox.shrink();
+        return Center(
+          child: Text(
+            'Eydia ${info.version} (${info.buildNumber})',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+          ),
+        );
+      },
     );
   }
 }
@@ -497,6 +634,29 @@ class _PasswordSheetState extends State<_PasswordSheet> {
   final _next = TextEditingController();
   final _confirm = TextEditingController();
   bool _busy = false;
+  bool _show = false;
+
+  // Problems are shown inside the sheet: a snack bar would sit behind it.
+  String? _currentError;
+  String? _nextError;
+  String? _confirmError;
+  String? _notice;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final c in [_current, _next, _confirm]) {
+      c.addListener(() {
+        if (_currentError != null || _nextError != null || _confirmError != null) {
+          setState(() {
+            _currentError = null;
+            _nextError = null;
+            _confirmError = null;
+          });
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -506,24 +666,32 @@ class _PasswordSheetState extends State<_PasswordSheet> {
     super.dispose();
   }
 
-  void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
   Future<void> _submit() async {
-    if (_current.text.isEmpty || _next.text.isEmpty) {
-      _message('Fill in all the fields.');
+    String? current;
+    String? next;
+    String? confirm;
+    if (_current.text.isEmpty) current = 'Enter your current password.';
+    final rule = PasswordRules.problem(_next.text);
+    if (rule != null) {
+      next = rule;
+    } else if (_next.text == _current.text) {
+      next = 'Choose a password different from the current one.';
+    }
+    if (_confirm.text != _next.text) confirm = 'The passwords do not match.';
+    if (current != null || next != null || confirm != null) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _currentError = current;
+        _nextError = next;
+        _confirmError = confirm;
+        _notice = null;
+      });
       return;
     }
-    if (_next.text.length < 8) {
-      _message('The new password must be at least 8 characters.');
-      return;
-    }
-    if (_next.text != _confirm.text) {
-      _message('The new passwords do not match.');
-      return;
-    }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _notice = null;
+    });
     try {
       await AccountService.changePassword(
         current: _current.text,
@@ -532,14 +700,17 @@ class _PasswordSheetState extends State<_PasswordSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        setState(() => _busy = false);
-        _message(friendlyException(e).message);
+        setState(() {
+          _busy = false;
+          _notice = friendlyException(e).message;
+        });
       }
     }
   }
 
-  InputDecoration _dec(String label) => InputDecoration(
+  InputDecoration _dec(String label, {String? errorText}) => InputDecoration(
         labelText: label,
+        errorText: errorText,
         filled: true,
         fillColor: surface,
         border: OutlineInputBorder(
@@ -573,22 +744,45 @@ class _PasswordSheetState extends State<_PasswordSheet> {
             const SizedBox(height: 14),
             TextField(
               controller: _current,
-              obscureText: true,
-              decoration: _dec('Current password'),
+              obscureText: !_show,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.password],
+              decoration: _dec('Current password', errorText: _currentError).copyWith(
+                suffixIcon: IconButton(
+                  tooltip: _show ? 'Hide passwords' : 'Show passwords',
+                  icon: Icon(
+                    _show ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                    color: muted,
+                  ),
+                  onPressed: () => setState(() => _show = !_show),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _next,
-              obscureText: true,
-              decoration: _dec('New password (min 8 characters)'),
+              obscureText: !_show,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.newPassword],
+              decoration: _dec('New password', errorText: _nextError),
+            ),
+            ListenableBuilder(
+              listenable: _next,
+              builder: (context, _) => Padding(
+                padding: const EdgeInsets.only(left: 4, top: 2),
+                child: PasswordRulesView(password: _next.text),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _confirm,
-              obscureText: true,
-              decoration: _dec('Confirm new password'),
+              obscureText: !_show,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _busy ? null : _submit(),
+              decoration: _dec('Confirm new password', errorText: _confirmError),
             ),
             const SizedBox(height: 16),
+            SheetNotice(_notice),
             FilledButton(
               onPressed: _busy ? null : _submit,
               child: _busy
@@ -615,34 +809,50 @@ class _DeleteAccountSheet extends StatefulWidget {
 
 class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
   final _password = TextEditingController();
+  final _confirm = TextEditingController();
   bool _busy = false;
+  bool _hide = true;
+
+  // Shown inside the sheet: a snack bar would sit behind it.
+  String? _notice;
+  String? _passwordError;
+
+  /// Deleting is permanent: the person has to type the word, not just tap.
+  bool get _confirmed => _confirm.text.trim().toUpperCase() == 'DELETE';
 
   @override
   void dispose() {
     _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
-  void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
   Future<void> _run(Future<void> Function() action) async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _notice = null;
+    });
     try {
       await action();
       if (mounted) Navigator.of(context).pop(true);
+    } on SignInCancelled {
+      // The person closed the Google chooser: nothing happened, nothing to say.
+      if (mounted) setState(() => _busy = false);
     } catch (e) {
       if (mounted) {
-        setState(() => _busy = false);
-        _message(friendlyException(e).message);
+        HapticFeedback.lightImpact();
+        setState(() {
+          _busy = false;
+          _notice = friendlyException(e).message;
+        });
       }
     }
   }
 
   Future<void> _withPassword() async {
     if (_password.text.isEmpty) {
-      _message('Enter your password to confirm.');
+      HapticFeedback.mediumImpact();
+      setState(() => _passwordError = 'Enter your password to confirm.');
       return;
     }
     await _run(() => AuthService.deleteAccount(password: _password.text));
@@ -693,10 +903,11 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _password,
-              obscureText: true,
+              controller: _confirm,
+              textCapitalization: TextCapitalization.characters,
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                labelText: 'Your password',
+                labelText: 'Type DELETE to confirm',
                 filled: true,
                 fillColor: surface,
                 border: OutlineInputBorder(
@@ -705,9 +916,36 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _password,
+              obscureText: _hide,
+              onChanged: (_) {
+                if (_passwordError != null) setState(() => _passwordError = null);
+              },
+              decoration: InputDecoration(
+                labelText: 'Your password',
+                errorText: _passwordError,
+                filled: true,
+                fillColor: surface,
+                suffixIcon: IconButton(
+                  tooltip: _hide ? 'Show password' : 'Hide password',
+                  icon: Icon(
+                    _hide ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                    color: muted,
+                  ),
+                  onPressed: () => setState(() => _hide = !_hide),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 14),
+            SheetNotice(_notice),
             FilledButton(
-              onPressed: _busy ? null : _withPassword,
+              onPressed: (_busy || !_confirmed) ? null : _withPassword,
               style: FilledButton.styleFrom(backgroundColor: bad),
               child: _busy
                   ? const SizedBox(
@@ -719,7 +957,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
             ),
             const SizedBox(height: 4),
             TextButton.icon(
-              onPressed: _busy ? null : _withGoogle,
+              onPressed: (_busy || !_confirmed) ? null : _withGoogle,
               icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
               label: const Text('I signed in with Google: confirm with Google'),
             ),

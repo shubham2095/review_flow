@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/admin_models.dart';
@@ -6,6 +7,7 @@ import '../services/admin_service.dart';
 import '../services/api_service.dart';
 import '../theme/brand.dart';
 import '../widgets/admin_ui.dart';
+import '../widgets/skeleton.dart';
 
 /// Platform settings: seller details printed on invoices, and the AI provider.
 class AdminSettingsScreen extends StatefulWidget {
@@ -128,12 +130,32 @@ class _InvoiceTabState extends State<_InvoiceTab> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  // Problems shown under the field itself, by field.
+  String? _gstError;
+  String? _emailError;
+
   Future<void> _save() async {
     final gst = int.tryParse(_gst.text.trim());
-    if (gst == null || gst < 0 || gst > 100) {
-      _message('GST rate must be between 0 and 100.');
+    final email = _email.text.trim();
+    final gstError = (gst == null || gst < 0 || gst > 100)
+        ? "GST rate must be a number from 0 to 100."
+        : null;
+    final emailError =
+        email.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)
+            ? 'Enter a valid email address.'
+            : null;
+    if (gstError != null || emailError != null) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _gstError = gstError;
+        _emailError = emailError;
+      });
       return;
     }
+    setState(() {
+      _gstError = null;
+      _emailError = null;
+    });
     setState(() => _saving = true);
     try {
       String? blank(TextEditingController c) =>
@@ -159,7 +181,7 @@ class _InvoiceTabState extends State<_InvoiceTab> {
   }
 
   Widget _field(TextEditingController c, String label,
-      {TextInputType? type, int lines = 1}) {
+      {TextInputType? type, int lines = 1, String? error, VoidCallback? onEdit}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
@@ -167,14 +189,15 @@ class _InvoiceTabState extends State<_InvoiceTab> {
         keyboardType: type,
         minLines: 1,
         maxLines: lines,
-        decoration: adminInput(label).copyWith(fillColor: surface),
+        onChanged: onEdit == null ? null : (_) => onEdit(),
+        decoration: adminInput(label).copyWith(fillColor: surface, errorText: error),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const SkeletonList(count: 3, itemHeight: 120, headerHeight: 90);
     if (_error != null) {
       return SingleChildScrollView(
         child: AdminMessage(
@@ -208,14 +231,33 @@ class _InvoiceTabState extends State<_InvoiceTab> {
               _field(_company, 'Company name'),
               _field(_address, 'Address', lines: 3),
               _field(_gstin, 'GSTIN'),
-              _field(_email, 'Email', type: TextInputType.emailAddress),
+              _field(
+                _email,
+                'Email',
+                type: TextInputType.emailAddress,
+                error: _emailError,
+                onEdit: () {
+                  if (_emailError != null) setState(() => _emailError = null);
+                },
+              ),
               _field(_phone, 'Phone', type: TextInputType.phone),
               _field(_tax, 'Tax details'),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(child: _field(_prefix, 'Invoice prefix')),
                   const SizedBox(width: 12),
-                  Expanded(child: _field(_gst, 'GST %', type: TextInputType.number)),
+                  Expanded(
+                    child: _field(
+                      _gst,
+                      'GST %',
+                      type: TextInputType.number,
+                      error: _gstError,
+                      onEdit: () {
+                        if (_gstError != null) setState(() => _gstError = null);
+                      },
+                    ),
+                  ),
                 ],
               ),
               FilledButton(
@@ -369,7 +411,7 @@ class _AiTabState extends State<_AiTab> {
   @override
   Widget build(BuildContext context) {
     final d = _data;
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const SkeletonList(count: 3, itemHeight: 120, headerHeight: 90);
     if (_error != null || d == null) {
       return SingleChildScrollView(
         child: AdminMessage(

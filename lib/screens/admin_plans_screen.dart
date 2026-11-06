@@ -48,7 +48,7 @@ class _AdminPlansScreenState extends State<AdminPlansScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    NoticeScope.show(context, text);
   }
 
   Future<void> _form([AdminPlan? plan]) async {
@@ -355,7 +355,7 @@ class _PlanFormState extends State<_PlanForm> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    NoticeScope.show(context, text);
   }
 
   Future<void> _save() async {

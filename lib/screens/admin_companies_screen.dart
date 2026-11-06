@@ -50,14 +50,15 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    NoticeScope.show(context, text);
   }
 
   Future<void> _run(AdminCompany c, Future<void> Function() action, String done) async {
     setState(() => _busy.add(c.id));
     try {
       await action();
-      _snack(done);
+      // An action that already said something specific passes no message.
+      if (done.isNotEmpty) _snack(done);
       await _load();
     } catch (e) {
       _snack(friendlyException(e).message);
@@ -116,7 +117,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
         final balance = await AdminService.addCredits(c.id, amount);
         _snack('Added $amount credits. Balance: $balance');
       },
-      'Credits added',
+      '',
     );
   }
 
@@ -424,7 +425,7 @@ class _CompanyFormState extends State<_CompanyForm> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    NoticeScope.show(context, text);
   }
 
   Future<void> _save() async {
@@ -551,9 +552,7 @@ class _CreditsSheetState extends State<_CreditsSheet> {
   void _submit() {
     final n = int.tryParse(_amount.text.trim());
     if (n == null || n < 1 || n > 1000000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a number between 1 and 1,000,000.')),
-      );
+      NoticeScope.show(context, 'Enter a number between 1 and 1,000,000.');
       return;
     }
     Navigator.of(context).pop(n);
@@ -652,23 +651,17 @@ class _UsersSheetState extends State<_UsersSheet> {
     controller.dispose();
     if (password == null || !mounted) return;
     if (password.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password must be at least 8 characters.')),
-      );
+      NoticeScope.show(context, 'Password must be at least 8 characters.');
       return;
     }
     try {
       final msg = await AdminService.resetUserPassword(widget.company.id, u.id, password);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg.isEmpty ? 'Password updated' : msg)),
-        );
+        NoticeScope.show(context, msg.isEmpty ? 'Password updated' : msg);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyException(e).message)),
-        );
+        NoticeScope.show(context, friendlyException(e).message);
       }
     }
   }
