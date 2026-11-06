@@ -54,8 +54,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } on SignInCancelled {
       // The person closed the Google chooser: nothing to report.
     } on ApiException catch (e) {
+      debugPrint(
+        'Login failed (API): status=${e.statusCode} code=${e.code} message=${e.message}',
+      );
       _snack(e.message);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Login failed: $e\n$st');
       _snack(friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -97,8 +101,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _google() async {
     await _run(() async {
+      debugPrint('Google: opening account chooser');
       final idToken = await AuthService.googleIdToken();
+      debugPrint('Google: got ID token (${idToken.length} chars), calling server');
       await AuthService.loginWithGoogle(idToken);
+      debugPrint('Google: server accepted the sign-in');
     });
   }
 

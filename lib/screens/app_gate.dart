@@ -4,9 +4,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/app_config_service.dart';
 import '../theme/brand.dart';
+import '../widgets/royal_backdrop.dart';
 
-/// Runs before login: blocks the app while the server is in maintenance or when
-/// this version is older than the minimum supported one.
+/// Runs before login and every time the app comes back to the foreground:
+/// blocks the app while the server is in maintenance or when this version is
+/// older than the minimum supported one. Nothing here can throw, so a failed
+/// check never crashes the app.
 class AppGate extends StatefulWidget {
   const AppGate({super.key, required this.child});
 
@@ -16,19 +19,70 @@ class AppGate extends StatefulWidget {
   State<AppGate> createState() => _AppGateState();
 }
 
-class _AppGateState extends State<AppGate> {
+class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
   AppGateResult? _result;
+  bool _checking = false;
+  DateTime? _lastCheck;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _check();
   }
 
-  Future<void> _check() async {
-    setState(() => _result = null);
-    final r = await AppConfigService.check();
-    if (mounted) setState(() => _result = r);
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // People who leave the app open for days still meet the gate on return.
+    // Throttled so quick app switches do not hit the server every time.
+    if (state != AppLifecycleState.resumed) return;
+    final last = _lastCheck;
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 2)) {
+      return;
+    }
+    _check(silent: true);
+  }
+
+  /// [silent] keeps the current screen visible while checking (no spinner).
+  Future<void> _check({bool silent = false}) async {
+    if (_checking) return;
+    _checking = true;
+    if (!silent && mounted) setState(() => _result = null);
+    try {
+      final r = await AppConfigService.check();
+      _lastCheck = DateTime.now();
+      if (mounted) setState(() => _result = r);
+    } catch (_) {
+      // check() already fails open; this is only a last guard.
+      if (mounted) setState(() => _result = AppGateResult(AppGateState.ok));
+    } finally {
+      _checking = false;
+    }
+  }
+
+  Future<void> _openStore(String url) async {
+    final target = url.isNotEmpty ? url : AppConfigService.defaultUpdateUrl;
+    try {
+      final ok = await launchUrl(
+        Uri.parse(target),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok) throw Exception('cannot launch');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open Google Play. Please update Eydia from the Play Store.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -55,15 +109,11 @@ class _AppGateState extends State<AppGate> {
         return _Blocked(
           icon: Icons.system_update_rounded,
           title: 'Update required',
-          text:
-              'This version of Eydia is no longer supported. Please update to keep using the app.',
+          text: r.latestVersion.isNotEmpty
+              ? 'This version of Eydia is no longer supported. Please update to version ${r.latestVersion} to keep using the app.'
+              : 'This version of Eydia is no longer supported. Please update to keep using the app.',
           button: 'Update now',
-          onPressed: () {
-            final url = r.updateUrl;
-            if (url.isNotEmpty) {
-              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-            }
-          },
+          onPressed: () => _openStore(r.updateUrl),
         );
     }
   }
@@ -87,46 +137,71 @@ class _Blocked extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 84,
-                  height: 84,
-                  decoration: BoxDecoration(
-                    color: royalIndigo.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 40, color: royalIndigo),
+      body: RoyalBackdrop(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(28),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 40,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 84,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            royalIndigo.withValues(alpha: 0.16),
+                            royalViolet.withValues(alpha: 0.05),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Icon(icon, size: 40, color: royalIndigo),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: ink,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      text,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: muted,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(onPressed: onPressed, child: Text(button)),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  text,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: muted,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(onPressed: onPressed, child: Text(button)),
-              ],
+              ),
             ),
           ),
         ),

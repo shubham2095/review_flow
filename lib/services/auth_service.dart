@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_service.dart';
@@ -84,12 +85,30 @@ class AuthService {
         await GoogleSignIn.instance.signOut();
       } catch (_) {}
 
-      final account = await GoogleSignIn.instance.authenticate();
-      final idToken = account.authentication.idToken;
-      if (idToken == null || idToken.isEmpty) {
-        throw ApiException('Google did not return a sign-in token. Please try again.');
+      final clock = Stopwatch()..start();
+      try {
+        final account = await GoogleSignIn.instance.authenticate();
+        final idToken = account.authentication.idToken;
+        if (idToken == null || idToken.isEmpty) {
+          throw ApiException('Google did not return a sign-in token. Please try again.');
+        }
+        return idToken;
+      } on GoogleSignInException catch (e) {
+        debugPrint(
+          'Google sign-in failed: code=${e.code} after ${clock.elapsedMilliseconds} ms, '
+          'description=${e.description}, details=${e.details}',
+        );
+        // The chooser closing on its own within a moment is not a person backing
+        // out: Android reports a SHA-1 / client-id mismatch as "canceled" too.
+        if (e.code == GoogleSignInExceptionCode.canceled &&
+            clock.elapsedMilliseconds < 1500) {
+          throw ApiException(
+            'Google sign-in closed immediately. This build may not be registered '
+            'with Google yet. Try the Play Store version or contact support.',
+          );
+        }
+        rethrow;
       }
-      return idToken;
     } on GoogleSignInException catch (e) {
       switch (e.code) {
         case GoogleSignInExceptionCode.canceled:

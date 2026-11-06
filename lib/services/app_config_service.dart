@@ -1,4 +1,5 @@
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/gbp_models.dart';
 import 'api_service.dart';
@@ -31,11 +32,17 @@ class AppConfig {
 enum AppGateState { ok, maintenance, updateRequired }
 
 class AppGateResult {
-  AppGateResult(this.state, {this.message = '', this.updateUrl = ''});
+  AppGateResult(
+    this.state, {
+    this.message = '',
+    this.updateUrl = '',
+    this.latestVersion = '',
+  });
 
   final AppGateState state;
   final String message;
   final String updateUrl;
+  final String latestVersion;
 }
 
 class AppConfigService {
@@ -59,8 +66,42 @@ class AppConfigService {
     return 0;
   }
 
-  /// Fails open: if the config cannot be fetched (offline, server down) the app
-  /// must still open, so any error means "ok".
+  static const _kMinVersionKey = 'app_min_supported_version';
+  static const _kUpdateUrlKey = 'app_update_url';
+
+  /// Used when the server does not send a store link.
+  static const defaultUpdateUrl =
+      'https://play.google.com/store/apps/details?id=com.heltog.review_flow';
+
+  static Future<void> _remember(AppConfig config) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kMinVersionKey, config.minSupportedVersion);
+      await prefs.setString(_kUpdateUrlKey, config.updateUrl);
+    } catch (_) {}
+  }
+
+  /// If the server cannot be reached, still enforce the last minimum version it
+  /// told us about, so a forced update cannot be skipped by going offline.
+  static Future<AppGateResult?> _fromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final min = prefs.getString(_kMinVersionKey) ?? '';
+      if (min.isEmpty) return null;
+      final info = await PackageInfo.fromPlatform();
+      if (compareVersions(info.version, min) < 0) {
+        return AppGateResult(
+          AppGateState.updateRequired,
+          updateUrl: prefs.getString(_kUpdateUrlKey) ?? '',
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Fails open when nothing is known: if the config cannot be fetched (offline,
+  /// server down) and no earlier minimum version was saved, the app still opens,
+  /// so an error never locks anyone out or crashes the app.
   static Future<AppGateResult> check() async {
     try {
       final res = await ApiService.instance.getPublic(
@@ -68,6 +109,19 @@ class AppConfigService {
         timeout: const Duration(seconds: 6),
       );
       final config = AppConfig.fromJson(res);
+      await _remember(config);
+
+      final info = await PackageInfo.fromPlatform();
+      // An outdated version is blocked even during maintenance, so the update
+      // prompt is what people see.
+      if (config.minSupportedVersion.isNotEmpty &&
+          compareVersions(info.version, config.minSupportedVersion) < 0) {
+        return AppGateResult(
+          AppGateState.updateRequired,
+          updateUrl: config.updateUrl,
+          latestVersion: config.latestVersion,
+        );
+      }
 
       if (config.maintenance) {
         return AppGateResult(
@@ -77,18 +131,9 @@ class AppConfigService {
               : config.maintenanceMessage,
         );
       }
-
-      final info = await PackageInfo.fromPlatform();
-      if (config.minSupportedVersion.isNotEmpty &&
-          compareVersions(info.version, config.minSupportedVersion) < 0) {
-        return AppGateResult(
-          AppGateState.updateRequired,
-          updateUrl: config.updateUrl,
-        );
-      }
+      return AppGateResult(AppGateState.ok);
     } catch (_) {
-      // Fail open.
+      return await _fromCache() ?? AppGateResult(AppGateState.ok);
     }
-    return AppGateResult(AppGateState.ok);
   }
 }
