@@ -10,17 +10,17 @@ class RoyalBackdrop extends StatelessWidget {
   final Widget child;
 
   Widget _glow(Color color, double size) => IgnorePointer(
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [color.withValues(alpha: 0.28), color.withValues(alpha: 0)],
-            ),
-          ),
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color.withValues(alpha: 0.28), color.withValues(alpha: 0)],
         ),
-      );
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {

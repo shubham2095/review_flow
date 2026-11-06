@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/app_config_service.dart';
 import '../theme/brand.dart';
 import '../widgets/royal_backdrop.dart';
+import '../widgets/splash_view.dart';
 
 /// Runs before login and every time the app comes back to the foreground:
 /// blocks the app while the server is in maintenance or when this version is
@@ -89,10 +90,7 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final r = _result;
     if (r == null) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const SplashView();
     }
     switch (r.state) {
       case AppGateState.ok:

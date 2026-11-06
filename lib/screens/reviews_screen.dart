@@ -1,14 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
 import '../services/location_store.dart';
+import '../services/reply_drafts.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/count_up.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/pressable.dart';
+import '../widgets/sheet_notice.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/star_row.dart';
 import '../widgets/state_view.dart';
 import 'pages.dart';
 
@@ -77,11 +85,11 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   }
 
   Future<PagedResult<GbpReview>> _fetch(int page) => GbpService.reviewsPage(
-        page: page,
-        locationId: LocationStore.selectedId.value,
-        unreplied: _filter == _Filter.unreplied,
-        rating: _ratingOf(_filter),
-      );
+    page: page,
+    locationId: LocationStore.selectedId.value,
+    unreplied: _filter == _Filter.unreplied,
+    rating: _ratingOf(_filter),
+  );
 
   /// Reloads the first page and the header counts (location changed, pull to
   /// refresh, sync).
@@ -92,7 +100,12 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       final results = await Future.wait([
         _fetch(1),
         GbpService.reviewsPage(page: 1, perPage: 1, locationId: id),
-        GbpService.reviewsPage(page: 1, perPage: 1, locationId: id, unreplied: true),
+        GbpService.reviewsPage(
+          page: 1,
+          perPage: 1,
+          locationId: id,
+          unreplied: true,
+        ),
       ]);
       if (!mounted) return;
       setState(() {
@@ -152,6 +165,8 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       _reviews = [];
       _meta = null;
     });
+    // The list was emptied: start from the top, not from the old scroll spot.
+    if (_scroll.hasClients) _scroll.jumpTo(0);
     _reloadList();
   }
 
@@ -216,7 +231,8 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     final hasMore = _meta?.hasMore ?? false;
     final empty = _reviews.isEmpty;
     // header + (cards, or one empty/loading row) + optional "loading more" row
-    final count = 1 + (empty ? 1 : _reviews.length) + (!empty && hasMore ? 1 : 0);
+    final count =
+        1 + (empty ? 1 : _reviews.length) + (!empty && hasMore ? 1 : 0);
 
     return Scaffold(
       backgroundColor: surface,
@@ -371,19 +387,7 @@ class _Header extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < 5; i++)
-                      Icon(
-                        i < avg.round()
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
-                        size: 17,
-                        color: royalGold,
-                      ),
-                  ],
-                ),
+                StarRow(rating: avg.round(), size: 17, color: royalGold),
               ],
             ),
             const SizedBox(width: 18),
@@ -422,8 +426,8 @@ class _Header extends StatelessWidget {
                     total == 0
                         ? 'No reviews yet'
                         : unreplied > 0
-                            ? '${(rate * 100).round()}% replied, $unreplied waiting'
-                            : 'All reviews replied',
+                        ? '${(rate * 100).round()}% replied, $unreplied waiting'
+                        : 'All reviews replied',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
@@ -466,15 +470,23 @@ class _Header extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
                       avatar: f == _Filter.unreplied
-                          ? Icon(Icons.hourglass_bottom_rounded,
-                              size: 14, color: filter == f ? brand : warn)
+                          ? Icon(
+                              Icons.hourglass_bottom_rounded,
+                              size: 14,
+                              color: filter == f ? brand : warn,
+                            )
                           : (_ratingOf(f) != null
-                              ? Icon(Icons.star_rounded,
-                                  size: 15, color: filter == f ? brand : star)
-                              : null),
-                      label: Text(f == _Filter.all || f == _Filter.unreplied
-                          ? label(f)
-                          : '${_ratingOf(f)}'),
+                                ? Icon(
+                                    Icons.star_rounded,
+                                    size: 15,
+                                    color: filter == f ? brand : star,
+                                  )
+                                : null),
+                      label: Text(
+                        f == _Filter.all || f == _Filter.unreplied
+                            ? label(f)
+                            : '${_ratingOf(f)}',
+                      ),
                       selected: filter == f,
                       onSelected: (_) => onFilter(f),
                       showCheckmark: false,
@@ -573,10 +585,87 @@ String _dateLabel(DateTime? d) {
     return diff.inDays == 1 ? 'Yesterday' : '${diff.inDays} days ago';
   }
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${d.day} ${months[d.month - 1]} ${d.year}';
+}
+
+/// Long reviews fold to a few lines with a Read more toggle, so one long review
+/// does not push the rest of the list off screen.
+class _ExpandableText extends StatefulWidget {
+  const _ExpandableText(this.text);
+
+  final String text;
+
+  @override
+  State<_ExpandableText> createState() => _ExpandableTextState();
+}
+
+class _ExpandableTextState extends State<_ExpandableText> {
+  static const _limit = 4;
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = GoogleFonts.plusJakartaSans(
+      fontSize: 13,
+      color: ink,
+      height: 1.4,
+    );
+    return LayoutBuilder(
+      builder: (context, box) {
+        final probe = TextPainter(
+          text: TextSpan(text: widget.text, style: style),
+          maxLines: _limit,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout(maxWidth: box.maxWidth);
+        final overflows = probe.didExceedMaxLines;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              alignment: Alignment.topCenter,
+              child: Text(
+                widget.text,
+                maxLines: _open ? null : _limit,
+                overflow: _open ? TextOverflow.visible : TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+            if (overflows)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _open = !_open),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    _open ? 'Show less' : 'Read more',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: brand,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _ReviewCard extends StatelessWidget {
@@ -611,7 +700,7 @@ class _ReviewCard extends StatelessWidget {
     // A low-rated review still waiting for a reply is the one to answer first.
     final urgent = !review.hasReply && review.rating <= 2;
 
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: cardDecoration().copyWith(
         border: Border.all(
@@ -666,14 +755,7 @@ class _ReviewCard extends StatelessWidget {
                   ],
                 ),
               ),
-              for (var i = 0; i < 5; i++)
-                Icon(
-                  i < review.rating
-                      ? Icons.star_rounded
-                      : Icons.star_outline_rounded,
-                  size: 16,
-                  color: star,
-                ),
+              StarRow(rating: review.rating),
             ],
           ),
           if (showLocation && (review.locationName ?? '').isNotEmpty) ...[
@@ -699,14 +781,7 @@ class _ReviewCard extends StatelessWidget {
           ],
           if ((review.comment ?? '').isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(
-              review.comment!,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                color: ink,
-                height: 1.4,
-              ),
-            ),
+            _ExpandableText(review.comment!),
           ],
           const SizedBox(height: 12),
           if (review.hasReply)
@@ -731,7 +806,10 @@ class _ReviewCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     review.reply!,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: ink),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: ink,
+                    ),
                   ),
                 ],
               ),
@@ -740,7 +818,10 @@ class _ReviewCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _sentimentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
@@ -765,6 +846,10 @@ class _ReviewCard extends StatelessWidget {
         ],
       ),
     );
+    // The whole card answers a tap while a reply is still due, not just the small button.
+    return review.hasReply
+        ? card
+        : Pressable(onTap: onReply, scale: 0.985, child: card);
   }
 }
 
@@ -783,16 +868,59 @@ class _ReplySheetState extends State<_ReplySheet> {
   );
   bool _drafting = false;
   bool _sending = false;
+  bool _sent = false;
   String? _hint;
+  Timer? _saveTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreDraft();
+    _controller.addListener(_scheduleSave);
+  }
+
+  /// A draft saved on this phone wins over the server's suggestion: it is
+  /// what the person was last typing.
+  Future<void> _restoreDraft() async {
+    final saved = await ReplyDrafts.read(widget.review.id);
+    if (!mounted || saved.trim().isEmpty || saved == _controller.text) return;
+    _controller.text = saved;
+    _controller.selection = TextSelection.collapsed(offset: saved.length);
+    setState(() => _hint = 'Your saved draft was restored.');
+  }
+
+  void _scheduleSave() {
+    if (_sent) return;
+    _saveTimer?.cancel();
+    final text = _controller.text;
+    _saveTimer = Timer(
+      const Duration(milliseconds: 400),
+      () => ReplyDrafts.save(widget.review.id, text),
+    );
+  }
 
   @override
   void dispose() {
+    _saveTimer?.cancel();
+    // Save what is there right now, so closing straight after typing keeps it.
+    if (!_sent) ReplyDrafts.save(widget.review.id, _controller.text);
     _controller.dispose();
     super.dispose();
   }
 
+  // Shown inside the sheet: a snack bar would sit behind it and go unseen.
+  String? _notice;
+  String? _noticeActionLabel;
+  VoidCallback? _noticeAction;
+
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    HapticFeedback.lightImpact();
+    if (!mounted) return;
+    setState(() {
+      _notice = text;
+      _noticeActionLabel = null;
+      _noticeAction = null;
+    });
   }
 
   Future<void> _draft() async {
@@ -810,10 +938,31 @@ class _ReplySheetState extends State<_ReplySheet> {
             : 'AI is unavailable right now, so this is a standard template.';
       });
     } catch (e) {
-      _message(friendlyException(e).message);
+      final err = friendlyException(e);
+      if (err.isCreditsInsufficient) {
+        _outOfCredits(err.message);
+      } else {
+        _message(err.message);
+      }
     } finally {
       if (mounted) setState(() => _drafting = false);
     }
+  }
+
+  /// Credits are bought on the web: offer the shortcut right where it is needed.
+  void _outOfCredits(String text) {
+    if (!mounted) return;
+    setState(() {
+      _notice = text;
+      _noticeActionLabel = 'Buy credits';
+      _noticeAction = () async {
+        try {
+          await openInWeb(next: '/buy-credits');
+        } catch (e) {
+          _message(friendlyException(e).message);
+        }
+      };
+    });
   }
 
   Future<void> _send() async {
@@ -825,6 +974,9 @@ class _ReplySheetState extends State<_ReplySheet> {
     setState(() => _sending = true);
     try {
       final updated = await GbpService.replyToReview(widget.review.id, text);
+      _sent = true;
+      _saveTimer?.cancel();
+      await ReplyDrafts.clear(widget.review.id);
       if (!mounted) return;
       Navigator.of(context).pop(updated);
     } catch (e) {
@@ -872,18 +1024,7 @@ class _ReplySheetState extends State<_ReplySheet> {
               ),
             ),
             const SizedBox(height: 6),
-            Row(
-              children: [
-                for (var i = 0; i < 5; i++)
-                  Icon(
-                    i < widget.review.rating
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    size: 16,
-                    color: star,
-                  ),
-              ],
-            ),
+            StarRow(rating: widget.review.rating),
             if ((widget.review.comment ?? '').isNotEmpty) ...[
               const SizedBox(height: 10),
               Container(
@@ -926,9 +1067,29 @@ class _ReplySheetState extends State<_ReplySheet> {
                 _hint!,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
             ],
-            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.public_rounded, size: 13, color: muted),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Your reply is posted publicly on Google.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: muted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SheetNotice(
+              _notice,
+              actionLabel: _noticeActionLabel,
+              onAction: _noticeAction,
+            ),
             Row(
               children: [
                 Expanded(
@@ -946,19 +1107,24 @@ class _ReplySheetState extends State<_ReplySheet> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: busy ? null : _send,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.send_rounded, size: 18),
-                    label: const Text('Send'),
+                  child: ListenableBuilder(
+                    listenable: _controller,
+                    builder: (context, _) => FilledButton.icon(
+                      onPressed: busy || _controller.text.trim().isEmpty
+                          ? null
+                          : _send,
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded, size: 18),
+                      label: const Text('Send'),
+                    ),
                   ),
                 ),
               ],

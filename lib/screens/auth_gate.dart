@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_service.dart';
 import '../services/session.dart';
-import '../theme/brand.dart';
+import '../widgets/splash_view.dart';
+import '../widgets/state_view.dart';
 import 'admin_shell.dart';
 import 'home_shell.dart';
 import 'login_screen.dart';
@@ -102,7 +102,7 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     switch (_stage) {
       case _Stage.checking:
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return const SplashView();
       case _Stage.retry:
         return _RetryView(message: _error, onRetry: _bootstrap);
       case _Stage.loggedOut:
@@ -140,25 +140,15 @@ class _RetryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off_rounded, size: 48, color: muted),
-              const SizedBox(height: 14),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w600,
-                  color: ink,
-                ),
-              ),
-              const SizedBox(height: 18),
-              FilledButton(onPressed: onRetry, child: const Text('Try again')),
-            ],
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: StateView.error(
+              title: 'Could not open Eydia',
+              text: message,
+              onRetry: onRetry,
+            ),
           ),
         ),
       ),

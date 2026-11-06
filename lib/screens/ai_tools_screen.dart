@@ -613,6 +613,7 @@ class _AssistantTabState extends State<_AssistantTab> {
                 const SizedBox(width: 8),
                 IconButton.filled(
                   onPressed: _sending ? null : _send,
+                  tooltip: 'Send message',
                   icon: const Icon(Icons.send_rounded),
                 ),
               ],

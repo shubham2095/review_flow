@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import 'offline_cache.dart';
+
 const String kAppUrl = 'https://eydia.in';
 
 /// Override per build: flutter run --dart-define=API_BASE=https://staging.example.com/api/v1
@@ -19,7 +21,9 @@ const String kApiBase = String.fromEnvironment(
 /// for those so a slow-but-working server isn't mistaken for a timeout.
 const kAiTimeout = Duration(seconds: 90);
 
-const _networkMessage =
+/// Shown when the phone has no connection. Screens compare against it to show
+/// the "you are offline" look instead of a generic failure.
+const kNetworkMessage =
     'No internet connection. Check your network and try again.';
 const _serverMessage =
     'Something went wrong on our side. Please try again in a moment.';
@@ -31,7 +35,8 @@ class ApiException implements Exception {
   final String message;
   final int? statusCode;
 
-  /// Stable machine-readable reason from the backend (plan_required, ...).
+  /// Stable machine-readable reason from the backend (plan_required, ...), or
+  /// `offline` / `timeout` for failures that never reached the server.
   final String? code;
   final Map<String, dynamic>? errors;
 
@@ -39,6 +44,11 @@ class ApiException implements Exception {
   bool get isPlanRequired => code == 'plan_required';
   bool get isFeatureLocked => code == 'feature_not_included';
   bool get isCreditsInsufficient => code == 'credits_insufficient';
+  bool get isOffline => code == 'offline';
+
+  /// The server could not be reached or is down: saved data is a fair stand-in.
+  bool get isUnreachable =>
+      code == 'offline' || code == 'timeout' || (statusCode ?? 0) >= 500;
 
   @override
   String toString() => message;
@@ -48,9 +58,11 @@ class ApiException implements Exception {
 /// Raw server or database errors never reach the screen.
 ApiException friendlyException(Object e) {
   if (e is ApiException) return e;
-  if (e is TimeoutException) return ApiException(_timeoutMessage);
+  if (e is TimeoutException) {
+    return ApiException(_timeoutMessage, code: 'timeout');
+  }
   if (e is SocketException || e is http.ClientException) {
-    return ApiException(_networkMessage);
+    return ApiException(kNetworkMessage, code: 'offline');
   }
   return ApiException(_serverMessage);
 }
@@ -97,12 +109,57 @@ class ApiService {
     } catch (_) {}
   }
 
-  Future<Map<String, dynamic>> get(String path) async {
-    final res = await _authed(
-      (token) => http.get(_uri(path), headers: _headers(token)),
-    );
-    return _asMap(_unwrap(res));
+  /// Set while a screen is showing data saved earlier because the server could
+  /// not be reached; holds when that data was saved. Null when everything is live.
+  static final ValueNotifier<DateTime?> servingSavedData =
+      ValueNotifier<DateTime?>(null);
+
+  /// Ticks when the connection comes back after saved data was shown.
+  static final ValueNotifier<int> reconnected = ValueNotifier<int>(0);
+
+  void _markOnline() {
+    if (servingSavedData.value == null) return;
+    servingSavedData.value = null;
+    reconnected.value++;
   }
+
+  /// True when the server answers. Used to notice that the connection is back.
+  Future<bool> checkReachable() async {
+    try {
+      await getPublic('/app/config', timeout: const Duration(seconds: 5));
+      _markOnline();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// GET that remembers what it fetched. If the server cannot be reached later,
+  /// the last saved copy is returned instead of an error (and
+  /// [servingSavedData] tells the UI), so the app stays useful offline.
+  Future<dynamic> _getPayload(String path) async {
+    try {
+      final res = await _authed(
+        (token) => http.get(_uri(path), headers: _headers(token)),
+      );
+      final payload = _unwrap(res);
+      _markOnline();
+      OfflineCache.write(path, payload);
+      return payload;
+    } on ApiException catch (e) {
+      if (e.isUnreachable) {
+        final saved = await OfflineCache.read(path);
+        if (saved != null) {
+          servingSavedData.value = saved.savedAt;
+          return saved.data;
+        }
+      }
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> get(String path) async =>
+      _asMap(await _getPayload(path));
 
   Future<List<int>> getBytes(String path) async {
     final res = await _authed(
@@ -113,10 +170,7 @@ class ApiService {
   }
 
   Future<List<dynamic>> getList(String path) async {
-    final res = await _authed(
-      (token) => http.get(_uri(path), headers: _headers(token)),
-    );
-    final payload = _unwrap(res);
+    final payload = await _getPayload(path);
     return payload is List ? payload : <dynamic>[];
   }
 
@@ -160,17 +214,14 @@ class ApiService {
     required List<int> bytes,
     required String filename,
   }) async {
-    final res = await _authed(
-      (token) async {
-        final req = http.MultipartRequest('POST', _uri(path))
-          ..headers.addAll(_headers(token))
-          ..files.add(
-            http.MultipartFile.fromBytes(field, bytes, filename: filename),
-          );
-        return http.Response.fromStream(await req.send());
-      },
-      timeout: const Duration(seconds: 120),
-    );
+    final res = await _authed((token) async {
+      final req = http.MultipartRequest('POST', _uri(path))
+        ..headers.addAll(_headers(token))
+        ..files.add(
+          http.MultipartFile.fromBytes(field, bytes, filename: filename),
+        );
+      return http.Response.fromStream(await req.send());
+    }, timeout: const Duration(seconds: 120));
     return _asMap(_unwrap(res));
   }
 
@@ -183,7 +234,10 @@ class ApiService {
   }) => _send('DELETE', path, body: body);
 
   /// GET without a token, for public endpoints such as /app/config.
-  Future<Map<String, dynamic>> getPublic(String path, {Duration? timeout}) async {
+  Future<Map<String, dynamic>> getPublic(
+    String path, {
+    Duration? timeout,
+  }) async {
     final res = await _run(
       () => http.get(_uri(path), headers: {'Accept': 'application/json'}),
       timeout: timeout,
@@ -348,7 +402,8 @@ class ApiService {
     if (status == 429) return 'Too many requests. Please wait a moment.';
 
     final raw = (data['message'] ?? data['error'])?.toString();
-    if (status == 401 && (raw == null || raw.toLowerCase().startsWith('unauth'))) {
+    if (status == 401 &&
+        (raw == null || raw.toLowerCase().startsWith('unauth'))) {
       return 'Your session has ended. Please log in again.';
     }
     if (raw == null || raw.isEmpty || _looksTechnical(raw)) {

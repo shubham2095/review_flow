@@ -25,49 +25,59 @@ class HealthRing extends StatelessWidget {
     final color = healthColor(score);
     final track = Theme.of(context).colorScheme.surfaceContainerHighest;
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: score.toDouble()),
-      duration: const Duration(milliseconds: 1400),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, _) {
-        return SizedBox(
-          width: size,
-          height: size,
-          child: CustomPaint(
-            painter: _RingPainter(
-              progress: value / 100,
-              color: color,
-              track: track,
-            ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value.round().toString(),
-                    style: TextStyle(
-                      fontSize: size * 0.28,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                      height: 1,
+    final still = MediaQuery.disableAnimationsOf(context);
+    // The animated digits are skipped by screen readers; this reads the final
+    // score and its grade once.
+    return Semantics(
+      label: 'Business health score $score out of 100, ${_label.toLowerCase()}',
+      excludeSemantics: true,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(
+          begin: still ? score.toDouble() : 0,
+          end: score.toDouble(),
+        ),
+        duration: still ? Duration.zero : const Duration(milliseconds: 1400),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, _) {
+          return SizedBox(
+            width: size,
+            height: size,
+            child: CustomPaint(
+              painter: _RingPainter(
+                progress: value / 100,
+                color: color,
+                track: track,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      value.round().toString(),
+                      style: TextStyle(
+                        fontSize: size * 0.28,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                        height: 1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w700,
-                      color: color,
+                    const SizedBox(height: 6),
+                    Text(
+                      _label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        letterSpacing: 1.4,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -86,7 +96,8 @@ class _RingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final stroke = size.width * 0.09;
-    final rect = Offset(stroke / 2, stroke / 2) &
+    final rect =
+        Offset(stroke / 2, stroke / 2) &
         Size(size.width - stroke, size.height - stroke);
 
     final trackPaint = Paint()

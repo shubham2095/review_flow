@@ -1,14 +1,19 @@
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/post_drafts.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import '../widgets/confirm_publish.dart';
 import '../widgets/date_format.dart';
 import '../widgets/image_upload.dart';
+import '../widgets/sheet_notice.dart';
 
 class PostEditResult {
   PostEditResult({required this.post, this.warning});
@@ -80,37 +85,177 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
   bool _saving = false;
   String? _hint;
 
+  // Message shown inside the sheet (a snack bar would sit behind it).
+  String? _notice;
+  bool _noticeError = true;
+  String? _noticeActionLabel;
+  VoidCallback? _noticeAction;
+
+  // Local draft of a NEW post, so closing the sheet never loses the text.
+  Timer? _saveTimer;
+  bool _done = false;
+
   bool get _editing => widget.post != null;
   bool get _busy => _uploading || _drafting || _saving;
   bool get _needsUrl => const {
-        'LEARN_MORE', 'ORDER', 'BOOK', 'SIGN_UP', 'SHOP',
-      }.contains(_ctaType);
+    'LEARN_MORE',
+    'ORDER',
+    'BOOK',
+    'SIGN_UP',
+    'SHOP',
+  }.contains(_ctaType);
+
+  List<TextEditingController> get _fields => [
+    _summary,
+    _ctaUrl,
+    _topic,
+    _title,
+    _coupon,
+    _terms,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_editing) {
+      _restoreDraft();
+      for (final c in _fields) {
+        c.addListener(_scheduleSave);
+      }
+    }
+  }
+
+  bool get _hasContent => [
+    _summary,
+    _topic,
+    _title,
+    _coupon,
+    _terms,
+  ].any((c) => c.text.trim().isNotEmpty);
+
+  Map<String, dynamic> _draftMap() => {
+    'summary': _summary.text,
+    'topic': _topic.text,
+    'title': _title.text,
+    'coupon': _coupon.text,
+    'terms': _terms.text,
+    'cta_url': _ctaUrl.text,
+    'type': _type,
+    'cta_type': _ctaType,
+    'image_url': _imageUrl,
+    'location': _locationId,
+  };
+
+  void _scheduleSave() {
+    if (_editing || _done) return;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), _saveNow);
+  }
+
+  void _saveNow() {
+    if (_editing || _done) return;
+    if (_hasContent) {
+      PostDrafts.save(_draftMap());
+    } else {
+      PostDrafts.clear();
+    }
+  }
+
+  Future<void> _restoreDraft() async {
+    final d = await PostDrafts.read();
+    if (d == null || !mounted) return;
+    String s(String k) => (d[k] as String?) ?? '';
+    final hasText = [
+      s('summary'),
+      s('topic'),
+      s('title'),
+    ].any((t) => t.trim().isNotEmpty);
+    if (!hasText) return;
+    _summary.text = s('summary');
+    _topic.text = s('topic');
+    _title.text = s('title');
+    _coupon.text = s('coupon');
+    _terms.text = s('terms');
+    _ctaUrl.text = s('cta_url');
+    setState(() {
+      if (_types.containsKey(s('type'))) _type = s('type');
+      if (_ctas.containsKey(s('cta_type'))) _ctaType = s('cta_type');
+      final img = d['image_url'] as String?;
+      if (img != null && img.isNotEmpty) _imageUrl = img;
+      final loc = d['location'] as String?;
+      if (loc != null && widget.locations.any((l) => l.id == loc)) {
+        _locationId = loc;
+      }
+      _notice = 'Your unsaved post was restored.';
+      _noticeError = false;
+      _noticeActionLabel = 'Start over';
+      _noticeAction = _startOver;
+    });
+  }
+
+  void _startOver() {
+    for (final c in _fields) {
+      c.clear();
+    }
+    PostDrafts.clear();
+    setState(() {
+      _type = 'STANDARD';
+      _ctaType = 'NONE';
+      _imageUrl = null;
+      _imageBytes = null;
+      _hint = null;
+      _notice = null;
+      _noticeAction = null;
+    });
+  }
 
   @override
   void dispose() {
-    _summary.dispose();
-    _ctaUrl.dispose();
-    _topic.dispose();
-    _title.dispose();
-    _coupon.dispose();
-    _terms.dispose();
+    _saveTimer?.cancel();
+    // Keep whatever is typed right now, so closing straight after typing is safe.
+    _saveNow();
+    for (final c in _fields) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    HapticFeedback.lightImpact();
+    setState(() {
+      _notice = text;
+      _noticeError = true;
+      _noticeActionLabel = null;
+      _noticeAction = null;
+    });
+  }
+
+  /// Credits are bought on the web: offer the shortcut right where it is needed.
+  void _outOfCredits(String text) {
+    setState(() {
+      _notice = text;
+      _noticeError = true;
+      _noticeActionLabel = 'Buy credits';
+      _noticeAction = () async {
+        try {
+          await openInWeb(next: '/buy-credits');
+        } catch (e) {
+          _message(friendlyException(e).message);
+        }
+      };
+    });
   }
 
   InputDecoration _dec(String label, {String? hint}) => InputDecoration(
-        labelText: label,
-        hintText: hint,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-      );
+    labelText: label,
+    hintText: hint,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   Future<DateTime?> _pickDateTime(DateTime? initial) async {
     final now = DateTime.now();
@@ -123,7 +268,9 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
     if (date == null || !mounted) return null;
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(initial ?? now.add(const Duration(hours: 1))),
+      initialTime: TimeOfDay.fromDateTime(
+        initial ?? now.add(const Duration(hours: 1)),
+      ),
     );
     if (time == null) return null;
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
@@ -170,7 +317,12 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
             : 'AI is unavailable right now, so this is a basic template.';
       });
     } catch (e) {
-      if (mounted) _message(friendlyException(e).message);
+      if (mounted) {
+        final err = friendlyException(e);
+        err.isCreditsInsufficient
+            ? _outOfCredits(err.message)
+            : _message(err.message);
+      }
     } finally {
       if (mounted) setState(() => _drafting = false);
     }
@@ -200,7 +352,20 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
       _message(problem);
       return;
     }
-    setState(() => _saving = true);
+    if (publish) {
+      String? place;
+      for (final l in widget.locations) {
+        if (l.id == _locationId) place = l.name;
+      }
+      if (!await confirmPublish(context, what: 'post', where: place) ||
+          !mounted) {
+        return;
+      }
+    }
+    setState(() {
+      _saving = true;
+      _notice = null;
+    });
     try {
       final cta = _ctaType;
       final base = <String, dynamic>{
@@ -241,6 +406,10 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
           warning = friendlyException(e).message;
         }
       }
+      // The post now exists on the server: the local copy has done its job.
+      _done = true;
+      _saveTimer?.cancel();
+      await PostDrafts.clear();
       if (!mounted) return;
       Navigator.of(context).pop(PostEditResult(post: post, warning: warning));
     } catch (e) {
@@ -300,7 +469,9 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                         child: Text(l.name, overflow: TextOverflow.ellipsis),
                       ),
                   ],
-                  onChanged: _busy ? null : (v) => setState(() => _locationId = v),
+                  onChanged: _busy
+                      ? null
+                      : (v) => setState(() => _locationId = v),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -312,7 +483,12 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                       label: Text(e.value),
                       selected: _type == e.key,
                       showCheckmark: false,
-                      onSelected: _busy ? null : (_) => setState(() => _type = e.key),
+                      onSelected: _busy
+                          ? null
+                          : (_) {
+                              setState(() => _type = e.key);
+                              _scheduleSave();
+                            },
                     ),
                 ],
               ),
@@ -327,7 +503,10 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                   Expanded(
                     child: TextField(
                       controller: _topic,
-                      decoration: _dec('Ask AI', hint: 'What is the post about?'),
+                      decoration: _dec(
+                        'Ask AI',
+                        hint: 'What is the post about?',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -352,7 +531,10 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     _hint!,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: muted,
+                    ),
                   ),
                 ),
               const SizedBox(height: 12),
@@ -371,9 +553,9 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                 onRemove: _busy
                     ? null
                     : () => setState(() {
-                          _imageUrl = null;
-                          _imageBytes = null;
-                        }),
+                        _imageUrl = null;
+                        _imageBytes = null;
+                      }),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -384,7 +566,12 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                   for (final e in _ctas.entries)
                     DropdownMenuItem(value: e.key, child: Text(e.value)),
                 ],
-                onChanged: _busy ? null : (v) => setState(() => _ctaType = v ?? 'NONE'),
+                onChanged: _busy
+                    ? null
+                    : (v) {
+                        setState(() => _ctaType = v ?? 'NONE');
+                        _scheduleSave();
+                      },
               ),
               if (_needsUrl) ...[
                 const SizedBox(height: 12),
@@ -396,7 +583,10 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
               ],
               if (!_editing && _type == 'OFFER') ...[
                 const SizedBox(height: 12),
-                TextField(controller: _coupon, decoration: _dec('Coupon code (optional)')),
+                TextField(
+                  controller: _coupon,
+                  decoration: _dec('Coupon code (optional)'),
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _terms,
@@ -424,7 +614,9 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                   onPick: _busy
                       ? null
                       : () async {
-                          final d = await _pickDateTime(_eventEnd ?? _eventStart);
+                          final d = await _pickDateTime(
+                            _eventEnd ?? _eventStart,
+                          );
                           if (d != null) setState(() => _eventEnd = d);
                         },
                 ),
@@ -438,9 +630,9 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                   onChanged: _busy
                       ? null
                       : (v) => setState(() {
-                            _schedule = v;
-                            if (!v) _scheduledAt = null;
-                          }),
+                          _schedule = v;
+                          if (!v) _scheduledAt = null;
+                        }),
                 ),
                 if (_schedule)
                   _DateRow(
@@ -455,6 +647,12 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
                   ),
               ],
               const SizedBox(height: 16),
+              SheetNotice(
+                _notice,
+                error: _noticeError,
+                actionLabel: _noticeActionLabel,
+                onAction: _noticeAction,
+              ),
               Row(
                 children: [
                   Expanded(
@@ -526,55 +724,64 @@ class _ImageBox extends StatelessWidget {
       child: uploading
           ? const Center(child: CircularProgressIndicator())
           : has
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    bytes != null
-                        ? Image.memory(bytes!, fit: BoxFit.cover)
-                        : Image.network(
-                            url!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Center(
-                              child: Icon(Icons.broken_image_outlined, color: muted),
-                            ),
+          ? Stack(
+              fit: StackFit.expand,
+              children: [
+                bytes != null
+                    ? Image.memory(bytes!, fit: BoxFit.cover)
+                    : Image.network(
+                        url!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: muted,
                           ),
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: IconButton.filled(
-                        onPressed: onRemove,
-                        tooltip: 'Remove image',
-                        style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                        icon: const Icon(Icons.close_rounded, size: 18),
+                        ),
+                      ),
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: IconButton.filled(
+                    onPressed: onRemove,
+                    tooltip: 'Remove image',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                    ),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ),
+              ],
+            )
+          : InkWell(
+              onTap: onAdd,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add_photo_alternate_rounded, color: brand),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Add a photo (optional)',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w700,
+                        color: brand,
                       ),
                     ),
                   ],
-                )
-              : InkWell(
-                  onTap: onAdd,
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.add_photo_alternate_rounded, color: brand),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Add a photo (optional)',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w700,
-                            color: brand,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
+              ),
+            ),
     );
   }
 }
 
 class _DateRow extends StatelessWidget {
-  const _DateRow({required this.label, required this.value, required this.onPick});
+  const _DateRow({
+    required this.label,
+    required this.value,
+    required this.onPick,
+  });
 
   final String label;
   final DateTime? value;

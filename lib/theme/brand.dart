@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 const brand = Color(0xFF4C6FFF);
 const brandDeep = Color(0xFF7C5CFF);
 const ink = Color(0xFF1B2437);
-const muted = Color(0xFF7A8599);
+// Darkened from 0xFF7A8599 (3.7:1 on white) to meet the 4.5:1 text contrast minimum.
+const muted = Color(0xFF5F6B80);
 const surface = Color(0xFFF4F6FB);
 const good = Color(0xFF22C55E);
 const warn = Color(0xFFF97316);

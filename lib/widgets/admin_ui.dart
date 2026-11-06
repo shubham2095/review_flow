@@ -7,15 +7,15 @@ import 'state_view.dart';
 /// Shared building blocks for the super admin screens.
 
 InputDecoration adminInput(String label, {String? hint}) => InputDecoration(
-      labelText: label,
-      hintText: hint,
-      filled: true,
-      fillColor: surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
-      ),
-    );
+  labelText: label,
+  hintText: hint,
+  filled: true,
+  fillColor: surface,
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(16),
+    borderSide: BorderSide.none,
+  ),
+);
 
 Future<T?> showAdminSheet<T>(BuildContext context, WidgetBuilder builder) {
   return showModalBottomSheet<T>(

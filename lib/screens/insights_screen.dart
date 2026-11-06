@@ -14,6 +14,7 @@ import '../widgets/count_up.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/text_scale.dart';
 import 'pages.dart';
 
 /// Google performance for the selected location: views, calls, website
@@ -233,7 +234,7 @@ class _Metrics extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      mainAxisExtent: 112,
+      mainAxisExtent: textScaled(context, 112),
       children: [
         for (final (icon, label, value, color) in items)
           Container(

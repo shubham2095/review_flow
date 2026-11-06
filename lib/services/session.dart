@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
 import 'location_store.dart';
+import 'offline_cache.dart';
 
 /// The signed-in user as returned by GET /auth/me.
 class AppUser {
@@ -87,6 +88,9 @@ class Session {
   static void clear() {
     user.value = null;
     LocationStore.clear();
+    // Saved offline copies belong to the person who just left.
+    OfflineCache.clear();
+    ApiService.servingSavedData.value = null;
   }
 
   /// Reloads the user (and plan state) from the server.

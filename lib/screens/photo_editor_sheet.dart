@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import '../widgets/confirm_publish.dart';
 import '../widgets/date_format.dart';
 import '../widgets/image_upload.dart';
+import '../widgets/sheet_notice.dart';
 
 class PhotoEditResult {
   PhotoEditResult({required this.photo, this.warning});
@@ -61,6 +65,11 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
   bool _saving = false;
   String? _hint;
 
+  // Message shown inside the sheet (a snack bar would sit behind it).
+  String? _notice;
+  String? _noticeActionLabel;
+  VoidCallback? _noticeAction;
+
   bool get _busy => _drafting || _saving;
 
   @override
@@ -71,19 +80,39 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
   }
 
   void _message(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    HapticFeedback.lightImpact();
+    setState(() {
+      _notice = text;
+      _noticeActionLabel = null;
+      _noticeAction = null;
+    });
+  }
+
+  /// Credits are bought on the web: offer the shortcut right where it is needed.
+  void _outOfCredits(String text) {
+    setState(() {
+      _notice = text;
+      _noticeActionLabel = 'Buy credits';
+      _noticeAction = () async {
+        try {
+          await openInWeb(next: '/buy-credits');
+        } catch (e) {
+          _message(friendlyException(e).message);
+        }
+      };
+    });
   }
 
   InputDecoration _dec(String label, {String? hint}) => InputDecoration(
-        labelText: label,
-        hintText: hint,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-      );
+    labelText: label,
+    hintText: hint,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   Future<void> _pickSchedule() async {
     final now = DateTime.now();
@@ -102,7 +131,13 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
     );
     if (time == null) return;
     setState(() {
-      _scheduledAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _scheduledAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -129,7 +164,12 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
             : 'AI is unavailable right now, so this is a basic caption.';
       });
     } catch (e) {
-      if (mounted) _message(friendlyException(e).message);
+      if (mounted) {
+        final err = friendlyException(e);
+        err.isCreditsInsufficient
+            ? _outOfCredits(err.message)
+            : _message(err.message);
+      }
     } finally {
       if (mounted) setState(() => _drafting = false);
     }
@@ -147,7 +187,20 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
         return;
       }
     }
-    setState(() => _saving = true);
+    if (publish) {
+      String? place;
+      for (final l in widget.locations) {
+        if (l.id == _locationId) place = l.name;
+      }
+      if (!await confirmPublish(context, what: 'photo', where: place) ||
+          !mounted) {
+        return;
+      }
+    }
+    setState(() {
+      _saving = true;
+      _notice = null;
+    });
     try {
       var photo = await GbpService.createPhoto({
         'location': _locationId,
@@ -167,7 +220,9 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
         }
       }
       if (!mounted) return;
-      Navigator.of(context).pop(PhotoEditResult(photo: photo, warning: warning));
+      Navigator.of(
+        context,
+      ).pop(PhotoEditResult(photo: photo, warning: warning));
     } catch (e) {
       if (mounted) _message(friendlyException(e).message);
     } finally {
@@ -234,7 +289,9 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
                         child: Text(l.name, overflow: TextOverflow.ellipsis),
                       ),
                   ],
-                  onChanged: _busy ? null : (v) => setState(() => _locationId = v),
+                  onChanged: _busy
+                      ? null
+                      : (v) => setState(() => _locationId = v),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -246,7 +303,9 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
                   for (final e in _categories.entries)
                     DropdownMenuItem(value: e.key, child: Text(e.value)),
                 ],
-                onChanged: _busy ? null : (v) => setState(() => _category = v ?? 'ADDITIONAL'),
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => _category = v ?? 'ADDITIONAL'),
               ),
               const SizedBox(height: 12),
               Row(
@@ -255,7 +314,10 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
                   Expanded(
                     child: TextField(
                       controller: _topic,
-                      decoration: _dec('Ask AI', hint: 'What does the photo show?'),
+                      decoration: _dec(
+                        'Ask AI',
+                        hint: 'What does the photo show?',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -280,7 +342,10 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     _hint!,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: muted,
+                    ),
                   ),
                 ),
               const SizedBox(height: 12),
@@ -298,9 +363,9 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
                 onChanged: _busy
                     ? null
                     : (v) => setState(() {
-                          _schedule = v;
-                          if (!v) _scheduledAt = null;
-                        }),
+                        _schedule = v;
+                        if (!v) _scheduledAt = null;
+                      }),
               ),
               if (_schedule)
                 InkWell(
@@ -332,6 +397,11 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
                   ),
                 ),
               const SizedBox(height: 16),
+              SheetNotice(
+                _notice,
+                actionLabel: _noticeActionLabel,
+                onAction: _noticeAction,
+              ),
               Row(
                 children: [
                   Expanded(

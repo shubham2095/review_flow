@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_service.dart';
@@ -29,11 +28,26 @@ class AuthService {
   }
 
   static Future<void> loginWithGoogle(String idToken) async {
-    final data = await ApiService.instance.post(
-      '/auth/google',
-      body: {'id_token': idToken},
-      auth: false,
-    );
+    final Map<String, dynamic> data;
+    try {
+      data = await ApiService.instance.post(
+        '/auth/google',
+        body: {'id_token': idToken},
+        auth: false,
+      );
+    } on ApiException catch (e) {
+      // The server has no Google sign-in set up (its side, not the person's):
+      // say so plainly and point to the email option instead of a vague failure.
+      if (e.code == 'not_configured') {
+        throw ApiException(
+          'Google sign-in is temporarily unavailable. Please try again later, '
+          'or sign in with your email and password.',
+          statusCode: e.statusCode,
+          code: e.code,
+        );
+      }
+      rethrow;
+    }
     await _store(data);
   }
 
@@ -85,30 +99,12 @@ class AuthService {
         await GoogleSignIn.instance.signOut();
       } catch (_) {}
 
-      final clock = Stopwatch()..start();
-      try {
-        final account = await GoogleSignIn.instance.authenticate();
-        final idToken = account.authentication.idToken;
-        if (idToken == null || idToken.isEmpty) {
-          throw ApiException('Google did not return a sign-in token. Please try again.');
-        }
-        return idToken;
-      } on GoogleSignInException catch (e) {
-        debugPrint(
-          'Google sign-in failed: code=${e.code} after ${clock.elapsedMilliseconds} ms, '
-          'description=${e.description}, details=${e.details}',
-        );
-        // The chooser closing on its own within a moment is not a person backing
-        // out: Android reports a SHA-1 / client-id mismatch as "canceled" too.
-        if (e.code == GoogleSignInExceptionCode.canceled &&
-            clock.elapsedMilliseconds < 1500) {
-          throw ApiException(
-            'Google sign-in closed immediately. This build may not be registered '
-            'with Google yet. Try the Play Store version or contact support.',
-          );
-        }
-        rethrow;
+      final account = await GoogleSignIn.instance.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw ApiException('Google did not return a sign-in token. Please try again.');
       }
+      return idToken;
     } on GoogleSignInException catch (e) {
       switch (e.code) {
         case GoogleSignInExceptionCode.canceled:

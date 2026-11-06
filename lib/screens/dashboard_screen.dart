@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
@@ -13,7 +14,9 @@ import '../widgets/fade_in.dart';
 import '../widgets/health_card.dart';
 import '../widgets/health_ring.dart';
 import '../widgets/pressable.dart';
+import '../widgets/star_row.dart';
 import '../widgets/state_view.dart';
+import '../widgets/text_scale.dart';
 import 'pages.dart';
 
 /// Overview: business health, review stats, what to do next, locations and
@@ -24,23 +27,51 @@ class DashboardScreen extends StatefulWidget {
   final ValueChanged<int> onNavigate;
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  late Future<GbpOverview> _future;
+class DashboardScreenState extends State<DashboardScreen> {
+  static const _kChecklistHidden = 'overview_checklist_hidden';
+
+  /// Stats older than this are reloaded quietly when the tab is shown again.
+  static const _staleAfter = Duration(seconds: 45);
+
+  GbpOverview? _data;
+  GbpConnection? _connection;
+  String? _error;
+  bool _loading = true; // first load only: shows the skeleton
+  bool _refreshing = false;
+  bool _showBar =
+      false; // thin progress bar for quiet reloads (not pull to refresh)
+  DateTime? _loadedAt;
   bool _syncing = false;
   bool _connecting = false;
+  bool _checklistHidden = false;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _loadChecklistPref();
+    _refresh();
   }
 
-  GbpConnection? _connection;
+  Future<void> _loadChecklistPref() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hidden = prefs.getBool(_kChecklistHidden) ?? false;
+      if (mounted && hidden) setState(() => _checklistHidden = true);
+    } catch (_) {}
+  }
 
-  Future<GbpOverview> _load() async {
+  Future<void> _hideChecklist() async {
+    setState(() => _checklistHidden = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kChecklistHidden, true);
+    } catch (_) {}
+  }
+
+  Future<GbpOverview> _fetch() async {
     // The connection call is a bonus (Google account, reconnect prompt): a
     // failure there must never blank the dashboard.
     final connection = GbpService.connection().then<GbpConnection?>(
@@ -53,14 +84,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return data;
   }
 
-  Future<void> _refresh() async {
-    final next = _load();
-    setState(() => _future = next);
-    try {
-      await next;
-    } catch (_) {
-      // The error is shown by the FutureBuilder.
+  /// Reloads without ever blanking the screen: what is shown stays until the
+  /// new numbers arrive, and a failed reload leaves it in place with a message.
+  Future<void> _refresh({bool pulled = false}) async {
+    if (mounted) {
+      setState(() {
+        _refreshing = true;
+        _showBar = !pulled && _data != null;
+      });
     }
+    try {
+      final data = await _fetch();
+      if (!mounted) return;
+      setState(() {
+        _data = data;
+        _error = null;
+        _loadedAt = DateTime.now();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final message = friendlyException(e).message;
+      if (_data == null) {
+        setState(() => _error = message);
+      } else {
+        _snack(message);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _refreshing = false;
+          _showBar = false;
+        });
+      }
+    }
+  }
+
+  /// Reloads now (the connection just came back).
+  void reload() {
+    if (_data == null && _loading) return;
+    _refresh();
+  }
+
+  /// Called by the shell when the Overview tab is opened again: numbers move
+  /// while people reply to reviews or publish posts elsewhere in the app.
+  void refreshIfStale() {
+    if (_refreshing || _loading || _data == null) return;
+    final at = _loadedAt;
+    if (at != null && DateTime.now().difference(at) < _staleAfter) return;
+    _refresh();
   }
 
   void _snack(String text) {
@@ -112,27 +184,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  /// Opens the page a suggested action is about. Known buttons first, then the
+  /// module the server named, so a new action never lands on a dead tap.
   void _runAction(HealthAction a) {
     switch (a.cta) {
       case 'Connect Google':
         _connect();
+        return;
       case 'Add Location':
         _sync();
+        return;
       case 'View Negative' || 'Open Reviews':
         widget.onNavigate(kPageReviews);
+        return;
       case 'Optimize':
         widget.onNavigate(kPageAiTools);
+        return;
       case 'Upload Photos' || 'Create Post':
         widget.onNavigate(kPagePosts);
-      default:
-        widget.onNavigate(
-          a.module == 'Reviews' ? kPageReviews : kPageOverview,
-        );
+        return;
     }
+    final hint = '${a.module} ${a.cta}'.toLowerCase();
+    if (hint.contains('review')) {
+      widget.onNavigate(kPageReviews);
+    } else if (hint.contains('post') || hint.contains('photo')) {
+      widget.onNavigate(kPagePosts);
+    } else if (hint.contains('insight')) {
+      widget.onNavigate(kPageInsights);
+    } else if (hint.contains('profile') ||
+        hint.contains('hours') ||
+        hint.contains('description') ||
+        hint.contains('info')) {
+      widget.onNavigate(kPageBusinessProfile);
+    } else if (hint.contains('automat')) {
+      widget.onNavigate(kPageAutomation);
+    } else if (hint.contains('optimi') ||
+        hint.contains('audit') ||
+        hint.contains('ai')) {
+      widget.onNavigate(kPageAiTools);
+    } else {
+      _snack(a.title);
+    }
+  }
+
+  /// Tapping a location card works on that location from then on.
+  void _openLocation(GbpLocation loc) {
+    HapticFeedback.selectionClick();
+    LocationStore.select(loc.id);
+    widget.onNavigate(kPageReviews);
   }
 
   @override
   Widget build(BuildContext context) {
+    final data = _data;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.white,
@@ -141,34 +245,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Scaffold(
         backgroundColor: surface,
-        body: RefreshIndicator(
-          color: brand,
-          onRefresh: _refresh,
-          child: FutureBuilder<GbpOverview>(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const _DashboardSkeleton();
-              }
-              if (snapshot.hasError) {
-                return _ErrorView(
-                  message: friendlyException(snapshot.error!).message,
-                  onRetry: _refresh,
-                );
-              }
-              return _DashboardBody(
-                data: snapshot.requireData,
-                connection: _connection,
-                syncing: _syncing,
-                connecting: _connecting,
-                onSync: _sync,
-                onConnect: _connect,
-                onAction: _runAction,
-                onNavigate: widget.onNavigate,
-              );
-            },
-          ),
-        ),
+        body: _loading && data == null
+            ? const _DashboardSkeleton()
+            : Column(
+                children: [
+                  if (_showBar) const LinearProgressIndicator(minHeight: 2),
+                  Expanded(
+                    child: RefreshIndicator(
+                      color: brand,
+                      onRefresh: () => _refresh(pulled: true),
+                      child: data == null
+                          ? _ErrorView(
+                              message: _error ?? 'Something went wrong.',
+                              onRetry: _refresh,
+                            )
+                          : _DashboardBody(
+                              data: data,
+                              connection: _connection,
+                              syncing: _syncing,
+                              connecting: _connecting,
+                              checklistHidden: _checklistHidden,
+                              onSync: _sync,
+                              onConnect: _connect,
+                              onAction: _runAction,
+                              onNavigate: widget.onNavigate,
+                              onOpenLocation: _openLocation,
+                              onHideChecklist: _hideChecklist,
+                            ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -274,31 +381,40 @@ class _DashboardBody extends StatelessWidget {
     required this.connection,
     required this.syncing,
     required this.connecting,
+    required this.checklistHidden,
     required this.onSync,
     required this.onConnect,
     required this.onAction,
     required this.onNavigate,
+    required this.onOpenLocation,
+    required this.onHideChecklist,
   });
 
   final GbpOverview data;
   final GbpConnection? connection;
   final bool syncing;
   final bool connecting;
+  final bool checklistHidden;
   final VoidCallback onSync;
   final VoidCallback onConnect;
   final ValueChanged<HealthAction> onAction;
   final ValueChanged<int> onNavigate;
+  final ValueChanged<GbpLocation> onOpenLocation;
+  final VoidCallback onHideChecklist;
 
   @override
   Widget build(BuildContext context) {
     final needsReconnect = connection?.needsReconnect ?? false;
-    final connected = (connection?.connected ?? data.googleConnected) && !needsReconnect;
+    final connected =
+        (connection?.connected ?? data.googleConnected) && !needsReconnect;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        FadeIn(child: _Header(data: data, connection: connection)),
+        FadeIn(
+          child: _Header(data: data, connection: connection),
+        ),
         const SizedBox(height: 16),
         if (needsReconnect)
           FadeIn(
@@ -341,7 +457,21 @@ class _DashboardBody extends StatelessWidget {
             ),
           ),
         if (needsReconnect || !connected || data.locations.isEmpty)
+          const SizedBox(height: 16)
+        else if (!checklistHidden && !_Checklist.allDone(data)) ...[
+          // Connected and imported: what is left to get the most out of Eydia.
+          FadeIn(
+            delay: 80,
+            child: _Checklist(
+              data: data,
+              onReply: () => onNavigate(kPageReviews),
+              onPost: () => onNavigate(kPagePosts),
+              onPhotos: () => onNavigate(kPagePosts),
+              onHide: onHideChecklist,
+            ),
+          ),
           const SizedBox(height: 16),
+        ],
         FadeIn(delay: 120, child: HealthCard(health: data.health)),
         const SizedBox(height: 16),
         FadeIn(delay: 170, child: _QuickActions(onNavigate: onNavigate)),
@@ -359,10 +489,15 @@ class _DashboardBody extends StatelessWidget {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: brand),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: brand,
+                    ),
                   )
                 : const Icon(Icons.sync_rounded),
-            label: Text(syncing ? 'Syncing from Google...' : 'Sync from Google now'),
+            label: Text(
+              syncing ? 'Syncing from Google...' : 'Sync from Google now',
+            ),
             style: OutlinedButton.styleFrom(
               foregroundColor: brand,
               minimumSize: const Size.fromHeight(46),
@@ -370,7 +505,9 @@ class _DashboardBody extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              textStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+              textStyle: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -390,23 +527,33 @@ class _DashboardBody extends StatelessWidget {
           FadeIn(
             delay: 400,
             child: SizedBox(
-              height: 150,
+              height: textScaled(context, 150),
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: data.locations.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (_, i) =>
-                    _LocationCard(loc: data.locations[i], index: i),
+                itemBuilder: (_, i) => _LocationCard(
+                  loc: data.locations[i],
+                  index: i,
+                  onTap: () => onOpenLocation(data.locations[i]),
+                ),
               ),
             ),
           ),
         ],
         if (data.recentReviews.isNotEmpty) ...[
-          const _SectionTitle('Recent reviews'),
+          _SectionTitle(
+            'Recent reviews',
+            actionLabel: 'See all',
+            onAction: () => onNavigate(kPageReviews),
+          ),
           for (var i = 0; i < data.recentReviews.length; i++)
             FadeIn(
               delay: 480 + i * 70,
-              child: _ReviewCard(review: data.recentReviews[i]),
+              child: _ReviewCard(
+                review: data.recentReviews[i],
+                onTap: () => onNavigate(kPageReviews),
+              ),
             ),
         ],
       ],
@@ -438,11 +585,27 @@ class _Header extends StatelessWidget {
 
   String get _date {
     const days = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
     ];
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final now = DateTime.now();
     return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
@@ -454,7 +617,8 @@ class _Header extends StatelessWidget {
     final first = name.isEmpty ? '' : name.split(' ').first;
     final count = data.locations.length;
     final needsReconnect = connection?.needsReconnect ?? false;
-    final connected = (connection?.connected ?? data.googleConnected) && !needsReconnect;
+    final connected =
+        (connection?.connected ?? data.googleConnected) && !needsReconnect;
     final email = connection?.googleEmail ?? '';
 
     return ClipRRect(
@@ -506,8 +670,8 @@ class _Header extends StatelessWidget {
                   text: needsReconnect
                       ? 'Reconnect needed'
                       : (connected
-                          ? (email.isEmpty ? 'Google connected' : email)
-                          : 'Google not connected'),
+                            ? (email.isEmpty ? 'Google connected' : email)
+                            : 'Google not connected'),
                 ),
                 _HeaderChip(
                   icon: Icons.place_rounded,
@@ -535,27 +699,37 @@ class _HeaderChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+    // A long email must shrink with "...", not push past the screen edge.
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width - 72,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: GoogleFonts.plusJakartaSans(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: Colors.white),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -672,7 +846,10 @@ class _QuickActions extends StatelessWidget {
                 onNavigate(items[i].$3);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 4,
+                ),
                 decoration: cardDecoration(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -718,10 +895,28 @@ class _StatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      _Stat(Icons.reviews_rounded, 'Total reviews', data.totalReviews.toDouble(), 0, brand),
+      _Stat(
+        Icons.reviews_rounded,
+        'Total reviews',
+        data.totalReviews.toDouble(),
+        0,
+        brand,
+      ),
       _Stat(Icons.star_rounded, 'Avg rating', data.averageRating, 1, star),
-      _Stat(Icons.check_circle_rounded, 'Replied', data.replied.toDouble(), 0, good),
-      _Stat(Icons.hourglass_bottom_rounded, 'Unreplied', data.unreplied.toDouble(), 0, bad),
+      _Stat(
+        Icons.check_circle_rounded,
+        'Replied',
+        data.replied.toDouble(),
+        0,
+        good,
+      ),
+      _Stat(
+        Icons.hourglass_bottom_rounded,
+        'Unreplied',
+        data.unreplied.toDouble(),
+        0,
+        bad,
+      ),
     ];
     return GridView.count(
       crossAxisCount: 2,
@@ -729,7 +924,7 @@ class _StatsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      mainAxisExtent: 112,
+      mainAxisExtent: textScaled(context, 112),
       children: [for (final s in items) _StatCard(stat: s)],
     );
   }
@@ -774,7 +969,10 @@ class _StatCard extends StatelessWidget {
                 child: Text(
                   stat.label,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: muted,
+                  ),
                 ),
               ),
             ],
@@ -880,9 +1078,11 @@ class _RatingBars extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
+  const _SectionTitle(this.text, {this.actionLabel, this.onAction});
 
   final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -903,14 +1103,192 @@ class _SectionTitle extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            text,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: ink,
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: ink,
+              ),
             ),
           ),
+          if (actionLabel != null && onAction != null)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onAction,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+                child: Text(
+                  actionLabel!,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: brand,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Short list of what is left to do once Google is connected: a first reply,
+/// a first post and some photos. Disappears when done or when hidden.
+class _Checklist extends StatelessWidget {
+  const _Checklist({
+    required this.data,
+    required this.onReply,
+    required this.onPost,
+    required this.onPhotos,
+    required this.onHide,
+  });
+
+  final GbpOverview data;
+  final VoidCallback onReply;
+  final VoidCallback onPost;
+  final VoidCallback onPhotos;
+  final VoidCallback onHide;
+
+  // Replying only counts as a step when there are reviews to reply to.
+  static bool _replyStep(GbpOverview d) => d.totalReviews > 0;
+  static bool _replyDone(GbpOverview d) => d.unreplied == 0;
+
+  static bool allDone(GbpOverview d) =>
+      (!_replyStep(d) || _replyDone(d)) && d.posts > 0 && d.photos > 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = <(String, String, bool, VoidCallback)>[
+      if (_replyStep(data))
+        (
+          'Reply to your reviews',
+          data.unreplied == 1
+              ? '1 review is waiting for a reply'
+              : '${data.unreplied} reviews are waiting for a reply',
+          _replyDone(data),
+          onReply,
+        ),
+      (
+        'Publish your first post',
+        'Posts keep your Google profile fresh',
+        data.posts > 0,
+        onPost,
+      ),
+      (
+        'Add photos',
+        'Profiles with photos get more clicks',
+        data.photos > 0,
+        onPhotos,
+      ),
+    ];
+    final done = steps.where((s) => s.$3).length;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Finish setting up  ·  $done of ${steps.length}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: onHide,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 44),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Hide',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: muted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8, top: 2, bottom: 6),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: done / steps.length),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                builder: (_, v, _) => LinearProgressIndicator(
+                  value: v,
+                  minHeight: 6,
+                  color: good,
+                  backgroundColor: const Color(0xFFEEF1F7),
+                ),
+              ),
+            ),
+          ),
+          for (final s in steps)
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: s.$3 ? null : s.$4,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      s.$3
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 22,
+                      color: s.$3 ? good : muted,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.$1,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: s.$3 ? muted : ink,
+                              decoration: s.$3
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                          if (!s.$3)
+                            Text(
+                              s.$2,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                color: muted,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (!s.$3)
+                      const Icon(Icons.chevron_right_rounded, color: muted),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1019,10 +1397,15 @@ class _ActionCard extends StatelessWidget {
 }
 
 class _LocationCard extends StatelessWidget {
-  const _LocationCard({required this.loc, required this.index});
+  const _LocationCard({
+    required this.loc,
+    required this.index,
+    required this.onTap,
+  });
 
   final GbpLocation loc;
   final int index;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1034,53 +1417,65 @@ class _LocationCard extends StatelessWidget {
     ];
     final g = gradients[index % gradients.length];
 
-    return Container(
-      width: 230,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: g,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: g.first.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        width: 230,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: g,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            loc.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: g.first.withValues(alpha: 0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            loc.address,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 11),
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              _Pill(icon: Icons.star_rounded, text: loc.rating.toStringAsFixed(1)),
-              const SizedBox(width: 6),
-              _Pill(icon: Icons.chat_bubble_rounded, text: '${loc.reviewCount}'),
-            ],
-          ),
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              loc.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              loc.address,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white70,
+                fontSize: 11,
+              ),
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                _Pill(
+                  icon: Icons.star_rounded,
+                  text: loc.rating.toStringAsFixed(1),
+                ),
+                const SizedBox(width: 6),
+                _Pill(
+                  icon: Icons.chat_bubble_rounded,
+                  text: '${loc.reviewCount}',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1120,9 +1515,10 @@ class _Pill extends StatelessWidget {
 }
 
 class _ReviewCard extends StatelessWidget {
-  const _ReviewCard({required this.review});
+  const _ReviewCard({required this.review, required this.onTap});
 
   final GbpReview review;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1131,92 +1527,92 @@ class _ReviewCard extends StatelessWidget {
         : review.authorName[0].toUpperCase();
     final avatarColor = healthColor(review.rating * 20);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: cardDecoration(),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: avatarColor.withValues(alpha: 0.15),
-            child: Text(
-              initial,
-              style: GoogleFonts.plusJakartaSans(
-                fontWeight: FontWeight.w800,
-                color: avatarColor,
+    return Pressable(
+      onTap: onTap,
+      scale: 0.985,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: cardDecoration(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: avatarColor.withValues(alpha: 0.15),
+              child: Text(
+                initial,
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: avatarColor,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        review.authorName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.w700,
-                          color: ink,
-                        ),
-                      ),
-                    ),
-                    for (var i = 0; i < 5; i++)
-                      Icon(
-                        i < review.rating
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
-                        size: 16,
-                        color: star,
-                      ),
-                  ],
-                ),
-                if ((review.comment ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    review.comment!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    if ((review.locationName ?? '').isNotEmpty)
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Expanded(
                         child: Text(
-                          review.locationName!,
+                          review.authorName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            color: brand,
+                            fontWeight: FontWeight.w700,
+                            color: ink,
                           ),
                         ),
-                      )
-                    else
-                      const Spacer(),
+                      ),
+                      StarRow(rating: review.rating),
+                    ],
+                  ),
+                  if ((review.comment ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 4),
                     Text(
-                      review.hasReply ? 'Replied' : 'Needs reply',
+                      review.comment!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: review.hasReply ? good : warn,
+                        fontSize: 12,
+                        color: muted,
                       ),
                     ),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if ((review.locationName ?? '').isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            review.locationName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              color: brand,
+                            ),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      Text(
+                        review.hasReply ? 'Replied' : 'Needs reply',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: review.hasReply ? good : warn,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

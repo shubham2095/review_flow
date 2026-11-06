@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/api_service.dart';
 import '../theme/brand.dart';
 import 'fade_in.dart';
 
@@ -19,16 +20,24 @@ class StateView extends StatelessWidget {
   });
 
   /// Failure state with a Try again style action.
+  /// Having no connection gets its own, calmer wording: nothing is broken and
+  /// nothing is lost.
   const StateView.error({
     super.key,
-    required this.title,
-    required this.text,
+    required String title,
+    required String text,
     required VoidCallback onRetry,
-  })  : icon = Icons.cloud_off_rounded,
-        actionLabel = 'Try again',
-        onAction = onRetry,
-        error = true,
-        padding = const EdgeInsets.symmetric(vertical: 48, horizontal: 20);
+  }) : icon = text == kNetworkMessage
+           ? Icons.wifi_off_rounded
+           : Icons.cloud_off_rounded,
+       title = text == kNetworkMessage ? "You're offline" : title,
+       text = text == kNetworkMessage
+           ? 'Check your internet connection and try again. Nothing has been lost.'
+           : text,
+       actionLabel = 'Try again',
+       onAction = onRetry,
+       error = text != kNetworkMessage,
+       padding = const EdgeInsets.symmetric(vertical: 48, horizontal: 20);
 
   final IconData icon;
   final String title;

@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/gbp_service.dart';
 import '../services/location_store.dart';
 import '../theme/brand.dart';
+import '../widgets/confirm_publish.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/image_upload.dart';
@@ -97,14 +98,20 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
     setState(() => _loadingMore = true);
     try {
       if (_section == 0) {
-        final r = await GbpService.postsPage(page: meta.currentPage + 1, locationId: id);
+        final r = await GbpService.postsPage(
+          page: meta.currentPage + 1,
+          locationId: id,
+        );
         if (!mounted) return;
         setState(() {
           _posts = [..._posts, ...r.items];
           _postsMeta = r.meta;
         });
       } else {
-        final r = await GbpService.photosPage(page: meta.currentPage + 1, locationId: id);
+        final r = await GbpService.photosPage(
+          page: meta.currentPage + 1,
+          locationId: id,
+        );
         if (!mounted) return;
         setState(() {
           _photos = [..._photos, ...r.items];
@@ -151,12 +158,30 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
     _snack(
       result.warning != null
           ? 'Saved as a draft, but Google said: ${result.warning}'
-          : (result.post.isPublished ? 'Post published to Google' : 'Post saved'),
+          : (result.post.isPublished
+                ? 'Post published to Google'
+                : 'Post saved'),
     );
     await _load();
   }
 
+  /// Name of the location an item belongs to, for the confirm line.
+  String? _placeOf(String? locationId) {
+    for (final l in _locations) {
+      if (l.id == locationId) return l.name;
+    }
+    return null;
+  }
+
   Future<void> _publishPost(GbpPost post) async {
+    if (!await confirmPublish(
+      context,
+      what: 'post',
+      where: _placeOf(post.locationId),
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _busyIds.add(post.id));
     try {
       final updated = await GbpService.publishPost(post.id);
@@ -257,7 +282,9 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
     _snack(
       result.warning != null
           ? 'Saved as a draft, but Google said: ${result.warning}'
-          : (result.photo.isPublished ? 'Photo published to Google' : 'Photo saved'),
+          : (result.photo.isPublished
+                ? 'Photo published to Google'
+                : 'Photo saved'),
     );
     await _load();
   }
@@ -293,13 +320,23 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
       try {
         await GbpService.deletePhoto(photo.id);
         if (!mounted) return;
-        setState(() => _photos = _photos.where((p) => p.id != photo.id).toList());
+        setState(
+          () => _photos = _photos.where((p) => p.id != photo.id).toList(),
+        );
       } catch (e) {
         _snack(friendlyException(e).message);
       } finally {
         if (mounted) setState(() => _busyIds.remove(photo.id));
       }
     } else {
+      if (!await confirmPublish(
+            context,
+            what: 'photo',
+            where: _placeOf(photo.locationId),
+          ) ||
+          !mounted) {
+        return;
+      }
       setState(() => _busyIds.add(photo.id));
       try {
         final updated = await GbpService.publishPhoto(photo.id);
@@ -337,17 +374,28 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
     return Scaffold(
       backgroundColor: surface,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _section == 0 ? () => _newPost() : _newPhoto,
+        onPressed: _uploading
+            ? null
+            : (_section == 0 ? () => _newPost() : _newPhoto),
         backgroundColor: brand,
         foregroundColor: Colors.white,
         icon: _uploading
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
-            : Icon(_section == 0 ? Icons.edit_rounded : Icons.add_a_photo_rounded),
-        label: Text(_section == 0 ? 'New post' : 'Add photo'),
+            : Icon(
+                _section == 0 ? Icons.edit_rounded : Icons.add_a_photo_rounded,
+              ),
+        label: Text(
+          _uploading
+              ? 'Uploading...'
+              : (_section == 0 ? 'New post' : 'Add photo'),
+        ),
       ),
       body: RefreshIndicator(
         color: brand,
@@ -364,16 +412,24 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                       ButtonSegment(
                         value: 0,
                         icon: const Icon(Icons.article_rounded),
-                        label: Text('Posts (${_postsMeta?.total ?? _posts.length})'),
+                        label: Text(
+                          'Posts (${_postsMeta?.total ?? _posts.length})',
+                        ),
                       ),
                       ButtonSegment(
                         value: 1,
                         icon: const Icon(Icons.photo_library_rounded),
-                        label: Text('Photos (${_photosMeta?.total ?? _photos.length})'),
+                        label: Text(
+                          'Photos (${_photosMeta?.total ?? _photos.length})',
+                        ),
                       ),
                     ],
                     selected: {_section},
-                    onSelectionChanged: (s) => setState(() => _section = s.first),
+                    onSelectionChanged: (s) {
+                      setState(() => _section = s.first);
+                      // Each tab is a different list: start it from the top.
+                      if (_scroll.hasClients) _scroll.jumpTo(0);
+                    },
                     style: SegmentedButton.styleFrom(
                       backgroundColor: Colors.white,
                       selectedBackgroundColor: brand.withValues(alpha: 0.14),
@@ -396,7 +452,9 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                   if (_loadingMore)
                     const Padding(
                       padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
                 ],
               ),
@@ -456,7 +514,9 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
         label: const Text('AI content plan'),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(44),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
       const SizedBox(height: 14),
@@ -467,6 +527,8 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
           text: _posts.isEmpty
               ? 'Share offers, events and updates on your Google profile.'
               : 'Try another filter.',
+          actionLabel: _posts.isEmpty ? 'Create your first post' : null,
+          onAction: _posts.isEmpty ? () => _newPost() : null,
         )
       else
         for (var i = 0; i < visible.length; i++)
@@ -478,7 +540,8 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
                 post: visible[i],
                 busy: _busyIds.contains(visible[i].id),
                 showLocation:
-                    LocationStore.selectedId.value == null && _locations.length > 1,
+                    LocationStore.selectedId.value == null &&
+                    _locations.length > 1,
                 onPublish: () => _publishPost(visible[i]),
                 onEdit: () => _newPost(visible[i]),
                 onDelete: () => _deletePost(visible[i]),
@@ -490,11 +553,13 @@ class _PostsPhotosScreenState extends State<PostsPhotosScreen> {
 
   List<Widget> _photosSection() {
     if (_photos.isEmpty) {
-      return const [
+      return [
         _EmptyBox(
           icon: Icons.photo_library_outlined,
           title: 'No photos yet',
           text: 'Businesses with 10 or more photos get more clicks on Google.',
+          actionLabel: 'Add your first photo',
+          onAction: _newPhoto,
         ),
       ];
     }
@@ -642,7 +707,10 @@ class _PostCard extends StatelessWidget {
                         _dateText,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: muted,
+                        ),
                       ),
                     ),
                   ],
@@ -705,7 +773,10 @@ class _PostCard extends StatelessWidget {
                       if (!post.isPublished)
                         FilledButton.tonalIcon(
                           onPressed: onPublish,
-                          icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                          icon: const Icon(
+                            Icons.cloud_upload_rounded,
+                            size: 18,
+                          ),
                           label: const Text('Publish'),
                         ),
                       const Spacer(),
@@ -718,7 +789,10 @@ class _PostCard extends StatelessWidget {
                       IconButton(
                         tooltip: 'Delete',
                         onPressed: onDelete,
-                        icon: const Icon(Icons.delete_outline_rounded, color: bad),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: bad,
+                        ),
                       ),
                     ],
                   ),
@@ -732,7 +806,11 @@ class _PostCard extends StatelessWidget {
 }
 
 class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.photo, required this.busy, required this.onTap});
+  const _PhotoTile({
+    required this.photo,
+    required this.busy,
+    required this.onTap,
+  });
 
   final GbpPhoto photo;
   final bool busy;
@@ -798,15 +876,29 @@ class _PhotoTile extends StatelessWidget {
 }
 
 class _EmptyBox extends StatelessWidget {
-  const _EmptyBox({required this.icon, required this.title, required this.text});
+  const _EmptyBox({
+    required this.icon,
+    required this.title,
+    required this.text,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final IconData icon;
   final String title;
   final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
-    return StateView(icon: icon, title: title, text: text);
+    return StateView(
+      icon: icon,
+      title: title,
+      text: text,
+      actionLabel: actionLabel,
+      onAction: onAction,
+    );
   }
 }
 

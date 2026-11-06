@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 /// An [IndexedStack] (page state is kept) that fades the visible page in each
 /// time the index changes, instead of jumping.
 class FadeIndexedStack extends StatefulWidget {
-  const FadeIndexedStack({super.key, required this.index, required this.children});
+  const FadeIndexedStack({
+    super.key,
+    required this.index,
+    required this.children,
+  });
 
   final int index;
   final List<Widget> children;
@@ -27,7 +31,9 @@ class _FadeIndexedStackState extends State<FadeIndexedStack>
   @override
   void didUpdateWidget(covariant FadeIndexedStack old) {
     super.didUpdateWidget(old);
-    if (old.index != widget.index) _controller.forward(from: 0);
+    if (old.index != widget.index && !MediaQuery.disableAnimationsOf(context)) {
+      _controller.forward(from: 0);
+    }
   }
 
   @override

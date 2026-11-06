@@ -22,9 +22,11 @@ class CountUp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // With reduce-motion the number simply appears.
+    final still = MediaQuery.disableAnimationsOf(context);
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: value.toDouble()),
-      duration: duration,
+      tween: Tween(begin: still ? value.toDouble() : 0, end: value.toDouble()),
+      duration: still ? Duration.zero : duration,
       curve: Curves.easeOutCubic,
       builder: (_, v, _) => Text(
         '$prefix${decimals > 0 ? v.toStringAsFixed(decimals) : v.round().toString()}$suffix',

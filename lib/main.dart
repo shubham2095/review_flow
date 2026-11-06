@@ -16,9 +16,15 @@ Future<void> main() async {
 }
 
 ThemeData _buildTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: brand, surface: surface, primary: brand);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: brand,
+    surface: surface,
+    primary: brand,
+  );
   final base = ThemeData(colorScheme: scheme, useMaterial3: true);
-  final text = GoogleFonts.plusJakartaSansTextTheme(base.textTheme).apply(bodyColor: ink, displayColor: ink);
+  final text = GoogleFonts.plusJakartaSansTextTheme(
+    base.textTheme,
+  ).apply(bodyColor: ink, displayColor: ink);
 
   return base.copyWith(
     scaffoldBackgroundColor: surface,
@@ -29,7 +35,11 @@ ThemeData _buildTheme() {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
+      titleTextStyle: GoogleFonts.plusJakartaSans(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        fontSize: 18,
+      ),
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
@@ -41,9 +51,15 @@ ThemeData _buildTheme() {
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      labelStyle: GoogleFonts.plusJakartaSans(color: muted, fontWeight: FontWeight.w600),
+      labelStyle: GoogleFonts.plusJakartaSans(
+        color: muted,
+        fontWeight: FontWeight.w600,
+      ),
       hintStyle: GoogleFonts.plusJakartaSans(color: muted),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: const Color(0xFFE6EAF2)),
@@ -59,23 +75,31 @@ ThemeData _buildTheme() {
         foregroundColor: Colors.white,
         minimumSize: const Size(0, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15),
+        textStyle: GoogleFonts.plusJakartaSans(
+          fontWeight: FontWeight.w800,
+          fontSize: 15,
+        ),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: ink,
-      contentTextStyle: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.w600),
+      contentTextStyle: GoogleFonts.plusJakartaSans(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
     ),
-    pageTransitionsTheme: const PageTransitionsTheme(builders: {
-      TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-    }),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {TargetPlatform.android: FadeUpwardsPageTransitionsBuilder()},
+    ),
   );
 }
 
@@ -88,6 +112,13 @@ class ReviewFlowApp extends StatelessWidget {
       title: 'Eydia',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
+      // Follows the phone's text size, up to 1.5x. Beyond that cards and
+      // buttons stop fitting; 1.5x already covers "large" accessibility sizes.
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        minScaleFactor: 1,
+        maxScaleFactor: 1.5,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: const AppGate(child: AuthGate()),
     );
   }

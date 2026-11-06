@@ -25,6 +25,8 @@ class _FadeInState extends State<FadeIn> {
 
   @override
   Widget build(BuildContext context) {
+    // "Reduce motion" / remove animations: show everything at once.
+    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
     return AnimatedOpacity(
       opacity: _show ? 1 : 0,
       duration: const Duration(milliseconds: 550),

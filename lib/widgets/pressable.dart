@@ -27,17 +27,24 @@ class _PressableState extends State<Pressable> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _set(true),
-      onTapUp: (_) => _set(false),
-      onTapCancel: () => _set(false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _down ? widget.scale : 1,
-        duration: const Duration(milliseconds: 110),
-        curve: Curves.easeOut,
-        child: widget.child,
+    // Screen readers announce the whole card as one button; reduce-motion
+    // turns the press animation off.
+    final still = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+      button: true,
+      enabled: widget.onTap != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _set(true),
+        onTapUp: (_) => _set(false),
+        onTapCancel: () => _set(false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _down && !still ? widget.scale : 1,
+          duration: const Duration(milliseconds: 110),
+          curve: Curves.easeOut,
+          child: widget.child,
+        ),
       ),
     );
   }
