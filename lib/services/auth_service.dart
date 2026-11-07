@@ -81,23 +81,6 @@ class AuthService {
     await _store(data);
   }
 
-  static Future<void> requestOtp(String phone) async {
-    await ApiService.instance.post(
-      '/auth/otp/request',
-      body: {'phone': phone},
-      auth: false,
-    );
-  }
-
-  static Future<void> verifyOtp(String phone, String code) async {
-    final data = await ApiService.instance.post(
-      '/auth/otp/verify',
-      body: {'phone': phone, 'code': code},
-      auth: false,
-    );
-    await _store(data);
-  }
-
   /// Shows the Google account chooser and returns a fresh ID token for the
   /// backend. Throws [SignInCancelled] when the person backs out (not an error
   /// to show) and a friendly [ApiException] for real failures.

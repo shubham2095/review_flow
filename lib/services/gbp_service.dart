@@ -359,12 +359,4 @@ class GbpService {
     if (url.isEmpty) throw ApiException('Image upload failed. Please try again.');
     return url;
   }
-
-  static Future<void> disconnect() async {
-    await _api.delete('/gbp/connection');
-  }
-
-  static Future<void> setLocationHidden(String id, bool hidden) async {
-    await _api.post('/gbp/locations/$id/hidden', body: {'hidden': hidden});
-  }
 }
