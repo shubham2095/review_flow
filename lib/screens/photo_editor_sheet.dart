@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/platform_rules.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/confirm_publish.dart';
@@ -90,6 +91,8 @@ class _PhotoEditorSheetState extends State<PhotoEditorSheet> {
 
   /// Credits are bought on the web: offer the shortcut right where it is needed.
   void _outOfCredits(String text) {
+    // No buying from iOS (platform_rules.dart): the message alone, no button.
+    if (!purchaseLinksAllowed) return _message(text);
     setState(() {
       _notice = text;
       _noticeActionLabel = 'Buy credits';

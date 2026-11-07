@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/platform_rules.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
@@ -428,8 +429,14 @@ class _OptimizeTabState extends State<_OptimizeTab> {
             padding: const EdgeInsets.only(top: 14),
             child: SheetNotice(
               _error,
-              actionLabel: _outOfCredits ? 'Buy credits' : 'Try again',
-              onAction: _outOfCredits ? () => _openBuyCredits(context) : _run,
+              // Out of credits: "Buy credits" where buying is allowed, otherwise
+              // just the message (platform_rules.dart).
+              actionLabel: _outOfCredits
+                  ? (purchaseLinksAllowed ? 'Buy credits' : null)
+                  : 'Try again',
+              onAction: _outOfCredits
+                  ? (purchaseLinksAllowed ? () => _openBuyCredits(context) : null)
+                  : _run,
             ),
           ),
         if (r != null) ...[
@@ -682,7 +689,7 @@ class _AssistantTabState extends State<_AssistantTab> {
                 onRetry: m.retryText == null || m.outOfCredits
                     ? null
                     : () => _retry(m),
-                onBuyCredits: m.outOfCredits
+                onBuyCredits: m.outOfCredits && purchaseLinksAllowed
                     ? () => _openBuyCredits(context)
                     : null,
                 onCopy: m.fromUser || m.isError || i == 0

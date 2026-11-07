@@ -1,12 +1,12 @@
 # Eydia
 
-Flutter app (Android) for managing a Google Business Profile: reviews with AI
+Flutter app (Android and iOS) for managing a Google Business Profile: reviews with AI
 replies, posts and photos, insights, business profile editor, automation,
 billing view, support, and a super-admin panel. It talks to the Eydia Laravel
 backend at `https://eydia.in/api/v1`.
 
 - Package: `com.heltog.review_flow` (never change it, it is the Play Store identity)
-- Platform: Android only (do not run `flutter create .`, it adds other platforms)
+- Platforms: Android and iOS (do not run a bare `flutter create .`, it adds web, desktop and test folders)
 
 ## Run
 
@@ -43,6 +43,12 @@ flutter analyze
 Signing uses `android/key.properties` and the upload keystore in
 `android/app/`. Both are gitignored: never commit them or share their
 passwords.
+
+## iOS (App Store)
+
+The project also has an `ios/` folder. Building needs a Mac with Xcode. The
+steps, listing text and the differences from Android (no Google sign-in, no
+buy buttons on iOS) are in [IOS_RELEASE.md](IOS_RELEASE.md).
 
 ## Forced update and maintenance
 

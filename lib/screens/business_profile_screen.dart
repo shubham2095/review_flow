@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/platform_rules.dart';
 import '../services/location_store.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
@@ -479,7 +480,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       );
     } catch (e) {
       final err = friendlyException(e);
-      if (err.isCreditsInsufficient) {
+      // No buying from iOS (platform_rules.dart): the message alone, no button.
+      if (err.isCreditsInsufficient && purchaseLinksAllowed) {
         _message(
           err.message,
           actionLabel: 'Buy credits',

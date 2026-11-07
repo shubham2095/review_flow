@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'screens/app_gate.dart';
 import 'screens/auth_gate.dart';
+import 'services/platform_rules.dart';
 import 'theme/brand.dart';
 
 const String kGoogleServerClientId =
@@ -11,7 +12,11 @@ const String kGoogleServerClientId =
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await GoogleSignIn.instance.initialize(serverClientId: kGoogleServerClientId);
+  // iOS has no Google sign-in in this release (see platform_rules.dart), so its
+  // Google setup is never touched there.
+  if (googleSignInAvailable) {
+    await GoogleSignIn.instance.initialize(serverClientId: kGoogleServerClientId);
+  }
   runApp(const ReviewFlowApp());
 }
 

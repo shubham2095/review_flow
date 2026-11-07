@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../services/account_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/platform_rules.dart';
 import '../services/session.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
@@ -956,11 +957,24 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                   : const Text('Delete my account'),
             ),
             const SizedBox(height: 4),
-            TextButton.icon(
-              onPressed: (_busy || !_confirmed) ? null : _withGoogle,
-              icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
-              label: const Text('I signed in with Google: confirm with Google'),
-            ),
+            // Google confirmation exists only where Google sign-in does
+            // (platform_rules.dart). On iOS the password confirms; an account
+            // made with Google can set one through "Forgot password".
+            if (googleSignInAvailable)
+              TextButton.icon(
+                onPressed: (_busy || !_confirmed) ? null : _withGoogle,
+                icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
+                label: const Text('I signed in with Google: confirm with Google'),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'Signed up with Google and never set a password? Use "Forgot password" on the sign-in screen to set one first.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+                ),
+              ),
             TextButton(
               onPressed: _busy ? null : () => openPublicPage('/delete-account'),
               child: const Text('Prefer email? See the deletion page'),

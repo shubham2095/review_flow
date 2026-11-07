@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/platform_rules.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/sheet_notice.dart';
@@ -147,8 +148,8 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
             const SizedBox(height: 12),
             SheetNotice(
               _notice,
-              actionLabel: _outOfCredits ? 'Buy credits' : null,
-              onAction: _outOfCredits ? _openBuyCredits : null,
+              actionLabel: _outOfCredits && purchaseLinksAllowed ? 'Buy credits' : null,
+              onAction: _outOfCredits && purchaseLinksAllowed ? _openBuyCredits : null,
             ),
             FilledButton.icon(
               onPressed: _busy ? null : _generate,

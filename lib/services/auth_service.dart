@@ -1,6 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_service.dart';
+import 'platform_rules.dart';
 import 'session.dart';
 
 /// The person closed the Google account chooser. Not an error.
@@ -147,8 +148,10 @@ class AuthService {
     }
     await ApiService.instance.clearToken();
     Session.clear();
-    try {
-      await GoogleSignIn.instance.signOut();
-    } catch (_) {}
+    if (googleSignInAvailable) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
+    }
   }
 }

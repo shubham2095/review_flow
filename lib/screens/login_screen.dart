@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/platform_rules.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/password_rules.dart';
@@ -279,60 +280,63 @@ class _LoginScreenState extends State<LoginScreen> {
                               : (v) => setState(() => _signUp = v),
                         ),
                         const SizedBox(height: 18),
-                        OutlinedButton.icon(
-                          onPressed: _busy ? null : _google,
-                          icon: const Icon(
-                            Icons.g_mobiledata_rounded,
-                            size: 30,
-                          ),
-                          label: Text(
-                            'Continue with Google',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w700,
+                        // Google sign-in is Android-only for now (platform_rules.dart).
+                        if (googleSignInAvailable) ...[
+                          OutlinedButton.icon(
+                            onPressed: _busy ? null : _google,
+                            icon: const Icon(
+                              Icons.g_mobiledata_rounded,
+                              size: 30,
                             ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            foregroundColor: ink,
-                            side: const BorderSide(color: Color(0xFFDDE2EE)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'New to Eydia? Google creates your account automatically.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11.5,
-                            color: muted,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Divider(color: Color(0xFFE6EAF2)),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
+                            label: Text(
+                              'Continue with Google',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w700,
                               ),
-                              child: Text(
-                                'or continue with email',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12,
-                                  color: muted,
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(52),
+                              foregroundColor: ink,
+                              side: const BorderSide(color: Color(0xFFDDE2EE)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'New to Eydia? Google creates your account automatically.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11.5,
+                              color: muted,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Divider(color: Color(0xFFE6EAF2)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: Text(
+                                  'or continue with email',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: muted,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const Expanded(
-                              child: Divider(color: Color(0xFFE6EAF2)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
+                              const Expanded(
+                                child: Divider(color: Color(0xFFE6EAF2)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                        ],
                         AnimatedSize(
                           duration: const Duration(milliseconds: 240),
                           curve: Curves.easeOut,

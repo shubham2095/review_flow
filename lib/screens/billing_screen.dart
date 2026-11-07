@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/account_models.dart';
 import '../services/account_service.dart';
 import '../services/api_service.dart';
+import '../services/platform_rules.dart';
 import '../services/session.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
@@ -166,7 +167,7 @@ class _BillingScreenState extends State<BillingScreen>
                       child: _PlanCard(
                         subscription: sub,
                         busy: _opening,
-                        onManage: () => _web('/billing'),
+                        onManage: purchaseLinksAllowed ? () => _web("/billing") : null,
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -176,12 +177,16 @@ class _BillingScreenState extends State<BillingScreen>
                         child: _CreditsCard(
                           credits: credits,
                           busy: _opening,
-                          onBuy: () => _web('/buy-credits'),
+                          onBuy: purchaseLinksAllowed
+                              ? () => _web('/buy-credits')
+                              : null,
                         ),
                       ),
                     const SizedBox(height: 6),
-                    const _WebNote(),
-                    if (_plans.isNotEmpty) ...[
+                    // Plans, credit packs and anything that sends people off to buy
+                    // are not shown on iOS (platform_rules.dart).
+                    if (purchaseLinksAllowed) const _WebNote(),
+                    if (purchaseLinksAllowed && _plans.isNotEmpty) ...[
                       const _Title('Plans'),
                       for (var i = 0; i < _plans.length; i++)
                         FadeIn(
@@ -196,7 +201,7 @@ class _BillingScreenState extends State<BillingScreen>
                           ),
                         ),
                     ],
-                    if (_packs.isNotEmpty) ...[
+                    if (purchaseLinksAllowed && _packs.isNotEmpty) ...[
                       const _Title('Credit packs'),
                       SizedBox(
                         height: textScaled(context, 108),
@@ -292,7 +297,8 @@ class _PlanCard extends StatelessWidget {
 
   final SubscriptionInfo? subscription;
   final bool busy;
-  final VoidCallback onManage;
+  /// Null on iOS: no way to buy from there (platform_rules.dart).
+  final VoidCallback? onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -382,9 +388,14 @@ class _PlanCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
+                      // On iOS the wording does not point anywhere to pay.
                       sub.status == 'past_due'
-                          ? 'Your last payment did not go through. Update it on the web to keep your workspace active.'
-                          : 'Your plan is no longer active. Renew on the web to keep using Eydia.',
+                          ? (purchaseLinksAllowed
+                              ? 'Your last payment did not go through. Update it on the web to keep your workspace active.'
+                              : 'Your last payment did not go through.')
+                          : (purchaseLinksAllowed
+                              ? 'Your plan is no longer active. Renew on the web to keep using Eydia.'
+                              : 'Your plan is no longer active.'),
                       style: GoogleFonts.plusJakartaSans(
                         color: Colors.white,
                         fontSize: 12,
@@ -396,16 +407,18 @@ class _PlanCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: busy ? null : onManage,
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: brand,
+          if (onManage != null) ...[
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: busy ? null : onManage,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: brand,
+              ),
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: Text(sub == null ? 'Choose a plan on web' : 'Manage plan on web'),
             ),
-            icon: const Icon(Icons.open_in_new_rounded, size: 18),
-            label: Text(sub == null ? 'Choose a plan on web' : 'Manage plan on web'),
-          ),
+          ],
         ],
       ),
     );
@@ -421,7 +434,8 @@ class _CreditsCard extends StatelessWidget {
 
   final CreditsInfo credits;
   final bool busy;
-  final VoidCallback onBuy;
+  /// Null on iOS: no way to buy from there (platform_rules.dart).
+  final VoidCallback? onBuy;
 
   @override
   Widget build(BuildContext context) {
@@ -483,7 +497,9 @@ class _CreditsCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     credits.balance <= 0
-                        ? 'You are out of credits. AI drafts and posts will not work until you add more.'
+                        ? (purchaseLinksAllowed
+                            ? 'You are out of credits. AI drafts and posts will not work until you add more.'
+                            : 'You are out of credits, so AI drafts and posts will not work.')
                         : 'Credits are running low.',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
@@ -502,12 +518,14 @@ class _CreditsCard extends StatelessWidget {
                 : '${credits.allowance} credits per period, resets ${fmtDate(credits.resetAt!)}',
             style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
           ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: busy ? null : onBuy,
-            icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
-            label: const Text('Buy more credits on web'),
-          ),
+          if (onBuy != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: busy ? null : onBuy,
+              icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+              label: const Text('Buy more credits on web'),
+            ),
+          ],
           if (recent.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
+import '../services/platform_rules.dart';
 import '../services/location_store.dart';
 import '../services/reply_drafts.dart';
 import '../services/web_handoff.dart';
@@ -951,6 +952,8 @@ class _ReplySheetState extends State<_ReplySheet> {
 
   /// Credits are bought on the web: offer the shortcut right where it is needed.
   void _outOfCredits(String text) {
+    // No buying from iOS (platform_rules.dart): the message alone, no button.
+    if (!purchaseLinksAllowed) return _message(text);
     if (!mounted) return;
     setState(() {
       _notice = text;

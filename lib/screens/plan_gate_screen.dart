@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/platform_rules.dart';
 import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
@@ -81,7 +82,11 @@ class _PlanGateScreenState extends State<PlanGateScreen>
         HapticFeedback.mediumImpact();
         widget.onUnlocked();
       } else if (!silent) {
-        _snack('No active plan yet. Finish the payment on the web first.');
+        _snack(
+          purchaseLinksAllowed
+              ? 'No active plan yet. Finish the payment on the web first.'
+              : 'This account does not have an active plan yet.',
+        );
       }
     } catch (e) {
       if (!silent) _snack(friendlyException(e).message);
@@ -154,7 +159,10 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Choose a plan to unlock your workspace',
+                          // iOS never invites anyone to buy (platform_rules.dart).
+                          purchaseLinksAllowed
+                              ? 'Choose a plan to unlock your workspace'
+                              : 'Your workspace is not active yet',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
@@ -214,22 +222,34 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                             text: 'Profile audit, optimizer and AI assistant',
                           ),
                           const SizedBox(height: 16),
-                          const _Steps(),
-                          const SizedBox(height: 20),
-                          FilledButton.icon(
-                            onPressed: _opening ? null : _openWeb,
-                            icon: _opening
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.open_in_new_rounded, size: 18),
-                            label: const Text('Continue on web'),
-                          ),
+                          if (purchaseLinksAllowed) ...[
+                            const _Steps(),
+                            const SizedBox(height: 20),
+                            FilledButton.icon(
+                              onPressed: _opening ? null : _openWeb,
+                              icon: _opening
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.open_in_new_rounded, size: 18),
+                              label: const Text('Continue on web'),
+                            ),
+                          ] else
+                            Text(
+                              'This account does not have an active plan yet. '
+                              'Once it is active, everything above switches on.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                height: 1.45,
+                                color: muted,
+                              ),
+                            ),
                           const SizedBox(height: 10),
                           OutlinedButton(
                             onPressed: _checking ? null : _check,
@@ -247,7 +267,11 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Text("I've subscribed, check again"),
+                                : Text(
+                                    purchaseLinksAllowed
+                                        ? "I've subscribed, check again"
+                                        : 'Check again',
+                                  ),
                           ),
                         ],
                       ),
@@ -269,7 +293,11 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                'Payment is completed securely on the web',
+                                purchaseLinksAllowed
+                                    ? 'Payment is completed securely on the web'
+                                    : 'Signed in as ${Session.current?.email ?? ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11,
                                   color: Colors.white54,
