@@ -241,8 +241,11 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                             ),
                           ] else
                             Text(
-                              'This account does not have an active plan yet. '
-                              'Once it is active, everything above switches on.',
+                              'Eydia is a service for businesses. This account does '
+                              'not have an active plan yet. Once a plan is active '
+                              'on it, everything above switches on. If your business '
+                              'already uses Eydia, sign out and sign in with that '
+                              'account.',
                               textAlign: TextAlign.center,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 13,

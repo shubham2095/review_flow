@@ -303,7 +303,10 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sub = subscription;
-    String detail = 'Choose a plan to unlock your workspace.';
+    // iOS never invites anyone to pick or buy a plan (platform_rules.dart).
+    String detail = purchaseLinksAllowed
+        ? 'Choose a plan to unlock your workspace.'
+        : 'This account does not have an active plan yet.';
     if (sub != null) {
       if (sub.status == 'trialing' && sub.trialEndsAt != null) {
         detail = 'Trial ends ${fmtDate(sub.trialEndsAt!)}';

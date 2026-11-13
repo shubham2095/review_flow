@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/gbp_models.dart';
 import 'api_service.dart';
+import 'platform_rules.dart';
 
 /// Server-side switches from GET /app/config: forced update and maintenance.
 class AppConfig {
@@ -72,6 +73,25 @@ class AppConfigService {
   /// Used when the server does not send a store link.
   static const defaultUpdateUrl =
       'https://play.google.com/store/apps/details?id=com.heltog.review_flow';
+
+  /// App Store page of the iOS app. Fill this in once the app has an App Store
+  /// ID, for example 'https://apps.apple.com/app/id1234567890'. While it is
+  /// empty, iOS shows a plain "update from the App Store" message instead of
+  /// opening a link.
+  static const iosUpdateUrl = '';
+
+  /// The link the "Update now" button opens. Android keeps the server's link
+  /// (or the Play Store default). On iOS a Google Play link is never used: it
+  /// cannot open the App Store, so the iOS link (or none) is returned instead.
+  static String updateUrlFor(String serverUrl) {
+    if (!isIos) {
+      return serverUrl.isNotEmpty ? serverUrl : defaultUpdateUrl;
+    }
+    final fromServer = serverUrl.toLowerCase();
+    final isStoreLink = fromServer.contains('apps.apple.com') ||
+        fromServer.startsWith('itms-apps://');
+    return isStoreLink ? serverUrl : iosUpdateUrl;
+  }
 
   static Future<void> _remember(AppConfig config) async {
     try {

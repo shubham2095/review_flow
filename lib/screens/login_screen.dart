@@ -429,6 +429,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
+                        // iOS: say up front that a new account still needs an
+                        // active plan, instead of ending on a locked screen.
+                        if (_signUp && isIos) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'Eydia is a service for businesses. A new account '
+                            'opens the workspace once a plan is active on it.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11.5,
+                              height: 1.4,
+                              color: muted,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 14),
                         _GradientButton(
                           label: _signUp ? 'Create account' : 'Sign in',

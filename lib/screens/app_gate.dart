@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/app_config_service.dart';
+import '../services/platform_rules.dart';
 import '../theme/brand.dart';
 import '../widgets/royal_backdrop.dart';
 import '../widgets/splash_view.dart';
@@ -69,7 +70,25 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
   }
 
   Future<void> _openStore(String url) async {
-    final target = url.isNotEmpty ? url : AppConfigService.defaultUpdateUrl;
+    final target = AppConfigService.updateUrlFor(url);
+    void tellUser() {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isIos
+                ? 'Please update Eydia from the App Store.'
+                : 'Could not open Google Play. Please update Eydia from the Play Store.',
+          ),
+        ),
+      );
+    }
+
+    // iOS has no store link until AppConfigService.iosUpdateUrl is filled in.
+    if (target.isEmpty) {
+      tellUser();
+      return;
+    }
     try {
       final ok = await launchUrl(
         Uri.parse(target),
@@ -77,12 +96,7 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
       );
       if (!ok) throw Exception('cannot launch');
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open Google Play. Please update Eydia from the Play Store.'),
-        ),
-      );
+      tellUser();
     }
   }
 
