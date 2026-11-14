@@ -12,6 +12,7 @@ import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
 import 'whatsapp_connect_sheet.dart';
+import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_number_sheet.dart';
 
@@ -78,6 +79,10 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     _snack(message);
     _load();
   }
+
+  Future<void> _openContacts() => Navigator.of(context).push<void>(
+    MaterialPageRoute(builder: (_) => const WhatsAppContactsScreen()),
+  );
 
   Future<void> _openInbox() async {
     await Navigator.of(context).push<void>(
@@ -244,10 +249,11 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         badge: d.conversations.unread,
         onTap: _openInbox,
       ),
-      const _SoonTile(
-        Icons.contacts_rounded,
-        'Contacts',
-        'Tags, hot leads and blocked numbers',
+      _LinkTile(
+        icon: Icons.contacts_rounded,
+        title: 'Contacts',
+        text: 'Tags, hot leads and blocked numbers',
+        onTap: _openContacts,
       ),
       const _SoonTile(
         Icons.description_rounded,

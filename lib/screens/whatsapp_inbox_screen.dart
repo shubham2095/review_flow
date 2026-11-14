@@ -185,7 +185,7 @@ class _WhatsAppInboxScreenState extends State<WhatsAppInboxScreen>
   Widget _body() {
     final error = _error;
     if (_loading && _items.isEmpty) {
-      return const SkeletonList(count: 6, itemHeight: 76, headerHeight: 0);
+      return const SkeletonList(count: 6, itemHeight: 82, headerHeight: null);
     }
     if (error != null && _items.isEmpty) {
       final access = accessProblem(error);

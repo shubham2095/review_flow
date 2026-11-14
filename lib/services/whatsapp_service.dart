@@ -200,4 +200,113 @@ class WhatsAppService {
         .where((t) => t.approved)
         .toList();
   }
+
+  // ---- Contacts ----
+
+  static Future<WaContactPage> contacts({
+    String search = '',
+    bool hot = false,
+    bool blocked = false,
+    bool optedOut = false,
+    int page = 1,
+  }) async {
+    final q = <String, String>{
+      'page': '$page',
+      'per_page': '25',
+      if (search.isNotEmpty) 'search': search,
+      if (hot) 'hot': '1',
+      if (blocked) 'blocked': '1',
+      if (optedOut) 'opted_out': '1',
+    };
+    final res = await _api.get('/contacts?${Uri(queryParameters: q).query}');
+    final meta = asMap(res['meta']);
+    final cur = asInt(meta['current_page']);
+    final last = asInt(meta['last_page']);
+    return WaContactPage(
+      items: _items(res['contacts']).map(WaContactRecord.fromJson).toList(),
+      page: cur == 0 ? page : cur,
+      lastPage: last == 0 ? 1 : last,
+      total: asInt(meta['total']),
+    );
+  }
+
+  static Future<WaContactRecord> createContact({
+    required String phone,
+    String name = '',
+    String email = '',
+    String company = '',
+    String tags = '',
+  }) async {
+    final res = await _api.post(
+      '/contacts',
+      body: {
+        'phone': phone,
+        if (name.isNotEmpty) 'name': name,
+        if (email.isNotEmpty) 'email': email,
+        if (company.isNotEmpty) 'company': company,
+        if (tags.isNotEmpty) 'tag_list': tags,
+      },
+    );
+    return WaContactRecord.fromJson(asMap(res['contact']));
+  }
+
+  /// The server ignores empty name, email and company (it cannot clear them);
+  /// an empty [tags] does clear the tags.
+  static Future<WaContactRecord> updateContact(
+    String id, {
+    String? name,
+    String? email,
+    String? company,
+    String? tags,
+    bool? blocked,
+    bool? optedOut,
+  }) async {
+    final res = await _api.put(
+      '/contacts/$id',
+      body: {
+        if (name != null && name.isNotEmpty) 'name': name,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (company != null && company.isNotEmpty) 'company': company,
+        'tag_list': ?tags,
+        'is_blocked': ?blocked,
+        'opted_out': ?optedOut,
+      },
+    );
+    return WaContactRecord.fromJson(asMap(res['contact']));
+  }
+
+  static Future<void> deleteContact(String id) async {
+    await _api.delete('/contacts/$id');
+  }
+
+  // ---- Blacklist ----
+
+  static Future<List<WaBlacklistEntry>> blacklist({String search = ''}) async {
+    final q = <String, String>{
+      'per_page': '100',
+      if (search.isNotEmpty) 'search': search,
+    };
+    final res = await _api.get('/blacklist?${Uri(queryParameters: q).query}');
+    return _items(res['entries']).map(WaBlacklistEntry.fromJson).toList();
+  }
+
+  static Future<WaBlacklistEntry> addToBlacklist(
+    String phone, {
+    String name = '',
+    String reason = '',
+  }) async {
+    final res = await _api.post(
+      '/blacklist',
+      body: {
+        'phone': phone,
+        if (name.isNotEmpty) 'name': name,
+        if (reason.isNotEmpty) 'reason': reason,
+      },
+    );
+    return WaBlacklistEntry.fromJson(asMap(res['entry']));
+  }
+
+  static Future<void> removeFromBlacklist(String id) async {
+    await _api.delete('/blacklist/$id');
+  }
 }

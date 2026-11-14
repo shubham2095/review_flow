@@ -314,3 +314,101 @@ class WaTemplate {
 
   bool get approved => status.toUpperCase() == 'APPROVED';
 }
+
+/// A saved contact (GET /contacts). Tags are plain text here ("vip, delhi").
+class WaContactRecord {
+  const WaContactRecord({
+    required this.id,
+    required this.phone,
+    required this.name,
+    required this.email,
+    required this.company,
+    required this.tagList,
+    required this.source,
+    required this.isHot,
+    required this.hotReason,
+    required this.isBlocked,
+    required this.optedOut,
+    this.lastInteractionAt,
+    this.agentName = '',
+  });
+
+  factory WaContactRecord.fromJson(Map<String, dynamic> j) => WaContactRecord(
+    id: asStr(j['id']),
+    phone: asStr(j['phone']).isEmpty ? asStr(j['wa_id']) : asStr(j['phone']),
+    name: asStr(j['name']),
+    email: asStr(j['email']),
+    company: asStr(j['company']),
+    tagList: asStr(j['tag_list']),
+    source: asStr(j['source']),
+    isHot: j['is_hot'] == true,
+    hotReason: asStr(j['hot_reason']),
+    isBlocked: j['is_blocked'] == true || j['is_blocked'] == 1,
+    optedOut: j['opted_out'] == true || j['opted_out'] == 1,
+    lastInteractionAt: asDate(j['last_interaction_at']),
+    agentName: asStr(asMap(j['assigned_agent'])['name']),
+  );
+
+  final String id;
+  final String phone;
+  final String name;
+  final String email;
+  final String company;
+  final String tagList;
+  final String source;
+  final bool isHot;
+  final String hotReason;
+  final bool isBlocked;
+  final bool optedOut;
+  final DateTime? lastInteractionAt;
+  final String agentName;
+
+  String get title => name.trim().isNotEmpty ? name.trim() : phone;
+
+  List<String> get tags => tagList
+      .split(RegExp(r'[,;|]'))
+      .map((t) => t.trim())
+      .where((t) => t.isNotEmpty)
+      .toList();
+}
+
+class WaContactPage {
+  const WaContactPage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+    required this.total,
+  });
+
+  final List<WaContactRecord> items;
+  final int page;
+  final int lastPage;
+  final int total;
+
+  bool get hasMore => page < lastPage;
+}
+
+/// A number that is never messaged (GET /blacklist).
+class WaBlacklistEntry {
+  const WaBlacklistEntry({
+    required this.id,
+    required this.phone,
+    required this.name,
+    required this.reason,
+    this.createdAt,
+  });
+
+  factory WaBlacklistEntry.fromJson(Map<String, dynamic> j) => WaBlacklistEntry(
+    id: asStr(j['id']),
+    phone: asStr(j['phone']),
+    name: asStr(j['name']),
+    reason: asStr(j['reason']),
+    createdAt: asDate(j['created_at']),
+  );
+
+  final String id;
+  final String phone;
+  final String name;
+  final String reason;
+  final DateTime? createdAt;
+}

@@ -140,7 +140,10 @@ class _WhatsAppTemplatePickerState extends State<WhatsAppTemplatePicker> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
               child: Text(
                 'Approved messages that can reach a customer after 24 hours.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: muted),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  color: muted,
+                ),
               ),
             ),
             Flexible(child: _content()),

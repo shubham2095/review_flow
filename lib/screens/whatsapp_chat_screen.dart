@@ -573,7 +573,7 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
   Widget _body() {
     final error = _error;
     if (_loading) {
-      return const SkeletonList(count: 6, itemHeight: 56, headerHeight: 0);
+      return const SkeletonList(count: 6, itemHeight: 82, headerHeight: null);
     }
     if (error != null && _messages.isEmpty) {
       final access = accessProblem(error);
