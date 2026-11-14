@@ -163,7 +163,11 @@ class WhatsAppService {
       _message(
         await _api.post(
           '/whatsapp/conversations/$id/send',
-          body: {'type': 'template', 'template': t.name, 'language': t.language},
+          body: {
+            'type': 'template',
+            'template': t.name,
+            'language': t.language,
+          },
         ),
       );
 
@@ -195,10 +199,9 @@ class WhatsAppService {
   /// Approved templates, for replying after the 24-hour window.
   static Future<List<WaTemplate>> approvedTemplates() async {
     final res = await _api.get('/templates?status=approved&per_page=50');
-    return _items(res['templates'])
-        .map(WaTemplate.fromJson)
-        .where((t) => t.approved)
-        .toList();
+    return _items(
+      res['templates'],
+    ).map(WaTemplate.fromJson).where((t) => t.approved).toList();
   }
 
   // ---- Contacts ----
@@ -481,7 +484,10 @@ class WhatsAppService {
   );
 
   /// Uploads a header image, video or PDF (16 MB at most). Returns a media id.
-  static Future<String> uploadBulkHeader(List<int> bytes, String filename) async {
+  static Future<String> uploadBulkHeader(
+    List<int> bytes,
+    String filename,
+  ) async {
     final res = await _api.upload(
       '/bulk-send/upload-header',
       field: 'file',
@@ -518,4 +524,200 @@ class WhatsAppService {
   static Future<WaBulkSend> retryBulk(String id) async => WaBulkSend.fromJson(
     asMap((await _api.post('/bulk-sends/$id/retry'))['bulk_send']),
   );
+
+  // ---- Chatbots ----
+
+  static Future<WaChatbotPage> chatbots({int page = 1}) async {
+    final res = await _api.get('/chatbots?page=$page&per_page=20');
+    final meta = asMap(res['meta']);
+    final cur = asInt(meta['current_page']);
+    final last = asInt(meta['last_page']);
+    return WaChatbotPage(
+      items: _items(res['chatbots']).map(WaChatbot.fromJson).toList(),
+      page: cur == 0 ? page : cur,
+      lastPage: last == 0 ? 1 : last,
+    );
+  }
+
+  static Future<WaChatbot> chatbot(String id) async =>
+      WaChatbot.fromJson(asMap((await _api.get('/chatbots/$id'))['chatbot']));
+
+  static Future<WaChatbot> createChatbot({
+    required String name,
+    String welcome = '',
+    String fallback = '',
+  }) async => WaChatbot.fromJson(
+    asMap(
+      (await _api.post(
+        '/chatbots',
+        body: {
+          'name': name,
+          if (welcome.isNotEmpty) 'welcome_message': welcome,
+          if (fallback.isNotEmpty) 'fallback_message': fallback,
+        },
+      ))['chatbot'],
+    ),
+  );
+
+  /// Sends only the fields given. Empty text is sent as empty to clear it.
+  static Future<WaChatbot> updateChatbot(
+    String id, {
+    String? name,
+    String? welcome,
+    String? fallback,
+    bool? aiEnabled,
+    String? aiInstructions,
+    bool? followupEnabled,
+    String? followupMessage,
+  }) async => WaChatbot.fromJson(
+    asMap(
+      (await _api.put(
+        '/chatbots/$id',
+        body: {
+          'name': ?name,
+          'welcome_message': ?welcome,
+          'fallback_message': ?fallback,
+          'ai_enabled': ?aiEnabled,
+          'ai_instructions': ?aiInstructions,
+          'followup_enabled': ?followupEnabled,
+          'followup_message': ?followupMessage,
+        },
+      ))['chatbot'],
+    ),
+  );
+
+  static Future<WaChatbot> toggleChatbot(String id) async => WaChatbot.fromJson(
+    asMap((await _api.post('/chatbots/$id/toggle'))['chatbot']),
+  );
+
+  static Future<void> deleteChatbot(String id) async {
+    await _api.delete('/chatbots/$id');
+  }
+
+  static Map<String, dynamic> _ruleBody({
+    String? keyword,
+    String? matchType,
+    String? responseType,
+    String? responseText,
+    String? templateName,
+    int? priority,
+    bool? active,
+  }) => {
+    'keyword': ?keyword,
+    'match_type': ?matchType,
+    'response_type': ?responseType,
+    'response_text': ?responseText,
+    'template_name': ?templateName,
+    'priority': ?priority,
+    'is_active': ?active,
+  };
+
+  static Future<WaChatRule> addRule(
+    String chatbotId, {
+    required String keyword,
+    required String matchType,
+    required String responseType,
+    String responseText = '',
+    String templateName = '',
+    int priority = 0,
+  }) async => WaChatRule.fromJson(
+    asMap(
+      (await _api.post(
+        '/chatbots/$chatbotId/rules',
+        body: _ruleBody(
+          keyword: keyword,
+          matchType: matchType,
+          responseType: responseType,
+          responseText: responseText,
+          templateName: templateName,
+          priority: priority,
+        ),
+      ))['rule'],
+    ),
+  );
+
+  static Future<WaChatRule> updateRule(
+    String chatbotId,
+    String ruleId, {
+    String? keyword,
+    String? matchType,
+    String? responseType,
+    String? responseText,
+    String? templateName,
+    int? priority,
+    bool? active,
+  }) async => WaChatRule.fromJson(
+    asMap(
+      (await _api.put(
+        '/chatbots/$chatbotId/rules/$ruleId',
+        body: _ruleBody(
+          keyword: keyword,
+          matchType: matchType,
+          responseType: responseType,
+          responseText: responseText,
+          templateName: templateName,
+          priority: priority,
+          active: active,
+        ),
+      ))['rule'],
+    ),
+  );
+
+  static Future<void> deleteRule(String chatbotId, String ruleId) async {
+    await _api.delete('/chatbots/$chatbotId/rules/$ruleId');
+  }
+
+  static Future<WaLeadFlow> leadFlow() async =>
+      WaLeadFlow.fromJson(await _api.get('/chatbots/lead-flow'));
+
+  static Future<String> installLeadFlow() async => _msg(
+    await _api.post('/chatbots/lead-flow/install'),
+    'Lead automation installed.',
+  );
+
+  // ---- Automations (workflows) ----
+
+  static Future<WaWorkflowPage> workflows({int page = 1}) async {
+    final res = await _api.get('/automations?page=$page&per_page=20');
+    final meta = asMap(res['meta']);
+    final cur = asInt(meta['current_page']);
+    final last = asInt(meta['last_page']);
+    return WaWorkflowPage(
+      items: _items(res['workflows']).map(WaWorkflow.fromJson).toList(),
+      page: cur == 0 ? page : cur,
+      lastPage: last == 0 ? 1 : last,
+    );
+  }
+
+  static Future<WaWorkflow> workflow(String id) async => WaWorkflow.fromJson(
+    asMap((await _api.get('/automations/$id'))['workflow']),
+  );
+
+  static Future<WaExecutionPage> executions(String id, {int page = 1}) async {
+    final res = await _api.get(
+      '/automations/$id/executions?page=$page&per_page=25',
+    );
+    final meta = asMap(res['meta']);
+    final cur = asInt(meta['current_page']);
+    final last = asInt(meta['last_page']);
+    return WaExecutionPage(
+      items: _items(res['executions']).map(WaExecution.fromJson).toList(),
+      page: cur == 0 ? page : cur,
+      lastPage: last == 0 ? 1 : last,
+    );
+  }
+
+  static Future<WaWorkflow> activateWorkflow(String id) async =>
+      WaWorkflow.fromJson(
+        asMap((await _api.post('/automations/$id/activate'))['workflow']),
+      );
+
+  static Future<WaWorkflow> pauseWorkflow(String id) async =>
+      WaWorkflow.fromJson(
+        asMap((await _api.post('/automations/$id/pause'))['workflow']),
+      );
+
+  static Future<void> deleteWorkflow(String id) async {
+    await _api.delete('/automations/$id');
+  }
 }

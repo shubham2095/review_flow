@@ -11,6 +11,7 @@ import '../widgets/fade_in.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import 'whatsapp_bots_screen.dart';
 import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_connect_sheet.dart';
 import 'whatsapp_contacts_screen.dart';
@@ -93,6 +94,10 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
   Future<void> _openCampaigns() => Navigator.of(context).push<void>(
     MaterialPageRoute(builder: (_) => const WhatsAppCampaignsScreen()),
   );
+
+  Future<void> _openBots() => Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute(builder: (_) => const WhatsAppBotsScreen()));
 
   Future<void> _openInbox() async {
     await Navigator.of(context).push<void>(
@@ -277,12 +282,13 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         text: 'Bulk messages and delivery results',
         onTap: _openCampaigns,
       ),
-      const _Title('Coming next'),
-      const _SoonTile(
-        Icons.smart_toy_rounded,
-        'Chatbots and automations',
-        'Auto replies and follow-ups',
+      _LinkTile(
+        icon: Icons.smart_toy_rounded,
+        title: 'Chatbots and automations',
+        text: 'Auto replies and follow-ups',
+        onTap: _openBots,
       ),
+      const _Title('Coming next'),
       const _SoonTile(
         Icons.insights_rounded,
         'Analytics',

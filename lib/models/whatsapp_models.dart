@@ -379,22 +379,18 @@ class WaTemplate {
 
   /// The body fields in order: [1, 2, ...] for {{1}}, {{2}}.
   List<int> get bodyVariables =>
-      (RegExp(r'{{s*(d+)s*}}')
-              .allMatches(body)
-              .map((m) => int.parse(m.group(1)!))
-              .toSet()
-              .toList()
-            ..sort());
+      (RegExp(
+          r'{{s*(d+)s*}}',
+        ).allMatches(body).map((m) => int.parse(m.group(1)!)).toSet().toList()
+        ..sort());
 
   /// Whether a bulk send can fill this template in: body fields and a media
   /// header are supported, header text fields and link buttons with fields
   /// are not.
   bool get bulkSendable =>
-      !headerText.contains('{{') &&
-      !buttons.any((b) => b.url.contains('{{'));
+      !headerText.contains('{{') && !buttons.any((b) => b.url.contains('{{'));
 
-  bool get hasMediaHeader =>
-      headerFormat.isNotEmpty && headerFormat != 'TEXT';
+  bool get hasMediaHeader => headerFormat.isNotEmpty && headerFormat != 'TEXT';
 }
 
 class WaTemplatePage {
@@ -577,12 +573,8 @@ class WaCampaign {
   bool get isRunning => status == 'running';
   bool get canStart => status == 'draft' || status == 'scheduled';
   bool get canDelete => status == 'draft';
-  bool get canCancel => const {
-    'draft',
-    'scheduled',
-    'running',
-    'paused',
-  }.contains(status);
+  bool get canCancel =>
+      const {'draft', 'scheduled', 'running', 'paused'}.contains(status);
 }
 
 class WaCampaignPage {
@@ -711,6 +703,289 @@ class WaBulkPage {
   });
 
   final List<WaBulkSend> items;
+  final int page;
+  final int lastPage;
+
+  bool get hasMore => page < lastPage;
+}
+
+/// One keyword rule of a chatbot.
+class WaChatRule {
+  const WaChatRule({
+    required this.id,
+    required this.keyword,
+    required this.matchType,
+    required this.responseType,
+    required this.responseText,
+    required this.templateName,
+    required this.priority,
+    required this.isActive,
+  });
+
+  factory WaChatRule.fromJson(Map<String, dynamic> j) => WaChatRule(
+    id: asStr(j['id']),
+    keyword: asStr(j['keyword']),
+    matchType: asStr(j['match_type']).isEmpty
+        ? 'contains'
+        : asStr(j['match_type']),
+    responseType: asStr(j['response_type']).isEmpty
+        ? 'text'
+        : asStr(j['response_type']),
+    responseText: asStr(j['response_text']),
+    templateName: asStr(j['template_name']),
+    priority: asInt(j['priority']),
+    isActive: j['is_active'] != false && j['is_active'] != 0,
+  );
+
+  final String id;
+  final String keyword;
+
+  /// exact, contains, starts_with or regex.
+  final String matchType;
+
+  /// text or template.
+  final String responseType;
+  final String responseText;
+  final String templateName;
+  final int priority;
+  final bool isActive;
+}
+
+class WaChatbot {
+  const WaChatbot({
+    required this.id,
+    required this.name,
+    required this.isActive,
+    required this.isLeadFlow,
+    required this.welcome,
+    required this.fallback,
+    required this.aiEnabled,
+    required this.aiInstructions,
+    required this.followupEnabled,
+    required this.followupMessage,
+    required this.rulesCount,
+    required this.rules,
+    this.numberLabel = '',
+  });
+
+  factory WaChatbot.fromJson(Map<String, dynamic> j) {
+    final rules = asMaps(j['rules']).map(WaChatRule.fromJson).toList();
+    final count = asInt(j['rules_count']);
+    return WaChatbot(
+      id: asStr(j['id']),
+      name: asStr(j['name']),
+      isActive: j['is_active'] == true || j['is_active'] == 1,
+      isLeadFlow: j['is_lead_flow'] == true,
+      welcome: asStr(j['welcome_message']),
+      fallback: asStr(j['fallback_message']),
+      aiEnabled: j['ai_enabled'] == true,
+      aiInstructions: asStr(j['ai_instructions']),
+      followupEnabled: j['followup_enabled'] == true,
+      followupMessage: asStr(j['followup_message']),
+      rulesCount: count == 0 ? rules.length : count,
+      rules: rules,
+      numberLabel: asStr(asMap(j['phone_number'])['display_phone_number']),
+    );
+  }
+
+  final String id;
+  final String name;
+  final bool isActive;
+  final bool isLeadFlow;
+  final String welcome;
+  final String fallback;
+  final bool aiEnabled;
+  final String aiInstructions;
+  final bool followupEnabled;
+  final String followupMessage;
+  final int rulesCount;
+
+  /// Only filled by the detail call.
+  final List<WaChatRule> rules;
+  final String numberLabel;
+}
+
+class WaChatbotPage {
+  const WaChatbotPage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+  });
+
+  final List<WaChatbot> items;
+  final int page;
+  final int lastPage;
+
+  bool get hasMore => page < lastPage;
+}
+
+/// GET /chatbots/lead-flow: the ready-made lead funnel, only for some accounts.
+class WaLeadFlow {
+  const WaLeadFlow({
+    required this.available,
+    required this.installed,
+    required this.active,
+    required this.steps,
+  });
+
+  factory WaLeadFlow.fromJson(Map<String, dynamic> j) => WaLeadFlow(
+    available: j['available'] == true,
+    installed: j['installed'] == true,
+    active: j['active'] == true,
+    steps: (j['steps'] is List)
+        ? (j['steps'] as List)
+              .map((e) {
+                if (e is Map) {
+                  final m = asMap(e.cast<String, dynamic>());
+                  final t = asStr(m['title']).isEmpty
+                      ? asStr(m['name'])
+                      : asStr(m['title']);
+                  return t.isEmpty ? asStr(m['label']) : t;
+                }
+                return e.toString();
+              })
+              .where((s) => s.isNotEmpty)
+              .toList()
+        : <String>[],
+  );
+
+  final bool available;
+  final bool installed;
+  final bool active;
+  final List<String> steps;
+}
+
+/// A WhatsApp automation (workflow). Its steps are drawn on a canvas on the
+/// web, so the app only reads it and switches it on or off.
+class WaWorkflow {
+  const WaWorkflow({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.status,
+    required this.triggerType,
+    required this.triggerConfig,
+    required this.nodesCount,
+    required this.executionsCount,
+    this.activatedAt,
+    this.createdAt,
+  });
+
+  factory WaWorkflow.fromJson(Map<String, dynamic> j) {
+    final nodes = asMaps(j['nodes']);
+    final nc = asInt(j['nodes_count']);
+    return WaWorkflow(
+      id: asStr(j['id']),
+      name: asStr(j['name']),
+      description: asStr(j['description']),
+      status: asStr(j['status']),
+      triggerType: asStr(j['trigger_type']),
+      triggerConfig: asMap(j['trigger_config']),
+      nodesCount: nc == 0 ? nodes.length : nc,
+      executionsCount: asInt(j['executions_count']),
+      activatedAt: asDate(j['activated_at']),
+      createdAt: asDate(j['created_at']),
+    );
+  }
+
+  final String id;
+  final String name;
+  final String description;
+
+  /// draft, active or paused.
+  final String status;
+  final String triggerType;
+  final Map<String, dynamic> triggerConfig;
+  final int nodesCount;
+  final int executionsCount;
+  final DateTime? activatedAt;
+  final DateTime? createdAt;
+
+  bool get isActive => status == 'active';
+  bool get canActivate => status == 'draft' || status == 'paused';
+  bool get canDelete => status == 'draft';
+
+  /// "When a new contact is added", "When the message has a keyword", ...
+  String get triggerLabel {
+    switch (triggerType) {
+      case 'new_contact':
+        return 'A new contact is added';
+      case 'incoming_message':
+        return 'A message comes in';
+      case 'keyword':
+        final k = asStr(triggerConfig['keyword']);
+        return k.isEmpty ? 'A message has a keyword' : 'A message says "$k"';
+      case 'tag_added':
+        final t = asStr(triggerConfig['tag']);
+        return t.isEmpty ? 'A tag is added' : 'The tag "$t" is added';
+      case 'tag_removed':
+        final t = asStr(triggerConfig['tag']);
+        return t.isEmpty ? 'A tag is removed' : 'The tag "$t" is removed';
+      case 'scheduled':
+        return 'On a schedule';
+      default:
+        return triggerType.isEmpty ? 'Unknown trigger' : triggerType;
+    }
+  }
+}
+
+class WaWorkflowPage {
+  const WaWorkflowPage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+  });
+
+  final List<WaWorkflow> items;
+  final int page;
+  final int lastPage;
+
+  bool get hasMore => page < lastPage;
+}
+
+/// One run of an automation for one contact.
+class WaExecution {
+  const WaExecution({
+    required this.id,
+    required this.status,
+    required this.contactName,
+    required this.contactPhone,
+    this.startedAt,
+    this.finishedAt,
+  });
+
+  factory WaExecution.fromJson(Map<String, dynamic> j) {
+    final c = asMap(j['contact']);
+    return WaExecution(
+      id: asStr(j['id']),
+      status: asStr(j['status']),
+      contactName: asStr(c['name']),
+      contactPhone: asStr(c['phone']),
+      startedAt: asDate(j['started_at']),
+      finishedAt: asDate(j['finished_at']),
+    );
+  }
+
+  final String id;
+  final String status;
+  final String contactName;
+  final String contactPhone;
+  final DateTime? startedAt;
+  final DateTime? finishedAt;
+
+  String get who => contactName.trim().isNotEmpty
+      ? contactName.trim()
+      : (contactPhone.isEmpty ? 'Unknown contact' : contactPhone);
+}
+
+class WaExecutionPage {
+  const WaExecutionPage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+  });
+
+  final List<WaExecution> items;
   final int page;
   final int lastPage;
 
