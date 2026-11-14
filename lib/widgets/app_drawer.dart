@@ -96,6 +96,14 @@ class AppDrawer extends StatelessWidget {
             selected: selectedIndex == kPageAutomation,
             onTap: () => onSelect(kPageAutomation),
           ),
+          _SectionLabel('WHATSAPP'),
+          _NavItem(
+            icon: Icons.chat_rounded,
+            label: 'WhatsApp',
+            subtitle: 'Numbers, chats and messages',
+            selected: selectedIndex == kPageWhatsApp,
+            onTap: () => onSelect(kPageWhatsApp),
+          ),
           _SectionLabel('ACCOUNT'),
           _NavItem(
             icon: Icons.workspace_premium_rounded,

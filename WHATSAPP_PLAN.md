@@ -45,11 +45,10 @@ not only the PDF. Work happens on the git branch `whatsapp`.
 
 ## Things the app must handle
 
-- **Freemium.** WhatsApp, contacts, templates, campaigns, chatbots, automations
-  and also GBP **reads** work without a plan. Paid actions return
-  `403 plan_required` or `feature_not_included`. Today the app shows a Plan
-  gate and blocks everything for an account without a plan. That has to change
-  (Phase 1).
+- **Plan gate stays.** An account without a plan never enters the app (plan page
+  only). Inside the app, paid actions can still return `403 plan_required` or
+  `feature_not_included` (plan ended mid-session, feature not in the plan); show
+  a plain message, never a buy link.
 - **Permissions are separate from plans.** Team members can lack
   `conversations.reply`, `whatsapp.manage`, `contacts.create` and so on. That
   is a plain 403 with no `plan_required` code. Show "you do not have

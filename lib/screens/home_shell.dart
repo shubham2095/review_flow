@@ -20,6 +20,7 @@ import 'pages.dart';
 import 'posts_photos_screen.dart';
 import 'profile_screen.dart';
 import 'reviews_screen.dart';
+import 'whatsapp_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.onSignedOut});
@@ -114,6 +115,7 @@ class _HomeShellState extends State<HomeShell> {
     () => const AutomationScreen(),
     () => const BillingScreen(),
     () => ProfileScreen(onSignedOut: widget.onSignedOut),
+    () => const WhatsAppScreen(),
   ];
 
   static const _titles = [
@@ -126,6 +128,7 @@ class _HomeShellState extends State<HomeShell> {
     'Automation',
     'Plans & billing',
     'My Profile',
+    'WhatsApp',
   ];
 
   Future<void> _confirmLogout() async {
