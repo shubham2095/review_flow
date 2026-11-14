@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'screens/app_gate.dart';
 import 'screens/auth_gate.dart';
 import 'services/platform_rules.dart';
+import 'services/push_service.dart';
 import 'theme/brand.dart';
 
 const String kGoogleServerClientId =
@@ -124,6 +125,7 @@ class ReviewFlowApp extends StatelessWidget {
         maxScaleFactor: 1.5,
         child: child ?? const SizedBox.shrink(),
       ),
+      scaffoldMessengerKey: PushService.messengerKey,
       home: const AppGate(child: AuthGate()),
     );
   }

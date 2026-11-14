@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/location_store.dart';
+import '../services/push_service.dart';
+import '../services/whatsapp_service.dart';
 import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
@@ -20,6 +22,9 @@ import 'pages.dart';
 import 'posts_photos_screen.dart';
 import 'profile_screen.dart';
 import 'reviews_screen.dart';
+import '../models/whatsapp_models.dart';
+import 'whatsapp_chat_screen.dart';
+import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -45,11 +50,18 @@ class _HomeShellState extends State<HomeShell> {
     // Overview fills it later.
     LocationStore.refresh().catchError((_) {});
     ApiService.reconnected.addListener(_onReconnected);
+    PushService.target.addListener(_onPush);
+    // Notifications: register this phone (and ask once, politely).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PushService.start(context).then((_) => _onPush(), onError: (_) {});
+    });
   }
 
   @override
   void dispose() {
     ApiService.reconnected.removeListener(_onReconnected);
+    PushService.target.removeListener(_onPush);
     super.dispose();
   }
 
@@ -65,6 +77,37 @@ class _HomeShellState extends State<HomeShell> {
         ),
       );
     _dashboardKey.currentState?.reload();
+  }
+
+  /// A tapped notification: go to the page it is about.
+  Future<void> _onPush() async {
+    final t = PushService.target.value;
+    if (t == null || !mounted) return;
+    PushService.target.value = null;
+    if (t.isReview) {
+      _select(kPageReviews);
+      return;
+    }
+    _select(kPageWhatsApp);
+    final nav = Navigator.of(context);
+    if (t.isChat) {
+      WaConversation? c;
+      try {
+        c = await WhatsAppService.findConversation(t.conversationId!);
+      } catch (_) {}
+      if (!mounted) return;
+      nav.push<void>(
+        MaterialPageRoute(
+          builder: (_) => c == null
+              ? const WhatsAppInboxScreen()
+              : WhatsAppChatScreen(conversation: c),
+        ),
+      );
+    } else if (t.isLeadHandoff) {
+      nav.push<void>(
+        MaterialPageRoute(builder: (_) => const WhatsAppInboxScreen()),
+      );
+    }
   }
 
   DateTime? _lastBack;

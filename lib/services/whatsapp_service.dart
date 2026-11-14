@@ -737,4 +737,17 @@ class WhatsAppService {
     final res = await _api.get('/analytics/campaigns');
     return _items(res['campaigns']).map(WaCampaignStat.fromJson).toList();
   }
+
+  /// Finds one conversation by id (there is no single-chat endpoint) by
+  /// looking through the first few pages of the inbox. Null when not found.
+  static Future<WaConversation?> findConversation(String id) async {
+    for (var page = 1; page <= 4; page++) {
+      final res = await conversations(page: page);
+      for (final c in res.items) {
+        if (c.id == id) return c;
+      }
+      if (!res.hasMore) break;
+    }
+    return null;
+  }
 }

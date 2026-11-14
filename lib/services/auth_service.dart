@@ -2,6 +2,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_service.dart';
 import 'platform_rules.dart';
+import 'push_service.dart';
 import 'session.dart';
 
 /// The person closed the Google account chooser. Not an error.
@@ -132,6 +133,7 @@ class AuthService {
   /// Permanently deletes the account. Email users confirm with their password,
   /// Google users with a fresh Google ID token. Clears the local session after.
   static Future<void> deleteAccount({String? password, String? idToken}) async {
+    await PushService.unregister();
     await ApiService.instance.delete(
       '/auth/account',
       body: {'password': ?password, 'id_token': ?idToken},
@@ -141,6 +143,8 @@ class AuthService {
   }
 
   static Future<void> logout() async {
+    // While the token still works: stop notifications for this phone.
+    await PushService.unregister();
     try {
       await ApiService.instance.post('/auth/logout');
     } catch (_) {

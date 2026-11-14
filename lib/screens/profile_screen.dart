@@ -8,6 +8,7 @@ import '../services/account_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/platform_rules.dart';
+import '../services/push_service.dart';
 import '../services/session.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
@@ -365,6 +366,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: 'Change password',
                       onTap: _changePassword,
                     ),
+                    const _NotificationsRow(),
                     _Row(
                       icon: Icons.support_agent_rounded,
                       label: 'Help & support',
@@ -981,6 +983,77 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Switch for push notifications on this phone. Hidden when this build has no
+/// Firebase set up, so there is never a switch that does nothing.
+class _NotificationsRow extends StatefulWidget {
+  const _NotificationsRow();
+
+  @override
+  State<_NotificationsRow> createState() => _NotificationsRowState();
+}
+
+class _NotificationsRowState extends State<_NotificationsRow> {
+  bool _supported = false;
+  bool _on = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    final ok = await PushService.supported();
+    final on = ok && await PushService.isEnabled();
+    if (mounted) {
+      setState(() {
+        _supported = ok;
+        _on = on;
+      });
+    }
+  }
+
+  Future<void> _change(bool value) async {
+    setState(() => _busy = true);
+    String? problem;
+    if (value) {
+      problem = await PushService.enable();
+    } else {
+      await PushService.disable();
+    }
+    final on = await PushService.isEnabled();
+    if (!mounted) return;
+    setState(() {
+      _on = on;
+      _busy = false;
+    });
+    if (problem != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(problem)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_supported) return const SizedBox.shrink();
+    return SwitchListTile(
+      value: _on,
+      onChanged: _busy ? null : _change,
+      secondary: const Icon(Icons.notifications_active_outlined, color: ink),
+      title: Text(
+        'Notifications',
+        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+      ),
+      subtitle: Text(
+        'New customer messages and Google reviews',
+        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
       ),
     );
   }
