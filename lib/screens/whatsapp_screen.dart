@@ -11,6 +11,7 @@ import '../widgets/fade_in.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import 'whatsapp_analytics_screen.dart';
 import 'whatsapp_bots_screen.dart';
 import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_connect_sheet.dart';
@@ -98,6 +99,10 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
   Future<void> _openBots() => Navigator.of(
     context,
   ).push<void>(MaterialPageRoute(builder: (_) => const WhatsAppBotsScreen()));
+
+  Future<void> _openAnalytics() => Navigator.of(context).push<void>(
+    MaterialPageRoute(builder: (_) => const WhatsAppAnalyticsScreen()),
+  );
 
   Future<void> _openInbox() async {
     await Navigator.of(context).push<void>(
@@ -288,11 +293,11 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         text: 'Auto replies and follow-ups',
         onTap: _openBots,
       ),
-      const _Title('Coming next'),
-      const _SoonTile(
-        Icons.insights_rounded,
-        'Analytics',
-        'Message funnel and campaign results',
+      _LinkTile(
+        icon: Icons.insights_rounded,
+        title: 'Analytics',
+        text: 'Message funnel and campaign results',
+        onTap: _openAnalytics,
       ),
     ];
   }
@@ -529,66 +534,6 @@ class _NumberTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SoonTile extends StatelessWidget {
-  const _SoonTile(this.icon, this.title, this.text);
-
-  final IconData icon;
-  final String title;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: cardDecoration(),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: muted.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 20, color: muted),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                  ),
-                ),
-                Text(
-                  text,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.5,
-                    color: muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            'SOON',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: muted,
-            ),
-          ),
-        ],
       ),
     );
   }

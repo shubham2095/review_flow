@@ -720,4 +720,21 @@ class WhatsAppService {
   static Future<void> deleteWorkflow(String id) async {
     await _api.delete('/automations/$id');
   }
+
+  // ---- Analytics ----
+
+  static Future<WaDashboard> analyticsDashboard() async =>
+      WaDashboard.fromJson(await _api.get('/analytics/dashboard'));
+
+  /// The message funnel for the last [days] days (the server caps it at 90).
+  static Future<WaMessageStats> messageStats(int days) async =>
+      WaMessageStats.fromJson(
+        await _api.get('/analytics/messages?days=$days'),
+        days,
+      );
+
+  static Future<List<WaCampaignStat>> campaignStats() async {
+    final res = await _api.get('/analytics/campaigns');
+    return _items(res['campaigns']).map(WaCampaignStat.fromJson).toList();
+  }
 }

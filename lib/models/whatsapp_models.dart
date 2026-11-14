@@ -991,3 +991,157 @@ class WaExecutionPage {
 
   bool get hasMore => page < lastPage;
 }
+
+/// GET /analytics/dashboard: headline counts.
+class WaDashboard {
+  const WaDashboard({
+    required this.contacts,
+    required this.conversations,
+    required this.openConversations,
+    required this.messagesToday,
+    required this.messagesWeek,
+    required this.messagesMonth,
+    required this.templatesApproved,
+    required this.activeCampaigns,
+    required this.totalCampaigns,
+  });
+
+  factory WaDashboard.fromJson(Map<String, dynamic> j) => WaDashboard(
+    contacts: asInt(j['total_contacts']),
+    conversations: asInt(j['total_conversations']),
+    openConversations: asInt(j['open_conversations']),
+    messagesToday: asInt(j['messages_today']),
+    messagesWeek: asInt(j['messages_this_week']),
+    messagesMonth: asInt(j['messages_this_month']),
+    templatesApproved: asInt(j['templates_approved']),
+    activeCampaigns: asInt(j['active_campaigns']),
+    totalCampaigns: asInt(j['total_campaigns']),
+  );
+
+  final int contacts;
+  final int conversations;
+  final int openConversations;
+  final int messagesToday;
+  final int messagesWeek;
+  final int messagesMonth;
+  final int templatesApproved;
+  final int activeCampaigns;
+  final int totalCampaigns;
+}
+
+/// One day of the message funnel.
+class WaDayStat {
+  const WaDayStat({
+    required this.date,
+    this.sent = 0,
+    this.delivered = 0,
+    this.read = 0,
+    this.failed = 0,
+    this.inbound = 0,
+  });
+
+  factory WaDayStat.fromJson(Map<String, dynamic> j) => WaDayStat(
+    date: DateTime.tryParse(asStr(j['date'])) ?? DateTime.now(),
+    sent: asInt(j['sent']),
+    delivered: asInt(j['delivered']),
+    read: asInt(j['read']),
+    failed: asInt(j['failed']),
+    inbound: asInt(j['inbound']),
+  );
+
+  final DateTime date;
+  final int sent;
+  final int delivered;
+  final int read;
+  final int failed;
+  final int inbound;
+}
+
+/// GET /analytics/messages: totals plus one entry per day, with quiet days
+/// filled in as zeros so a chart has a steady time axis.
+class WaMessageStats {
+  const WaMessageStats({
+    required this.days,
+    required this.sent,
+    required this.delivered,
+    required this.read,
+    required this.failed,
+    required this.inbound,
+    required this.deliveryRate,
+    required this.readRate,
+  });
+
+  factory WaMessageStats.fromJson(Map<String, dynamic> j, int range) {
+    final totals = asMap(j['totals']);
+    final byDay = <String, WaDayStat>{};
+    for (final d in asMaps(j['daily'])) {
+      final s = WaDayStat.fromJson(d);
+      byDay[_dayKey(s.date)] = s;
+    }
+    final today = DateTime.now();
+    final days = <WaDayStat>[];
+    for (var i = range - 1; i >= 0; i--) {
+      final d = DateTime(today.year, today.month, today.day - i);
+      days.add(byDay[_dayKey(d)] ?? WaDayStat(date: d));
+    }
+    return WaMessageStats(
+      days: days,
+      sent: asInt(totals['total_sent']),
+      delivered: asInt(totals['total_delivered']),
+      read: asInt(totals['total_read']),
+      failed: asInt(totals['total_failed']),
+      inbound: asInt(totals['total_inbound']),
+      deliveryRate: asDouble(totals['delivery_rate']),
+      readRate: asDouble(totals['read_rate']),
+    );
+  }
+
+  static String _dayKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  final List<WaDayStat> days;
+  final int sent;
+  final int delivered;
+  final int read;
+  final int failed;
+  final int inbound;
+  final double deliveryRate;
+  final double readRate;
+}
+
+/// One campaign in GET /analytics/campaigns.
+class WaCampaignStat {
+  const WaCampaignStat({
+    required this.name,
+    required this.status,
+    required this.recipients,
+    required this.sent,
+    required this.delivered,
+    required this.read,
+    required this.failed,
+    required this.deliveryRate,
+    required this.readRate,
+  });
+
+  factory WaCampaignStat.fromJson(Map<String, dynamic> j) => WaCampaignStat(
+    name: asStr(j['name']),
+    status: asStr(j['status']),
+    recipients: asInt(j['total_recipients']),
+    sent: asInt(j['sent_count']),
+    delivered: asInt(j['delivered_count']),
+    read: asInt(j['read_count']),
+    failed: asInt(j['failed_count']),
+    deliveryRate: asDouble(j['delivery_rate']),
+    readRate: asDouble(j['read_rate']),
+  );
+
+  final String name;
+  final String status;
+  final int recipients;
+  final int sent;
+  final int delivered;
+  final int read;
+  final int failed;
+  final double deliveryRate;
+  final double readRate;
+}
