@@ -213,10 +213,12 @@ class ApiService {
     required String field,
     required List<int> bytes,
     required String filename,
+    Map<String, String>? fields,
   }) async {
     final res = await _authed((token) async {
       final req = http.MultipartRequest('POST', _uri(path))
         ..headers.addAll(_headers(token))
+        ..fields.addAll(fields ?? const {})
         ..files.add(
           http.MultipartFile.fromBytes(field, bytes, filename: filename),
         );

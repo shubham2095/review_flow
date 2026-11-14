@@ -144,4 +144,60 @@ class WhatsAppService {
   static Future<void> markRead(String id) async {
     await _api.post('/whatsapp/conversations/$id/mark-read');
   }
+
+  // ---- Replies ----
+
+  static WaMessage _message(Map<String, dynamic> res) =>
+      WaMessage.fromJson(asMap(res['message']));
+
+  /// Plain text. The server refuses (422) once the 24-hour window has closed.
+  static Future<WaMessage> sendText(String id, String body) async => _message(
+    await _api.post(
+      '/whatsapp/conversations/$id/send',
+      body: {'type': 'text', 'body': body},
+    ),
+  );
+
+  /// An approved template by name and language (no variables).
+  static Future<WaMessage> sendTemplate(String id, WaTemplate t) async =>
+      _message(
+        await _api.post(
+          '/whatsapp/conversations/$id/send',
+          body: {'type': 'template', 'template': t.name, 'language': t.language},
+        ),
+      );
+
+  /// [mediaType] is image, video, audio or document (16 MB at most).
+  static Future<WaMessage> sendMedia(
+    String id, {
+    required List<int> bytes,
+    required String filename,
+    required String mediaType,
+    String caption = '',
+  }) async => _message(
+    await _api.upload(
+      '/whatsapp/conversations/$id/send-media',
+      field: 'file',
+      bytes: bytes,
+      filename: filename,
+      fields: {
+        'media_type': mediaType,
+        if (caption.isNotEmpty) 'caption': caption,
+      },
+    ),
+  );
+
+  /// Removes the message from Eydia only: it stays on the customer's phone.
+  static Future<void> deleteMessage(String id, String messageId) async {
+    await _api.delete('/whatsapp/conversations/$id/messages/$messageId');
+  }
+
+  /// Approved templates, for replying after the 24-hour window.
+  static Future<List<WaTemplate>> approvedTemplates() async {
+    final res = await _api.get('/templates?status=approved&per_page=50');
+    return _items(res['templates'])
+        .map(WaTemplate.fromJson)
+        .where((t) => t.approved)
+        .toList();
+  }
 }

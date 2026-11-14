@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'gbp_models.dart';
 
 /// One connected WhatsApp number (GET /whatsapp/numbers, /overview).
@@ -153,9 +155,11 @@ class WaConversation {
   int unread;
   final WaContact contact;
   final String preview;
-  final bool windowOpen;
+
+  /// Mutable: a new customer message re-opens the 24-hour window.
+  bool windowOpen;
   final DateTime? lastMessageAt;
-  final DateTime? windowExpiresAt;
+  DateTime? windowExpiresAt;
   final String numberLabel;
   final String agentName;
 }
@@ -256,4 +260,57 @@ class WaMessagePage {
   final List<WaMessage> items;
   final bool hasMore;
   final String? nextCursor;
+}
+
+/// A message template (GET /templates). Only name and language can be sent
+/// from a chat, so templates with `{{1}}` style fields or a media header are
+/// marked as not sendable here.
+class WaTemplate {
+  const WaTemplate({
+    required this.id,
+    required this.name,
+    required this.language,
+    required this.category,
+    required this.status,
+    required this.body,
+    required this.needsInput,
+  });
+
+  factory WaTemplate.fromJson(Map<String, dynamic> j) {
+    final parts = asMaps(j['components']);
+    var body = '';
+    var needs = false;
+    for (final c in parts) {
+      final type = asStr(c['type']).toUpperCase();
+      final format = asStr(c['format']).toUpperCase();
+      final text = asStr(c['text']);
+      if (type == 'BODY') body = text;
+      if (type == 'HEADER' && format.isNotEmpty && format != 'TEXT') needs = true;
+      if (text.contains('{{')) needs = true;
+      if (c['buttons'] != null && jsonEncode(c['buttons']).contains('{{')) {
+        needs = true;
+      }
+    }
+    return WaTemplate(
+      id: asStr(j['id']),
+      name: asStr(j['name']),
+      language: asStr(j['language']),
+      category: asStr(j['category']),
+      status: asStr(j['status']),
+      body: body,
+      needsInput: needs,
+    );
+  }
+
+  final String id;
+  final String name;
+  final String language;
+  final String category;
+  final String status;
+  final String body;
+
+  /// Has fields or a media header that a chat cannot fill in.
+  final bool needsInput;
+
+  bool get approved => status.toUpperCase() == 'APPROVED';
 }
