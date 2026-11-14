@@ -12,6 +12,7 @@ import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
 import 'whatsapp_connect_sheet.dart';
+import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_number_sheet.dart';
 
 /// WhatsApp home: connected numbers and today's numbers. Later phases add the
@@ -76,6 +77,13 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     if (message == null) return;
     _snack(message);
     _load();
+  }
+
+  Future<void> _openInbox() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const WhatsAppInboxScreen()),
+    );
+    if (mounted) _load();
   }
 
   Future<void> _openNumber(WaNumber n) async {
@@ -229,7 +237,13 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         ],
       ),
       const _Title('Coming next'),
-      const _SoonTile(Icons.forum_rounded, 'Inbox', 'Read and reply to chats'),
+      _LinkTile(
+        icon: Icons.forum_rounded,
+        title: 'Inbox',
+        text: 'Read your customer chats',
+        badge: d.conversations.unread,
+        onTap: _openInbox,
+      ),
       const _SoonTile(
         Icons.contacts_rounded,
         'Contacts',
@@ -540,6 +554,87 @@ class _SoonTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LinkTile extends StatelessWidget {
+  const _LinkTile({
+    required this.icon,
+    required this.title,
+    required this.text,
+    required this.onTap,
+    this.badge = 0,
+  });
+
+  final IconData icon;
+  final String title;
+  final String text;
+  final int badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: cardDecoration(),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: brand.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: brand),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                    ),
+                  ),
+                  Text(
+                    text,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      color: muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (badge > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: brand,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badge > 99 ? '99+' : '$badge',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            const Icon(Icons.chevron_right_rounded, color: muted),
+          ],
+        ),
       ),
     );
   }

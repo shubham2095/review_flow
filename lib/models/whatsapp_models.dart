@@ -87,3 +87,173 @@ class WaOverview {
 
   bool get hasNumbers => numbers.isNotEmpty;
 }
+
+/// The person on the other side of a chat.
+class WaContact {
+  const WaContact({
+    this.id = '',
+    this.name = '',
+    this.phone = '',
+    this.isHot = false,
+    this.hotReason = '',
+  });
+
+  factory WaContact.fromJson(Map<String, dynamic> j) => WaContact(
+    id: asStr(j['id']),
+    name: asStr(j['name']),
+    phone: asStr(j['phone']).isEmpty ? asStr(j['wa_id']) : asStr(j['phone']),
+    isHot: j['is_hot'] == true,
+    hotReason: asStr(j['hot_reason']),
+  );
+
+  final String id;
+  final String name;
+  final String phone;
+  final bool isHot;
+  final String hotReason;
+
+  /// Name when there is one, otherwise the number.
+  String get title => name.trim().isNotEmpty
+      ? name.trim()
+      : (phone.isEmpty ? 'Unknown contact' : phone);
+}
+
+class WaConversation {
+  WaConversation({
+    required this.id,
+    required this.status,
+    required this.unread,
+    required this.contact,
+    required this.preview,
+    required this.windowOpen,
+    this.lastMessageAt,
+    this.windowExpiresAt,
+    this.numberLabel = '',
+    this.agentName = '',
+  });
+
+  factory WaConversation.fromJson(Map<String, dynamic> j) {
+    final number = asMap(j['phone_number']);
+    return WaConversation(
+      id: asStr(j['id']),
+      status: asStr(j['status']),
+      unread: asInt(j['unread_count']),
+      contact: WaContact.fromJson(asMap(j['contact'])),
+      preview: asStr(j['last_message_preview']),
+      windowOpen: j['window_open'] == true,
+      lastMessageAt: asDate(j['last_message_at']),
+      windowExpiresAt: asDate(j['window_expires_at']),
+      numberLabel: asStr(number['display_phone_number']),
+      agentName: asStr(asMap(j['assigned_agent'])['name']),
+    );
+  }
+
+  final String id;
+  final String status;
+  int unread;
+  final WaContact contact;
+  final String preview;
+  final bool windowOpen;
+  final DateTime? lastMessageAt;
+  final DateTime? windowExpiresAt;
+  final String numberLabel;
+  final String agentName;
+}
+
+class WaConversationPage {
+  const WaConversationPage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+  });
+
+  final List<WaConversation> items;
+  final int page;
+  final int lastPage;
+
+  bool get hasMore => page < lastPage;
+}
+
+class WaAttachment {
+  const WaAttachment({
+    required this.type,
+    required this.mime,
+    required this.fileName,
+    required this.size,
+    required this.caption,
+    required this.url,
+  });
+
+  factory WaAttachment.fromJson(Map<String, dynamic> j) => WaAttachment(
+    type: asStr(j['type']),
+    mime: asStr(j['mime_type']),
+    fileName: asStr(j['file_name']),
+    size: asInt(j['file_size']),
+    caption: asStr(j['caption']),
+    url: asStr(j['url']),
+  );
+
+  final String type;
+  final String mime;
+  final String fileName;
+  final int size;
+  final String caption;
+
+  /// Public media URL (empty when the file was not stored).
+  final String url;
+
+  bool get isImage => type == 'image' || mime.startsWith('image/');
+}
+
+class WaMessage {
+  WaMessage({
+    required this.id,
+    required this.outbound,
+    required this.type,
+    required this.body,
+    required this.status,
+    required this.attachments,
+    required this.errorMessage,
+    this.senderName = '',
+    this.createdAt,
+  });
+
+  factory WaMessage.fromJson(Map<String, dynamic> j) => WaMessage(
+    id: asStr(j['id']),
+    outbound: asStr(j['direction']) == 'outbound',
+    type: asStr(j['type']),
+    body: asStr(j['body']),
+    status: asStr(j['status']),
+    attachments: asMaps(j['attachments']).map(WaAttachment.fromJson).toList(),
+    errorMessage: asStr(j['error_message']),
+    senderName: asStr(asMap(j['sender'])['name']),
+    createdAt: asDate(j['created_at']),
+  );
+
+  final String id;
+  final bool outbound;
+  final String type;
+  final String body;
+
+  /// sent, delivered, read or failed (outbound), received (inbound).
+  final String status;
+  final List<WaAttachment> attachments;
+  final String errorMessage;
+  final String senderName;
+  final DateTime? createdAt;
+
+  bool get failed => status == 'failed';
+}
+
+class WaMessagePage {
+  const WaMessagePage({
+    required this.items,
+    required this.hasMore,
+    required this.nextCursor,
+  });
+
+  /// Newest first, as the server sends them.
+  final List<WaMessage> items;
+  final bool hasMore;
+  final String? nextCursor;
+}

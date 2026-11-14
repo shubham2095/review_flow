@@ -90,4 +90,58 @@ class WhatsAppService {
 
   static Future<String> disconnect(String id) async =>
       _msg(await _api.delete('/whatsapp/numbers/$id'), 'Number disconnected.');
+
+  // ---- Inbox ----
+
+  /// A list the server may send bare or wrapped in `data`.
+  static List<Map<String, dynamic>> _items(dynamic v) {
+    if (v is Map<String, dynamic>) return asMaps(v['data']);
+    return asMaps(v);
+  }
+
+  /// Hot leads first, then newest. [status] is a server value such as `open`.
+  static Future<WaConversationPage> conversations({
+    String search = '',
+    String? status,
+    int page = 1,
+  }) async {
+    final q = <String, String>{
+      'page': '$page',
+      'per_page': '25',
+      if (search.isNotEmpty) 'search': search,
+      if (status != null && status.isNotEmpty) 'status': status,
+    };
+    final res = await _api.get(
+      '/whatsapp/conversations?${Uri(queryParameters: q).query}',
+    );
+    final meta = asMap(res['meta']);
+    return WaConversationPage(
+      items: _items(res['conversations']).map(WaConversation.fromJson).toList(),
+      page: asInt(meta['current_page']) == 0
+          ? page
+          : asInt(meta['current_page']),
+      lastPage: asInt(meta['last_page']) == 0 ? 1 : asInt(meta['last_page']),
+    );
+  }
+
+  /// One page of messages, newest first. Pass [cursor] for older ones.
+  static Future<WaMessagePage> messages(String id, {String? cursor}) async {
+    final q = <String, String>{
+      'per_page': '40',
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    };
+    final res = await _api.get(
+      '/whatsapp/conversations/$id/messages?${Uri(queryParameters: q).query}',
+    );
+    final next = asStr(res['next_cursor']);
+    return WaMessagePage(
+      items: _items(res['messages']).map(WaMessage.fromJson).toList(),
+      hasMore: res['has_more'] == true,
+      nextCursor: next.isEmpty ? null : next,
+    );
+  }
+
+  static Future<void> markRead(String id) async {
+    await _api.post('/whatsapp/conversations/$id/mark-read');
+  }
 }
