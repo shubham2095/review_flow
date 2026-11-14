@@ -6,9 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
-import '../services/platform_rules.dart';
 import '../services/location_store.dart';
-import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/skeleton.dart';
@@ -479,23 +477,8 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
         onAction: () => setState(() => _description.text = before),
       );
     } catch (e) {
-      final err = friendlyException(e);
-      // No buying from iOS (platform_rules.dart): the message alone, no button.
-      if (err.isCreditsInsufficient && purchaseLinksAllowed) {
-        _message(
-          err.message,
-          actionLabel: 'Buy credits',
-          onAction: () async {
-            try {
-              await openInWeb(next: '/buy-credits');
-            } catch (e) {
-              _message(friendlyException(e).message);
-            }
-          },
-        );
-      } else {
-        _message(err.message);
-      }
+      // The app never sells credits: an empty balance is just a message.
+      _message(friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _drafting = false);
     }

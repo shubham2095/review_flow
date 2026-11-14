@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -10,9 +9,9 @@ import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/royal_backdrop.dart';
-
-/// Shown when the account has no active plan. Plans are bought on the web
-/// (Google Play does not allow Razorpay checkout inside the app), so this screen
+/// Shown when the account has no active plan. The app never sells anything:
+/// the page only says to buy a plan on the website and sign in again, and
+/// re-checks the plan whenever the app comes back to the foreground.
 /// opens the web app already signed in and re-checks the plan when the user returns.
 class PlanGateScreen extends StatefulWidget {
   const PlanGateScreen({
@@ -30,9 +29,7 @@ class PlanGateScreen extends StatefulWidget {
 
 class _PlanGateScreenState extends State<PlanGateScreen>
     with WidgetsBindingObserver {
-  bool _opening = false;
   bool _checking = false;
-  bool _wentToWeb = false;
 
   @override
   void initState() {
@@ -48,9 +45,7 @@ class _PlanGateScreenState extends State<PlanGateScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _wentToWeb) {
-      _check(silent: true);
-    }
+    if (state == AppLifecycleState.resumed) _check(silent: true);
   }
 
   void _snack(String text) {
@@ -58,19 +53,6 @@ class _PlanGateScreenState extends State<PlanGateScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _openWeb() async {
-    if (_opening) return;
-    setState(() => _opening = true);
-    try {
-      final url = await AuthService.webSessionUrl();
-      _wentToWeb = true;
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (e) {
-      _snack(friendlyException(e).message);
-    } finally {
-      if (mounted) setState(() => _opening = false);
-    }
-  }
 
   Future<void> _check({bool silent = false}) async {
     if (_checking) return;
@@ -82,11 +64,7 @@ class _PlanGateScreenState extends State<PlanGateScreen>
         HapticFeedback.mediumImpact();
         widget.onUnlocked();
       } else if (!silent) {
-        _snack(
-          purchaseLinksAllowed
-              ? 'No active plan yet. Finish the payment on the web first.'
-              : 'This account does not have an active plan yet.',
-        );
+        _snack('This account does not have an active plan yet.');
       }
     } catch (e) {
       if (!silent) _snack(friendlyException(e).message);
@@ -159,10 +137,7 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          // iOS never invites anyone to buy (platform_rules.dart).
-                          purchaseLinksAllowed
-                              ? 'Choose a plan to unlock your workspace'
-                              : 'Your workspace is not active yet',
+                          'Your workspace is not active yet',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
@@ -222,37 +197,17 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                             text: 'Profile audit, optimizer and AI assistant',
                           ),
                           const SizedBox(height: 16),
-                          if (purchaseLinksAllowed) ...[
-                            const _Steps(),
-                            const SizedBox(height: 20),
-                            FilledButton.icon(
-                              onPressed: _opening ? null : _openWeb,
-                              icon: _opening
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(Icons.open_in_new_rounded, size: 18),
-                              label: const Text('Continue on web'),
+                          Text(
+                            isIos
+                                ? 'This account does not have an active plan yet. Once a plan is active on it, everything above switches on. If your business already uses Eydia, sign out and sign in with that account.'
+                                : 'This account has no active plan yet. Open the Eydia website, buy a plan there, then come back and sign in again.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              height: 1.45,
+                              color: muted,
                             ),
-                          ] else
-                            Text(
-                              'Eydia is a service for businesses. This account does '
-                              'not have an active plan yet. Once a plan is active '
-                              'on it, everything above switches on. If your business '
-                              'already uses Eydia, sign out and sign in with that '
-                              'account.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
-                                height: 1.45,
-                                color: muted,
-                              ),
-                            ),
+                          ),
                           const SizedBox(height: 10),
                           OutlinedButton(
                             onPressed: _checking ? null : _check,
@@ -270,11 +225,7 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : Text(
-                                    purchaseLinksAllowed
-                                        ? "I've subscribed, check again"
-                                        : 'Check again',
-                                  ),
+                                : const Text('Check again'),
                           ),
                         ],
                       ),
@@ -296,9 +247,7 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                purchaseLinksAllowed
-                                    ? 'Payment is completed securely on the web'
-                                    : 'Signed in as ${Session.current?.email ?? ''}',
+                                'Signed in as ${Session.current?.email ?? ''}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.plusJakartaSans(
@@ -365,68 +314,6 @@ class _Benefit extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The three moves from here to an unlocked workspace.
-class _Steps extends StatelessWidget {
-  const _Steps();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget step(int n, String label) {
-      return Expanded(
-        child: Column(
-          children: [
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(colors: [royalIndigo, royalViolet]),
-              ),
-              child: Text(
-                '$n',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                height: 1.3,
-                color: muted,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          step(1, 'Pick a plan on the web'),
-          step(2, 'Pay securely'),
-          step(3, 'Return and tap check'),
         ],
       ),
     );

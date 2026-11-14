@@ -77,5 +77,7 @@ The app sends a Google ID token to the server. The server must have
 - `lib/models/`: data classes parsed from the API
 - `lib/theme/brand.dart`: colours and the shared card style
 
-Payments never happen inside the app: plan and credit purchases open the web
-app, already signed in.
+The app never sells anything, on any platform: no plan or credit purchase, no
+buy buttons or links. It only shows plan and credit details. An account with no
+active plan sees a plan page (buy on the website, then sign in again) and is
+not let into the app.

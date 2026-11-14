@@ -7,10 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
-import '../services/platform_rules.dart';
 import '../services/location_store.dart';
 import '../services/reply_drafts.dart';
-import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/count_up.dart';
 import '../widgets/fade_in.dart';
@@ -939,33 +937,11 @@ class _ReplySheetState extends State<_ReplySheet> {
             : 'AI is unavailable right now, so this is a standard template.';
       });
     } catch (e) {
-      final err = friendlyException(e);
-      if (err.isCreditsInsufficient) {
-        _outOfCredits(err.message);
-      } else {
-        _message(err.message);
-      }
+      // The app never sells credits: an empty balance is just a message.
+      _message(friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _drafting = false);
     }
-  }
-
-  /// Credits are bought on the web: offer the shortcut right where it is needed.
-  void _outOfCredits(String text) {
-    // No buying from iOS (platform_rules.dart): the message alone, no button.
-    if (!purchaseLinksAllowed) return _message(text);
-    if (!mounted) return;
-    setState(() {
-      _notice = text;
-      _noticeActionLabel = 'Buy credits';
-      _noticeAction = () async {
-        try {
-          await openInWeb(next: '/buy-credits');
-        } catch (e) {
-          _message(friendlyException(e).message);
-        }
-      };
-    });
   }
 
   Future<void> _send() async {

@@ -4,8 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
-import '../services/platform_rules.dart';
-import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/sheet_notice.dart';
 
@@ -28,21 +26,11 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
 
   // Shown inside the sheet: a snack bar would sit behind it and go unseen.
   String? _notice;
-  bool _outOfCredits = false;
-
-  Future<void> _openBuyCredits() async {
-    try {
-      await openInWeb(next: '/buy-credits');
-    } catch (e) {
-      if (mounted) setState(() => _notice = friendlyException(e).message);
-    }
-  }
 
   Future<void> _generate() async {
     setState(() {
       _busy = true;
       _notice = null;
-      _outOfCredits = false;
     });
     try {
       final res = await GbpService.autoPlan(
@@ -59,10 +47,10 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
       if (!mounted) return;
       final err = friendlyException(e);
       HapticFeedback.lightImpact();
+      // The app never sells credits: an empty balance is just a message.
       setState(() {
         _busy = false;
         _notice = err.message;
-        _outOfCredits = err.isCreditsInsufficient;
       });
     }
   }
@@ -146,11 +134,7 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
             ),
             const SizedBox(height: 12),
-            SheetNotice(
-              _notice,
-              actionLabel: _outOfCredits && purchaseLinksAllowed ? 'Buy credits' : null,
-              onAction: _outOfCredits && purchaseLinksAllowed ? _openBuyCredits : null,
-            ),
+            SheetNotice(_notice),
             FilledButton.icon(
               onPressed: _busy ? null : _generate,
               icon: _busy

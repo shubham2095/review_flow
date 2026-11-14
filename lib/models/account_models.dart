@@ -65,44 +65,6 @@ class AutomationData {
   final String assistUrlPreview;
 }
 
-class PlanInfo {
-  PlanInfo({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.priceDisplay,
-    required this.billingPeriod,
-    required this.features,
-  });
-
-  factory PlanInfo.fromJson(Map<String, dynamic> j) {
-    final f = j['features'];
-    final features = <String>[];
-    if (f is List) {
-      features.addAll(f.map((e) => e.toString()));
-    } else if (f is Map) {
-      f.forEach((k, v) {
-        if (v == true) features.add(k.toString());
-      });
-    }
-    return PlanInfo(
-      id: asStr(j['id']),
-      name: asStr(j['name']),
-      description: asStr(j['description']),
-      priceDisplay: asStr(j['price_display']),
-      billingPeriod: asStr(j['billing_period']),
-      features: features,
-    );
-  }
-
-  final String id;
-  final String name;
-  final String description;
-  final String priceDisplay;
-  final String billingPeriod;
-  final List<String> features;
-}
-
 class SubscriptionInfo {
   SubscriptionInfo({
     required this.status,
@@ -172,27 +134,6 @@ class CreditsInfo {
   final int allowance;
   final DateTime? resetAt;
   final List<CreditEntry> ledger;
-}
-
-class CreditPackInfo {
-  CreditPackInfo({
-    required this.id,
-    required this.name,
-    required this.credits,
-    required this.price,
-  });
-
-  factory CreditPackInfo.fromJson(Map<String, dynamic> j) => CreditPackInfo(
-        id: asStr(j['id']),
-        name: asStr(j['name']),
-        credits: asInt(j['credits']),
-        price: asDouble(j['price']),
-      );
-
-  final String id;
-  final String name;
-  final int credits;
-  final double price;
 }
 
 class BillingInvoice {

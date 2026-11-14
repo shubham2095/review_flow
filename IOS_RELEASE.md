@@ -11,9 +11,10 @@ Controlled in one file, `lib/services/platform_rules.dart`:
   Sign in with Apple when a third-party login like Google is offered. To bring
   Google back, first add Sign in with Apple (app and backend) and an iOS Google
   client, then flip `googleSignInAvailable`.
-- **No buying from the app.** No "choose a plan", "buy credits", plan list or
-  credit packs. Apple (guideline 3.1.1) restricts links that send people to buy
-  outside In-App Purchase. Plan and credit information is shown read-only.
+- **No buying from the app, on any platform.** No "choose a plan", "buy credits",
+  plan list, credit packs or web links to buy. Apple (guideline 3.1.1) restricts
+  links that send people to buy outside In-App Purchase. Plan and credit
+  information is shown read-only, and the no-plan page uses neutral wording.
 - iPhone only, portrait only. No iPad screenshots are needed.
 
 Android behaves exactly as before.

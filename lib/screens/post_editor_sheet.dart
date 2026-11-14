@@ -7,9 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
-import '../services/platform_rules.dart';
 import '../services/post_drafts.dart';
-import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/confirm_publish.dart';
 import '../widgets/date_format.dart';
@@ -231,24 +229,6 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
     });
   }
 
-  /// Credits are bought on the web: offer the shortcut right where it is needed.
-  void _outOfCredits(String text) {
-    // No buying from iOS (platform_rules.dart): the message alone, no button.
-    if (!purchaseLinksAllowed) return _message(text);
-    setState(() {
-      _notice = text;
-      _noticeError = true;
-      _noticeActionLabel = 'Buy credits';
-      _noticeAction = () async {
-        try {
-          await openInWeb(next: '/buy-credits');
-        } catch (e) {
-          _message(friendlyException(e).message);
-        }
-      };
-    });
-  }
-
   InputDecoration _dec(String label, {String? hint}) => InputDecoration(
     labelText: label,
     hintText: hint,
@@ -320,12 +300,8 @@ class _PostEditorSheetState extends State<PostEditorSheet> {
             : 'AI is unavailable right now, so this is a basic template.';
       });
     } catch (e) {
-      if (mounted) {
-        final err = friendlyException(e);
-        err.isCreditsInsufficient
-            ? _outOfCredits(err.message)
-            : _message(err.message);
-      }
+      // The app never sells credits: an empty balance is just a message.
+      if (mounted) _message(friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _drafting = false);
     }

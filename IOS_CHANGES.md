@@ -1,7 +1,7 @@
 # iOS changes made after the first iOS build (Eydia 2.0.0+4)
 
 Rule followed for every change: it only affects iOS. Each one in `lib/` is behind
-`isIos` / `purchaseLinksAllowed` from `lib/services/platform_rules.dart`.
+`isIos` from `lib/services/platform_rules.dart` (the buy-related parts were later removed for every platform: the app never sells anything).
 On Android the same code runs and shows exactly what it showed before.
 Nothing under `android/`, `pubspec.yaml` (version stays 2.0.0+4) or the API URLs
 was changed.

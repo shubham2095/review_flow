@@ -26,18 +26,8 @@ class AccountService {
     return sub is Map<String, dynamic> ? SubscriptionInfo.fromJson(sub) : null;
   }
 
-  static Future<List<PlanInfo>> plans() async {
-    final res = await _api.get('/billing/plans');
-    return asMaps(res['plans']).map(PlanInfo.fromJson).toList();
-  }
-
   static Future<CreditsInfo> credits() async =>
       CreditsInfo.fromJson(await _api.get('/credits'));
-
-  static Future<List<CreditPackInfo>> creditPacks() async {
-    final res = await _api.get('/credits/packs');
-    return asMaps(res['packs']).map(CreditPackInfo.fromJson).toList();
-  }
 
   static Future<List<BillingInvoice>> invoices() async {
     final res = await _api.get('/billing/invoices');

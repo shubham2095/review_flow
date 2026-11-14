@@ -5,8 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/gbp_models.dart';
 import '../services/api_service.dart';
 import '../services/gbp_service.dart';
-import '../services/platform_rules.dart';
-import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/fade_indexed_stack.dart';
@@ -186,19 +184,6 @@ class _ActionTile extends StatelessWidget {
     return onTap == null
         ? card
         : Pressable(onTap: onTap, scale: 0.985, child: card);
-  }
-}
-
-/// Buy-more-credits shortcut, shown wherever an AI call ran out of credits.
-Future<void> _openBuyCredits(BuildContext context) async {
-  try {
-    await openInWeb(next: '/buy-credits');
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(friendlyException(e).message)));
-    }
   }
 }
 
@@ -429,14 +414,10 @@ class _OptimizeTabState extends State<_OptimizeTab> {
             padding: const EdgeInsets.only(top: 14),
             child: SheetNotice(
               _error,
-              // Out of credits: "Buy credits" where buying is allowed, otherwise
-              // just the message (platform_rules.dart).
-              actionLabel: _outOfCredits
-                  ? (purchaseLinksAllowed ? 'Buy credits' : null)
-                  : 'Try again',
-              onAction: _outOfCredits
-                  ? (purchaseLinksAllowed ? () => _openBuyCredits(context) : null)
-                  : _run,
+              // The app never sells credits. With none left, trying again only
+              // fails again, so the message stands alone.
+              actionLabel: _outOfCredits ? null : 'Try again',
+              onAction: _outOfCredits ? null : _run,
             ),
           ),
         if (r != null) ...[
@@ -689,9 +670,6 @@ class _AssistantTabState extends State<_AssistantTab> {
                 onRetry: m.retryText == null || m.outOfCredits
                     ? null
                     : () => _retry(m),
-                onBuyCredits: m.outOfCredits && purchaseLinksAllowed
-                    ? () => _openBuyCredits(context)
-                    : null,
                 onCopy: m.fromUser || m.isError || i == 0
                     ? null
                     : () => _copy(m.text),
@@ -829,13 +807,11 @@ class _Bubble extends StatelessWidget {
   const _Bubble({
     required this.message,
     this.onRetry,
-    this.onBuyCredits,
     this.onCopy,
   });
 
   final _ChatMessage message;
   final VoidCallback? onRetry;
-  final VoidCallback? onBuyCredits;
   final VoidCallback? onCopy;
 
   @override
@@ -883,7 +859,7 @@ class _Bubble extends StatelessWidget {
                 color: fg,
               ),
             ),
-            if (onRetry != null || onBuyCredits != null || onCopy != null)
+            if (onRetry != null || onCopy != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Wrap(
@@ -895,13 +871,6 @@ class _Bubble extends StatelessWidget {
                         label: 'Try again',
                         color: bad,
                         onTap: onRetry!,
-                      ),
-                    if (onBuyCredits != null)
-                      _BubbleAction(
-                        icon: Icons.add_circle_outline_rounded,
-                        label: 'Buy credits',
-                        color: bad,
-                        onTap: onBuyCredits!,
                       ),
                     if (onCopy != null)
                       _BubbleAction(
