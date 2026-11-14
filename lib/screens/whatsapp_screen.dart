@@ -8,8 +8,11 @@ import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/count_up.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import 'whatsapp_connect_sheet.dart';
+import 'whatsapp_number_sheet.dart';
 
 /// WhatsApp home: connected numbers and today's numbers. Later phases add the
 /// inbox, contacts, templates and campaigns beneath this summary.
@@ -46,6 +49,52 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  bool _refreshing = false;
+
+  void _snack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<String?> _sheet(Widget child) => showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (_) => child,
+  );
+
+  Future<void> _connect() async {
+    final message = await _sheet(const WhatsAppConnectSheet());
+    if (message == null) return;
+    _snack(message);
+    _load();
+  }
+
+  Future<void> _openNumber(WaNumber n) async {
+    final message = await _sheet(WhatsAppNumberSheet(number: n));
+    if (message == null) return;
+    _snack(message);
+    _load();
+  }
+
+  Future<void> _pullFromMeta() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      _snack(await WhatsAppService.refreshNumbers());
+      await _load();
+    } catch (e) {
+      _snack(errorLine(e));
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
     }
   }
 
@@ -145,8 +194,40 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         ),
         const _Title('Connected numbers'),
         for (var i = 0; i < d.numbers.length; i++)
-          FadeIn(delay: 160 + i * 60, child: _NumberTile(number: d.numbers[i])),
+          FadeIn(
+            delay: 160 + i * 60,
+            child: _NumberTile(
+              number: d.numbers[i],
+              onTap: () => _openNumber(d.numbers[i]),
+            ),
+          ),
       ],
+      const SizedBox(height: 4),
+      Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: _connect,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Connect number'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _refreshing ? null : _pullFromMeta,
+              icon: _refreshing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.sync_rounded, size: 18),
+              label: const Text('Refresh'),
+            ),
+          ),
+        ],
+      ),
       const _Title('Coming next'),
       const _SoonTile(Icons.forum_rounded, 'Inbox', 'Read and reply to chats'),
       const _SoonTile(
@@ -309,9 +390,10 @@ Color _qualityColor(String quality) {
 }
 
 class _NumberTile extends StatelessWidget {
-  const _NumberTile({required this.number});
+  const _NumberTile({required this.number, required this.onTap});
 
   final WaNumber number;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -319,82 +401,85 @@ class _NumberTile extends StatelessWidget {
     final name = number.verifiedName.isEmpty
         ? number.wabaName
         : number.verifiedName;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: good.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(13),
+    return Pressable(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: cardDecoration(),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: good.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: const Icon(Icons.phone_android_rounded, color: good),
             ),
-            child: const Icon(Icons.phone_android_rounded, color: good),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  number.displayNumber,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    color: ink,
-                  ),
-                ),
-                if (name.isNotEmpty)
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    name,
+                    number.displayNumber,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: ink,
+                    ),
+                  ),
+                  if (name.isNotEmpty)
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (number.status.isNotEmpty)
+                  Text(
+                    number.status.toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
                       color: muted,
                     ),
                   ),
+                if (number.quality.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.circle, size: 8, color: quality),
+                      const SizedBox(width: 4),
+                      Text(
+                        number.quality[0].toUpperCase() +
+                            number.quality.substring(1).toLowerCase(),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: quality,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (number.status.isNotEmpty)
-                Text(
-                  number.status.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: muted,
-                  ),
-                ),
-              if (number.quality.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.circle, size: 8, color: quality),
-                    const SizedBox(width: 4),
-                    Text(
-                      number.quality[0].toUpperCase() +
-                          number.quality.substring(1).toLowerCase(),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        color: quality,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
