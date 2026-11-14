@@ -52,8 +52,9 @@ In Xcode: Runner target, Signing & Capabilities, tick "Automatically manage
 signing", choose the Team. Run on a real iPhone first and check: sign in with
 email, Overview, Reviews, a photo pick (permission text), Forgot password.
 
-If `pod install` complains about the iOS version, the minimum is `13.0` for all
-current plugins (`IPHONEOS_DEPLOYMENT_TARGET` in the Xcode project).
+The minimum iOS version is `15.0` (`IPHONEOS_DEPLOYMENT_TARGET` in the Xcode
+project). The plugins themselves ask for 13.0, but Swift Package Manager pulls
+in GoogleSignIn-iOS 9.x, which needs iOS 15. Older iPhones cannot install the app.
 
 Then either:
 
@@ -129,6 +130,18 @@ none is sold. Check your server's own logging and analytics before you answer.
 - Privacy policy link inside the app (My Profile) and in the listing.
 - Camera and photo permission texts (`Info.plist`).
 - No Google sign-in, so no Sign in with Apple requirement for this release.
+
+## After Apple approves the app
+
+1. In App Store Connect, App Information, copy the **Apple ID** (a number).
+2. In `lib/services/app_config_service.dart` set
+   `iosUpdateUrl = 'https://apps.apple.com/app/id<that number>'`. Until then the
+   iOS "Update now" button only shows "Please update Eydia from the App Store."
+3. `APP_MIN_SUPPORTED_VERSION` on the server is one number for Android and iOS.
+   Raise it only when that version is live on both stores. For different values
+   per platform, the backend needs to send them separately.
+4. Details of the iOS-only changes made after the first iOS build are in
+   `IOS_CHANGES.md`.
 
 ## Known risks
 
