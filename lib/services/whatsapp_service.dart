@@ -397,4 +397,125 @@ class WhatsAppService {
     );
     return _msg(res, 'Template submitted for approval.');
   }
+
+  // ---- Campaigns ----
+
+  static Future<WaCampaignPage> campaigns({int page = 1}) async {
+    final res = await _api.get('/campaigns?page=$page&per_page=20');
+    final meta = asMap(res['meta']);
+    final cur = asInt(meta['current_page']);
+    final last = asInt(meta['last_page']);
+    return WaCampaignPage(
+      items: _items(res['campaigns']).map(WaCampaign.fromJson).toList(),
+      page: cur == 0 ? page : cur,
+      lastPage: last == 0 ? 1 : last,
+    );
+  }
+
+  static Future<WaCampaignDetail> campaign(String id) async {
+    final res = await _api.get('/campaigns/$id');
+    return WaCampaignDetail(
+      campaign: WaCampaign.fromJson(asMap(res['campaign'])),
+      recipients: _items(
+        res['campaign_contacts'],
+      ).map(WaCampaignRecipient.fromJson).toList(),
+      totalRecipients: asInt(asMap(res['meta'])['total']),
+    );
+  }
+
+  /// Creates a draft. The audience is every contact that is not blocked or
+  /// opted out, optionally only those from one [source].
+  static Future<WaCampaign> createCampaign({
+    required String name,
+    required String templateId,
+    String source = '',
+    DateTime? scheduledAt,
+  }) async {
+    final res = await _api.post(
+      '/campaigns',
+      body: {
+        'name': name,
+        'template_id': templateId,
+        if (source.isNotEmpty) 'audience_filter': {'source': source},
+        if (scheduledAt != null)
+          'scheduled_at': scheduledAt.toUtc().toIso8601String(),
+      },
+    );
+    return WaCampaign.fromJson(asMap(res['campaign']));
+  }
+
+  static Future<WaCampaign> _campaignAction(String id, String action) async =>
+      WaCampaign.fromJson(
+        asMap((await _api.post('/campaigns/$id/$action'))['campaign']),
+      );
+
+  static Future<WaCampaign> startCampaign(String id) =>
+      _campaignAction(id, 'start');
+
+  static Future<WaCampaign> pauseCampaign(String id) =>
+      _campaignAction(id, 'pause');
+
+  static Future<WaCampaign> cancelCampaign(String id) =>
+      _campaignAction(id, 'cancel');
+
+  static Future<void> deleteCampaign(String id) async {
+    await _api.delete('/campaigns/$id');
+  }
+
+  // ---- Bulk send ----
+
+  static Future<WaBulkPage> bulkSends({int page = 1}) async {
+    final res = await _api.get('/bulk-sends?page=$page&per_page=20');
+    final meta = asMap(res['meta']);
+    final cur = asInt(meta['current_page']);
+    final last = asInt(meta['last_page']);
+    return WaBulkPage(
+      items: _items(res['bulk_sends']).map(WaBulkSend.fromJson).toList(),
+      page: cur == 0 ? page : cur,
+      lastPage: last == 0 ? 1 : last,
+    );
+  }
+
+  static Future<WaBulkSend> bulkSend(String id) async => WaBulkSend.fromJson(
+    asMap((await _api.get('/bulk-sends/$id'))['bulk_send']),
+  );
+
+  /// Uploads a header image, video or PDF (16 MB at most). Returns a media id.
+  static Future<String> uploadBulkHeader(List<int> bytes, String filename) async {
+    final res = await _api.upload(
+      '/bulk-send/upload-header',
+      field: 'file',
+      bytes: bytes,
+      filename: filename,
+    );
+    return asStr(res['media_id']);
+  }
+
+  /// Sends [template] to every number. [variables] fill {{1}}, {{2}}… the same
+  /// for everyone. Blocked numbers are skipped by the server.
+  static Future<WaBulkSend> sendBulk({
+    required List<String> numbers,
+    required WaTemplate template,
+    List<String> variables = const [],
+    String headerMediaId = '',
+    String headerMediaUrl = '',
+  }) async {
+    final res = await _api.post(
+      '/bulk-send',
+      body: {
+        'numbers': numbers,
+        'template': template.name,
+        'language': template.language,
+        if (variables.isNotEmpty) 'variables': variables,
+        if (headerMediaId.isNotEmpty) 'header_media_id': headerMediaId,
+        if (headerMediaUrl.isNotEmpty) 'header_media_url': headerMediaUrl,
+      },
+      timeout: const Duration(seconds: 60),
+    );
+    return WaBulkSend.fromJson(asMap(res['bulk_send']));
+  }
+
+  static Future<WaBulkSend> retryBulk(String id) async => WaBulkSend.fromJson(
+    asMap((await _api.post('/bulk-sends/$id/retry'))['bulk_send']),
+  );
 }

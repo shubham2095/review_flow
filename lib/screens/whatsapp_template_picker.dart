@@ -12,7 +12,19 @@ import '../widgets/state_view.dart';
 /// 24-hour window only a template can be sent. Templates that need fields to
 /// be filled in (or a media header) are shown but cannot be picked here.
 class WhatsAppTemplatePicker extends StatefulWidget {
-  const WhatsAppTemplatePicker({super.key});
+  const WhatsAppTemplatePicker({
+    super.key,
+    this.forBulk = false,
+    this.title = 'Send a template',
+    this.subtitle =
+        'Approved messages that can reach a customer after 24 hours.',
+  });
+
+  /// A bulk send fills in body fields and a media header, so more templates
+  /// qualify than for a chat reply or a campaign (name and language only).
+  final bool forBulk;
+  final String title;
+  final String subtitle;
 
   @override
   State<WhatsAppTemplatePicker> createState() => _WhatsAppTemplatePickerState();
@@ -34,7 +46,7 @@ class _WhatsAppTemplatePickerState extends State<WhatsAppTemplatePicker> {
       final list = await WhatsAppService.approvedTemplates();
       // Ones that can be sent now first.
       list.sort((a, b) {
-        if (a.needsInput != b.needsInput) return a.needsInput ? 1 : -1;
+        if (_blocked(a) != _blocked(b)) return _blocked(a) ? 1 : -1;
         return a.name.compareTo(b.name);
       });
       if (mounted) setState(() => _templates = list);
@@ -42,6 +54,9 @@ class _WhatsAppTemplatePickerState extends State<WhatsAppTemplatePicker> {
       if (mounted) setState(() => _error = e);
     }
   }
+
+  bool _blocked(WaTemplate t) =>
+      widget.forBulk ? !t.bulkSendable : t.needsInput;
 
   Widget _content() {
     final error = _error;
@@ -84,21 +99,23 @@ class _WhatsAppTemplatePickerState extends State<WhatsAppTemplatePicker> {
       itemBuilder: (_, i) {
         final t = list[i];
         return ListTile(
-          enabled: !t.needsInput,
-          onTap: t.needsInput ? null : () => Navigator.of(context).pop(t),
+          enabled: !_blocked(t),
+          onTap: _blocked(t) ? null : () => Navigator.of(context).pop(t),
           title: Text(
             t.name,
             style: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.w700,
               fontSize: 14,
-              color: t.needsInput ? muted : ink,
+              color: _blocked(t) ? muted : ink,
             ),
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text(
-              t.needsInput
-                  ? 'Needs fields or media, so it cannot be sent from a chat.'
+              _blocked(t)
+                  ? (widget.forBulk
+                        ? 'Uses a field the app cannot fill in.'
+                        : 'Needs fields or media, so it cannot be sent here.')
                   : (t.body.isEmpty ? t.language : t.body),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -128,7 +145,7 @@ class _WhatsAppTemplatePickerState extends State<WhatsAppTemplatePicker> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Text(
-                'Send a template',
+                widget.title,
                 style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
@@ -139,7 +156,7 @@ class _WhatsAppTemplatePickerState extends State<WhatsAppTemplatePicker> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
               child: Text(
-                'Approved messages that can reach a customer after 24 hours.',
+                widget.subtitle,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 12.5,
                   color: muted,

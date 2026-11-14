@@ -11,6 +11,7 @@ import '../widgets/fade_in.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_connect_sheet.dart';
 import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
@@ -87,6 +88,10 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
 
   Future<void> _openTemplates() => Navigator.of(context).push<void>(
     MaterialPageRoute(builder: (_) => const WhatsAppTemplatesScreen()),
+  );
+
+  Future<void> _openCampaigns() => Navigator.of(context).push<void>(
+    MaterialPageRoute(builder: (_) => const WhatsAppCampaignsScreen()),
   );
 
   Future<void> _openInbox() async {
@@ -246,7 +251,7 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
           ),
         ],
       ),
-      const _Title('Coming next'),
+      const _Title('Messaging'),
       _LinkTile(
         icon: Icons.forum_rounded,
         title: 'Inbox',
@@ -266,10 +271,22 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         text: 'Message templates and their approval status',
         onTap: _openTemplates,
       ),
+      _LinkTile(
+        icon: Icons.campaign_rounded,
+        title: 'Campaigns',
+        text: 'Bulk messages and delivery results',
+        onTap: _openCampaigns,
+      ),
+      const _Title('Coming next'),
       const _SoonTile(
-        Icons.campaign_rounded,
-        'Campaigns',
-        'Bulk messages and delivery results',
+        Icons.smart_toy_rounded,
+        'Chatbots and automations',
+        'Auto replies and follow-ups',
+      ),
+      const _SoonTile(
+        Icons.insights_rounded,
+        'Analytics',
+        'Message funnel and campaign results',
       ),
     ];
   }

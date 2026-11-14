@@ -376,6 +376,25 @@ class WaTemplate {
   final List<WaTemplateButton> buttons;
 
   bool get approved => status.toUpperCase() == 'APPROVED';
+
+  /// The body fields in order: [1, 2, ...] for {{1}}, {{2}}.
+  List<int> get bodyVariables =>
+      (RegExp(r'{{s*(d+)s*}}')
+              .allMatches(body)
+              .map((m) => int.parse(m.group(1)!))
+              .toSet()
+              .toList()
+            ..sort());
+
+  /// Whether a bulk send can fill this template in: body fields and a media
+  /// header are supported, header text fields and link buttons with fields
+  /// are not.
+  bool get bulkSendable =>
+      !headerText.contains('{{') &&
+      !buttons.any((b) => b.url.contains('{{'));
+
+  bool get hasMediaHeader =>
+      headerFormat.isNotEmpty && headerFormat != 'TEXT';
 }
 
 class WaTemplatePage {
@@ -488,4 +507,212 @@ class WaBlacklistEntry {
   final String name;
   final String reason;
   final DateTime? createdAt;
+}
+
+/// A campaign (GET /campaigns): a template sent to an audience of contacts.
+class WaCampaign {
+  const WaCampaign({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.templateName,
+    required this.numberLabel,
+    required this.total,
+    required this.sent,
+    required this.delivered,
+    required this.read,
+    required this.failed,
+    required this.replied,
+    this.scheduledAt,
+    this.startedAt,
+    this.completedAt,
+    this.createdAt,
+    this.source = '',
+  });
+
+  factory WaCampaign.fromJson(Map<String, dynamic> j) {
+    final template = asMap(j['template']);
+    return WaCampaign(
+      id: asStr(j['id']),
+      name: asStr(j['name']),
+      status: asStr(j['status']),
+      templateName: asStr(template['name']),
+      numberLabel: asStr(asMap(j['phone_number'])['display_phone_number']),
+      total: asInt(j['total_recipients']),
+      sent: asInt(j['sent_count']),
+      delivered: asInt(j['delivered_count']),
+      read: asInt(j['read_count']),
+      failed: asInt(j['failed_count']),
+      replied: asInt(j['replied_count']),
+      scheduledAt: asDate(j['scheduled_at']),
+      startedAt: asDate(j['started_at']),
+      completedAt: asDate(j['completed_at']),
+      createdAt: asDate(j['created_at']),
+      source: asStr(asMap(j['audience_filter'])['source']),
+    );
+  }
+
+  final String id;
+  final String name;
+
+  /// draft, scheduled, running, paused, completed or cancelled.
+  final String status;
+  final String templateName;
+  final String numberLabel;
+  final int total;
+  final int sent;
+  final int delivered;
+  final int read;
+  final int failed;
+  final int replied;
+  final DateTime? scheduledAt;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final DateTime? createdAt;
+  final String source;
+
+  /// Messages handled so far (sent or failed).
+  int get done => sent + failed;
+
+  bool get isRunning => status == 'running';
+  bool get canStart => status == 'draft' || status == 'scheduled';
+  bool get canDelete => status == 'draft';
+  bool get canCancel => const {
+    'draft',
+    'scheduled',
+    'running',
+    'paused',
+  }.contains(status);
+}
+
+class WaCampaignPage {
+  const WaCampaignPage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+  });
+
+  final List<WaCampaign> items;
+  final int page;
+  final int lastPage;
+
+  bool get hasMore => page < lastPage;
+}
+
+/// One recipient of a campaign and how its message went.
+class WaCampaignRecipient {
+  const WaCampaignRecipient({
+    required this.status,
+    required this.name,
+    required this.phone,
+  });
+
+  factory WaCampaignRecipient.fromJson(Map<String, dynamic> j) {
+    final c = asMap(j['contact']);
+    return WaCampaignRecipient(
+      status: asStr(j['status']),
+      name: asStr(c['name']),
+      phone: asStr(c['phone']),
+    );
+  }
+
+  final String status;
+  final String name;
+  final String phone;
+
+  String get title => name.trim().isNotEmpty ? name.trim() : phone;
+}
+
+class WaCampaignDetail {
+  const WaCampaignDetail({
+    required this.campaign,
+    required this.recipients,
+    required this.totalRecipients,
+  });
+
+  final WaCampaign campaign;
+  final List<WaCampaignRecipient> recipients;
+  final int totalRecipients;
+}
+
+class WaBulkRecipient {
+  const WaBulkRecipient({
+    required this.phone,
+    required this.status,
+    required this.error,
+  });
+
+  factory WaBulkRecipient.fromJson(Map<String, dynamic> j) => WaBulkRecipient(
+    phone: asStr(j['phone']),
+    status: asStr(j['status']),
+    error: asStr(j['error_message']),
+  );
+
+  final String phone;
+
+  /// pending, sent, delivered or failed.
+  final String status;
+  final String error;
+}
+
+/// A bulk send (GET /bulk-sends): one template to a typed list of numbers.
+class WaBulkSend {
+  const WaBulkSend({
+    required this.id,
+    required this.template,
+    required this.language,
+    required this.status,
+    required this.total,
+    required this.sent,
+    required this.failed,
+    required this.delivered,
+    required this.recipients,
+    this.numberLabel = '',
+    this.createdAt,
+  });
+
+  factory WaBulkSend.fromJson(Map<String, dynamic> j) => WaBulkSend(
+    id: asStr(j['uuid']).isEmpty ? asStr(j['id']) : asStr(j['uuid']),
+    template: asStr(j['template_name']),
+    language: asStr(j['language']),
+    status: asStr(j['status']),
+    total: asInt(j['total']),
+    sent: asInt(j['sent_count']),
+    failed: asInt(j['failed_count']),
+    delivered: asInt(j['delivered_count']),
+    recipients: asMaps(j['recipients']).map(WaBulkRecipient.fromJson).toList(),
+    numberLabel: asStr(asMap(j['phone_number'])['display_phone_number']),
+    createdAt: asDate(j['created_at']),
+  );
+
+  final String id;
+  final String template;
+  final String language;
+
+  /// processing or completed (as the server names them).
+  final String status;
+  final int total;
+  final int sent;
+  final int failed;
+  final int delivered;
+  final List<WaBulkRecipient> recipients;
+  final String numberLabel;
+  final DateTime? createdAt;
+
+  int get done => sent + failed;
+  bool get processing => status == 'processing';
+}
+
+class WaBulkPage {
+  const WaBulkPage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+  });
+
+  final List<WaBulkSend> items;
+  final int page;
+  final int lastPage;
+
+  bool get hasMore => page < lastPage;
 }
