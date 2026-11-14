@@ -14,6 +14,7 @@ import '../widgets/state_view.dart';
 import 'whatsapp_connect_sheet.dart';
 import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
+import 'whatsapp_templates_screen.dart';
 import 'whatsapp_number_sheet.dart';
 
 /// WhatsApp home: connected numbers and today's numbers. Later phases add the
@@ -82,6 +83,10 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
 
   Future<void> _openContacts() => Navigator.of(context).push<void>(
     MaterialPageRoute(builder: (_) => const WhatsAppContactsScreen()),
+  );
+
+  Future<void> _openTemplates() => Navigator.of(context).push<void>(
+    MaterialPageRoute(builder: (_) => const WhatsAppTemplatesScreen()),
   );
 
   Future<void> _openInbox() async {
@@ -255,10 +260,11 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         text: 'Tags, hot leads and blocked numbers',
         onTap: _openContacts,
       ),
-      const _SoonTile(
-        Icons.description_rounded,
-        'Templates',
-        'Message templates and their approval status',
+      _LinkTile(
+        icon: Icons.description_rounded,
+        title: 'Templates',
+        text: 'Message templates and their approval status',
+        onTap: _openTemplates,
       ),
       const _SoonTile(
         Icons.campaign_rounded,

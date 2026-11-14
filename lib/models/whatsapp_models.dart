@@ -262,9 +262,32 @@ class WaMessagePage {
   final String? nextCursor;
 }
 
+/// One button on a template.
+class WaTemplateButton {
+  const WaTemplateButton({
+    required this.type,
+    required this.text,
+    this.url = '',
+    this.phone = '',
+  });
+
+  factory WaTemplateButton.fromJson(Map<String, dynamic> j) => WaTemplateButton(
+    type: asStr(j['type']).toUpperCase(),
+    text: asStr(j['text']),
+    url: asStr(j['url']),
+    phone: asStr(j['phone_number']),
+  );
+
+  /// QUICK_REPLY, URL, PHONE_NUMBER or COPY_CODE.
+  final String type;
+  final String text;
+  final String url;
+  final String phone;
+}
+
 /// A message template (GET /templates). Only name and language can be sent
 /// from a chat, so templates with `{{1}}` style fields or a media header are
-/// marked as not sendable here.
+/// marked as needing input.
 class WaTemplate {
   const WaTemplate({
     required this.id,
@@ -274,21 +297,45 @@ class WaTemplate {
     required this.status,
     required this.body,
     required this.needsInput,
+    this.rejectionReason = '',
+    this.quality = '',
+    this.lastSyncedAt,
+    this.headerFormat = '',
+    this.headerText = '',
+    this.footer = '',
+    this.buttons = const [],
   });
 
   factory WaTemplate.fromJson(Map<String, dynamic> j) {
     final parts = asMaps(j['components']);
     var body = '';
     var needs = false;
+    var headerFormat = '';
+    var headerText = '';
+    var footer = '';
+    final buttons = <WaTemplateButton>[];
     for (final c in parts) {
       final type = asStr(c['type']).toUpperCase();
       final format = asStr(c['format']).toUpperCase();
       final text = asStr(c['text']);
       if (type == 'BODY') body = text;
-      if (type == 'HEADER' && format.isNotEmpty && format != 'TEXT') needs = true;
+      if (type == 'FOOTER') footer = text;
+      if (type == 'HEADER') {
+        headerFormat = format;
+        headerText = text;
+        if (format.isNotEmpty && format != 'TEXT') needs = true;
+      }
       if (text.contains('{{')) needs = true;
-      if (c['buttons'] != null && jsonEncode(c['buttons']).contains('{{')) {
-        needs = true;
+      final raw = c['buttons'];
+      if (raw != null) {
+        if (jsonEncode(raw).contains('{{')) needs = true;
+        if (raw is List) {
+          buttons.addAll(
+            raw.whereType<Map<String, dynamic>>().map(
+              WaTemplateButton.fromJson,
+            ),
+          );
+        }
       }
     }
     return WaTemplate(
@@ -299,6 +346,13 @@ class WaTemplate {
       status: asStr(j['status']),
       body: body,
       needsInput: needs,
+      rejectionReason: asStr(j['rejection_reason']),
+      quality: asStr(j['quality_score']),
+      lastSyncedAt: asDate(j['last_synced_at']),
+      headerFormat: headerFormat,
+      headerText: headerText,
+      footer: footer,
+      buttons: buttons,
     );
   }
 
@@ -311,8 +365,31 @@ class WaTemplate {
 
   /// Has fields or a media header that a chat cannot fill in.
   final bool needsInput;
+  final String rejectionReason;
+  final String quality;
+  final DateTime? lastSyncedAt;
+
+  /// TEXT, IMAGE, VIDEO or DOCUMENT; empty when there is no header.
+  final String headerFormat;
+  final String headerText;
+  final String footer;
+  final List<WaTemplateButton> buttons;
 
   bool get approved => status.toUpperCase() == 'APPROVED';
+}
+
+class WaTemplatePage {
+  const WaTemplatePage({
+    required this.items,
+    required this.page,
+    required this.lastPage,
+  });
+
+  final List<WaTemplate> items;
+  final int page;
+  final int lastPage;
+
+  bool get hasMore => page < lastPage;
 }
 
 /// A saved contact (GET /contacts). Tags are plain text here ("vip, delhi").

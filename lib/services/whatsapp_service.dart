@@ -309,4 +309,92 @@ class WhatsAppService {
   static Future<void> removeFromBlacklist(String id) async {
     await _api.delete('/blacklist/$id');
   }
+
+  // ---- Templates ----
+
+  /// [status] is a server value such as `approved`, `pending` or `rejected`.
+  static Future<WaTemplatePage> templates({
+    String search = '',
+    String? status,
+    int page = 1,
+  }) async {
+    final q = <String, String>{
+      'page': '$page',
+      'per_page': '30',
+      if (search.isNotEmpty) 'search': search,
+      if (status != null && status.isNotEmpty) 'status': status,
+    };
+    final res = await _api.get('/templates?${Uri(queryParameters: q).query}');
+    final meta = asMap(res['meta']);
+    final cur = asInt(meta['current_page']);
+    final last = asInt(meta['last_page']);
+    return WaTemplatePage(
+      items: _items(res['templates']).map(WaTemplate.fromJson).toList(),
+      page: cur == 0 ? page : cur,
+      lastPage: last == 0 ? 1 : last,
+    );
+  }
+
+  /// Pulls template statuses from Meta. Returns the server message.
+  static Future<String> syncTemplates() async =>
+      _msg(await _api.post('/templates/sync'), 'Templates are up to date.');
+
+  static Future<void> deleteTemplate(String id) async {
+    await _api.delete('/templates/$id');
+  }
+
+  /// Uploads the sample file a media header needs (5 MB, jpg, png, mp4 or
+  /// pdf). Returns the `header_handle` to pass to [createTemplate].
+  static Future<String> uploadTemplateSample(
+    List<int> bytes,
+    String filename,
+  ) async {
+    final res = await _api.upload(
+      '/templates/upload-sample',
+      field: 'file',
+      bytes: bytes,
+      filename: filename,
+    );
+    return asStr(res['header_handle']);
+  }
+
+  /// Submits a new template to Meta for approval. Returns the server message.
+  static Future<String> createTemplate({
+    required String name,
+    required String language,
+    required String category,
+    required String body,
+    String headerFormat = 'NONE',
+    String headerText = '',
+    String headerHandle = '',
+    List<String> bodyExamples = const [],
+    String footer = '',
+    List<WaTemplateButton> buttons = const [],
+  }) async {
+    final res = await _api.post(
+      '/templates',
+      body: {
+        'name': name,
+        'language': language,
+        'category': category,
+        'body': body,
+        'header_format': headerFormat,
+        if (headerFormat == 'TEXT') 'header_text': headerText,
+        if (headerHandle.isNotEmpty) 'header_handle': headerHandle,
+        if (bodyExamples.isNotEmpty) 'body_example': bodyExamples,
+        if (footer.isNotEmpty) 'footer': footer,
+        if (buttons.isNotEmpty)
+          'buttons': [
+            for (final b in buttons)
+              {
+                'type': b.type,
+                'text': b.text,
+                if (b.type == 'URL') 'url': b.url,
+                if (b.type == 'PHONE_NUMBER') 'phone_number': b.phone,
+              },
+          ],
+      },
+    );
+    return _msg(res, 'Template submitted for approval.');
+  }
 }
