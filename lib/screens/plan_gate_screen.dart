@@ -5,23 +5,33 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/platform_rules.dart';
+import '../services/products.dart';
 import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/royal_backdrop.dart';
-/// Shown when the account has no active plan. The app never sells anything:
-/// the page only says to buy a plan on the website and sign in again, and
-/// re-checks the plan whenever the app comes back to the foreground.
-/// opens the web app already signed in and re-checks the plan when the user returns.
+
+/// Shown when the plan does not open what the person tapped: no plan at all,
+/// or a plan without that product. The app never sells anything: the page only
+/// says to get a plan on the website and sign in again, and re-checks the plan
+/// whenever the app comes back to the foreground.
 class PlanGateScreen extends StatefulWidget {
   const PlanGateScreen({
     super.key,
     required this.onUnlocked,
     required this.onSignedOut,
+    this.product,
+    this.onBack,
   });
 
   final VoidCallback onUnlocked;
   final VoidCallback onSignedOut;
+
+  /// The product that was tapped. Null: the whole workspace is locked.
+  final Product? product;
+
+  /// Shows a back arrow that returns to the product boxes.
+  final VoidCallback? onBack;
 
   @override
   State<PlanGateScreen> createState() => _PlanGateScreenState();
@@ -60,11 +70,17 @@ class _PlanGateScreenState extends State<PlanGateScreen>
     try {
       final user = await Session.refresh();
       if (!mounted) return;
-      if (user.hasPlan) {
+      final p = widget.product;
+      final open = p == null ? user.hasPlan : p.unlockedFor(user);
+      if (open) {
         HapticFeedback.mediumImpact();
         widget.onUnlocked();
       } else if (!silent) {
-        _snack('This account does not have an active plan yet.');
+        _snack(
+          p != null && user.hasPlan
+              ? 'Your plan does not include ${p.title} yet.'
+              : 'This account does not have an active plan yet.',
+        );
       }
     } catch (e) {
       if (!silent) _snack(friendlyException(e).message);
@@ -82,8 +98,23 @@ class _PlanGateScreenState extends State<PlanGateScreen>
   Widget build(BuildContext context) {
     final name = Session.current?.name.trim() ?? '';
     final first = name.isEmpty ? '' : name.split(' ').first;
+    final p = widget.product;
+    final hasPlan = Session.current?.hasPlan ?? false;
+    final productLocked = p != null && hasPlan;
+    final benefits = (p ?? Product.gbp).benefits;
+    const tones = [brand, brandDeep, good, warn];
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: widget.onBack == null
+          ? null
+          : AppBar(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              foregroundColor: Colors.white,
+              leading: BackButton(onPressed: widget.onBack),
+            ),
       body: RoyalBackdrop(
         child: SafeArea(
           child: Center(
@@ -137,7 +168,9 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Your workspace is not active yet',
+                          productLocked
+                              ? '${p.title} is not in your plan'
+                              : 'Your workspace is not active yet',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
@@ -168,7 +201,7 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'What switches on',
+                            p == null ? 'What switches on' : 'What ${p.short} gives you',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -176,31 +209,21 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const _Benefit(
-                            icon: Icons.reviews_rounded,
-                            color: brand,
-                            text: 'Read and reply to Google reviews, with AI drafts',
-                          ),
-                          const _Benefit(
-                            icon: Icons.edit_note_rounded,
-                            color: brandDeep,
-                            text: 'Publish posts and photos to your profile',
-                          ),
-                          const _Benefit(
-                            icon: Icons.insights_rounded,
-                            color: good,
-                            text: 'See calls, clicks and directions from Google',
-                          ),
-                          const _Benefit(
-                            icon: Icons.auto_awesome_rounded,
-                            color: warn,
-                            text: 'Profile audit, optimizer and AI assistant',
-                          ),
+                          for (var i = 0; i < benefits.length; i++)
+                            _Benefit(
+                              icon: benefits[i].$1,
+                              color: tones[i % tones.length],
+                              text: benefits[i].$2,
+                            ),
                           const SizedBox(height: 16),
                           Text(
-                            isIos
-                                ? 'This account does not have an active plan yet. Once a plan is active on it, everything above switches on. If your business already uses Eydia, sign out and sign in with that account.'
-                                : 'This account has no active plan yet. Open the Eydia website, buy a plan there, then come back and sign in again.',
+                            productLocked
+                                ? (isIos
+                                      ? 'Your current plan does not include ${p.title}. If your business already uses it, sign out and sign in with that account.'
+                                      : 'Your current plan does not include ${p.title}. Open the Eydia website, choose a plan that includes it, then come back and sign in again.')
+                                : (isIos
+                                      ? 'This account does not have an active plan yet. Once a plan is active on it, everything above switches on. If your business already uses Eydia, sign out and sign in with that account.'
+                                      : 'This account has no active plan yet. Open the Eydia website, buy a plan there, then come back and sign in again.'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,

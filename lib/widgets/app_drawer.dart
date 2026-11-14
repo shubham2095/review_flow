@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../screens/pages.dart';
+import '../services/products.dart';
 import '../theme/brand.dart';
 import 'user_avatar.dart';
 
@@ -14,8 +15,15 @@ class AppDrawer extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.onLogout,
+    required this.product,
+    required this.onHub,
   });
 
+  /// The product that is open: only its pages are listed.
+  final Product product;
+
+  /// Goes back to the product boxes.
+  final VoidCallback onHub;
   final String name;
   final String email;
   final int selectedIndex;
@@ -46,6 +54,13 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          _NavItem(
+            icon: Icons.apps_rounded,
+            label: 'All products',
+            subtitle: 'Switch between Google Business and WhatsApp',
+            onTap: onHub,
+          ),
+          if (product == Product.gbp) ...[
           _SectionLabel('WORKSPACE'),
           _NavItem(
             icon: Icons.dashboard_rounded,
@@ -96,6 +111,8 @@ class AppDrawer extends StatelessWidget {
             selected: selectedIndex == kPageAutomation,
             onTap: () => onSelect(kPageAutomation),
           ),
+          ],
+          if (product == Product.whatsapp) ...[
           _SectionLabel('WHATSAPP'),
           _NavItem(
             icon: Icons.chat_rounded,
@@ -104,6 +121,7 @@ class AppDrawer extends StatelessWidget {
             selected: selectedIndex == kPageWhatsApp,
             onTap: () => onSelect(kPageWhatsApp),
           ),
+          ],
           _SectionLabel('ACCOUNT'),
           _NavItem(
             icon: Icons.workspace_premium_rounded,

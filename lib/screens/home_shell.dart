@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/location_store.dart';
+import '../services/products.dart';
 import '../services/push_service.dart';
 import '../services/whatsapp_service.dart';
 import '../services/session.dart';
@@ -28,9 +29,19 @@ import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_screen.dart';
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key, required this.onSignedOut});
+  const HomeShell({
+    super.key,
+    required this.product,
+    required this.onSignedOut,
+    required this.onHub,
+  });
 
+  /// The product that was opened from the boxes: it decides which pages exist.
+  final Product product;
   final VoidCallback onSignedOut;
+
+  /// Back to the product boxes.
+  final VoidCallback onHub;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -38,10 +49,14 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _index = kPageOverview;
+  /// The page this product starts on.
+  int get _start =>
+      widget.product == Product.whatsapp ? kPageWhatsApp : kPageOverview;
+
+  late int _index = _start;
 
   // Pages open for the first time only, so startup does not fire every API call.
-  final Set<int> _visited = {kPageOverview};
+  late final Set<int> _visited = {_start};
 
   @override
   void initState() {
@@ -51,11 +66,8 @@ class _HomeShellState extends State<HomeShell> {
     LocationStore.refresh().catchError((_) {});
     ApiService.reconnected.addListener(_onReconnected);
     PushService.target.addListener(_onPush);
-    // Notifications: register this phone (and ask once, politely).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      PushService.start(context).then((_) => _onPush(), onError: (_) {});
-    });
+    // A notification that opened this product: go to its page.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onPush());
   }
 
   @override
@@ -83,6 +95,12 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> _onPush() async {
     final t = PushService.target.value;
     if (t == null || !mounted) return;
+    // About the other product: go back to the boxes, which open it.
+    final mine = widget.product == Product.gbp ? t.isReview : !t.isReview;
+    if (!mine) {
+      widget.onHub();
+      return;
+    }
     PushService.target.value = null;
     if (t.isReview) {
       _select(kPageReviews);
@@ -110,8 +128,6 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  DateTime? _lastBack;
-
   final _dashboardKey = GlobalKey<DashboardScreenState>();
 
   void _select(int i) {
@@ -123,29 +139,15 @@ class _HomeShellState extends State<HomeShell> {
     if (i == kPageOverview) _dashboardKey.currentState?.refreshIfStale();
   }
 
-  /// Back goes to Overview from any other page; on Overview a second press
-  /// within 2 seconds leaves the app. (Sheets, dialogs and the drawer close
-  /// first, they are handled before this runs.)
+  /// Back goes to the product's first page from any other page, and from there
+  /// to the product boxes. (Sheets, dialogs and the drawer close first, they are
+  /// handled before this runs.)
   void _onBack() {
-    if (_index != kPageOverview) {
-      _select(kPageOverview);
+    if (_index != _start) {
+      _select(_start);
       return;
     }
-    final now = DateTime.now();
-    final last = _lastBack;
-    if (last != null && now.difference(last) < const Duration(seconds: 2)) {
-      SystemNavigator.pop();
-      return;
-    }
-    _lastBack = now;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Press back again to exit'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+    widget.onHub();
   }
 
   List<Widget Function()> get _pageBuilders => [
@@ -229,6 +231,8 @@ class _HomeShellState extends State<HomeShell> {
             selectedIndex: _index,
             onSelect: _select,
             onLogout: _confirmLogout,
+            product: widget.product,
+            onHub: widget.onHub,
           ),
           body: Column(
             children: [
@@ -246,7 +250,9 @@ class _HomeShellState extends State<HomeShell> {
               ),
             ],
           ),
-          bottomNavigationBar: NavigationBar(
+          bottomNavigationBar: widget.product != Product.gbp
+              ? null
+              : NavigationBar(
             selectedIndex: bottomIndex,
             onDestinationSelected: (i) {
               HapticFeedback.selectionClick();
