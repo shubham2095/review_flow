@@ -168,6 +168,7 @@ class PushService {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) return false;
       _token = token;
+      if (kDebugMode) debugPrint('FCM token: $token');
       await _register(token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_kEnabled, true);

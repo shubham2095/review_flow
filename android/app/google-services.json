@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1016244175659",
+    "project_id": "eydia-55158",
+    "storage_bucket": "eydia-55158.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1016244175659:android:d66d5eff71863ddebb3b6e",
+        "android_client_info": {
+          "package_name": "com.heltog.review_flow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANHeQVuwxRU_0CZSWCjYpyJvcpxmFKfWI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
