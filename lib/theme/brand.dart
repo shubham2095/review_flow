@@ -17,6 +17,15 @@ const royalIndigo = Color(0xFF1E2A6B);
 const royalViolet = Color(0xFF3B2A8C);
 const royalGold = Color(0xFFD4AF37);
 
+// Shared tokens for the WhatsApp area (and anything else that needs them).
+// Softer text on cards, the grey behind progress bars, and the chat colours.
+const inkSoft = Color(0xFF4A5468);
+const track = Color(0xFFEEF1F7);
+const waChatBg = Color(0xFFEFEAE2);
+const waBubbleOut = Color(0xFFD9FDD3);
+const waBubbleIn = Colors.white;
+const waTick = Color(0xFF2196F3);
+
 BoxDecoration cardDecoration() {
   return BoxDecoration(
     color: Colors.white,
