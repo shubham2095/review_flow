@@ -13,7 +13,6 @@ import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
 import 'whatsapp_analytics_screen.dart';
 import 'whatsapp_bots_screen.dart';
-import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_connect_sheet.dart';
 import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_templates_screen.dart';
@@ -89,10 +88,6 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
 
   Future<void> _openTemplates() => Navigator.of(context).push<void>(
     MaterialPageRoute(builder: (_) => const WhatsAppTemplatesScreen()),
-  );
-
-  Future<void> _openCampaigns() => Navigator.of(context).push<void>(
-    MaterialPageRoute(builder: (_) => const WhatsAppCampaignsScreen()),
   );
 
   Future<void> _openBots() => Navigator.of(
@@ -278,12 +273,6 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         title: 'Templates',
         text: 'Message templates and their approval status',
         onTap: _openTemplates,
-      ),
-      _LinkTile(
-        icon: Icons.campaign_rounded,
-        title: 'Campaigns',
-        text: 'Bulk messages and delivery results',
-        onTap: _openCampaigns,
       ),
       _LinkTile(
         icon: Icons.smart_toy_rounded,

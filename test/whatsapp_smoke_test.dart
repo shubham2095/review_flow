@@ -90,6 +90,8 @@ final Map<String, Widget Function()> _cases = {
   'WhatsAppTemplatesScreen': () => const WhatsAppTemplatesScreen(),
   'WhatsAppTemplateCreateScreen': () => const WhatsAppTemplateCreateScreen(),
   'WhatsAppCampaignsScreen': () => const WhatsAppCampaignsScreen(),
+  'WhatsAppCampaignsScreen (embedded)': () =>
+      const WhatsAppCampaignsScreen(embedded: true),
   'WhatsAppCampaignDetailScreen': () =>
       const WhatsAppCampaignDetailScreen(campaignId: 'camp-1'),
   'WhatsAppCampaignCreateScreen': () => const WhatsAppCampaignCreateScreen(),

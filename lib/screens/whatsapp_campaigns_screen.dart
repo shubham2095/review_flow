@@ -14,6 +14,7 @@ import '../widgets/offline_banner.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/wa_tab_scope.dart';
 import 'whatsapp_bulk_create_screen.dart';
 import 'whatsapp_bulk_detail_screen.dart';
 import 'whatsapp_campaign_create_screen.dart';
@@ -47,7 +48,11 @@ import 'whatsapp_campaign_detail_screen.dart';
 /// Campaigns (a template to your contacts) and bulk sends (a template to a
 /// list of numbers) in two tabs.
 class WhatsAppCampaignsScreen extends StatefulWidget {
-  const WhatsAppCampaignsScreen({super.key});
+  const WhatsAppCampaignsScreen({super.key, this.embedded = false});
+
+  /// Inside the WhatsApp tabs: no AppBar (the shell has the top bar) and no
+  /// second offline banner; the two inner tabs sit at the top of the page.
+  final bool embedded;
 
   @override
   State<WhatsAppCampaignsScreen> createState() =>
@@ -97,32 +102,36 @@ class _WhatsAppCampaignsScreenState extends State<WhatsAppCampaignsScreen>
     _bulkKey.currentState?.reload();
   }
 
+  TabBar _tabBar() => TabBar(
+    controller: _tabs,
+    labelColor: brand,
+    indicatorColor: brand,
+    tabs: const [
+      Tab(text: 'Campaigns'),
+      Tab(text: 'Bulk sends'),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final onCampaigns = _tabs.index == 0;
     return Scaffold(
       backgroundColor: surface,
-      appBar: AppBar(
-        title: Text(
-          'Campaigns',
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w800,
-            color: ink,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: ink,
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: brand,
-          indicatorColor: brand,
-          tabs: const [
-            Tab(text: 'Campaigns'),
-            Tab(text: 'Bulk sends'),
-          ],
-        ),
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: Text(
+                'Campaigns',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: ink,
+              bottom: _tabBar(),
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: onCampaigns ? _newCampaign : _newBulk,
         icon: const Icon(Icons.add_rounded),
@@ -130,7 +139,8 @@ class _WhatsAppCampaignsScreenState extends State<WhatsAppCampaignsScreen>
       ),
       body: Column(
         children: [
-          const OfflineBanner(),
+          if (!widget.embedded) const OfflineBanner(),
+          if (widget.embedded) Material(color: Colors.white, child: _tabBar()),
           Expanded(
             child: TabBarView(
               controller: _tabs,
@@ -166,8 +176,21 @@ class _CampaignsTabState extends State<_CampaignsTab>
   bool _loadingMore = false;
   Object? _error;
 
+  /// False while the whole Campaigns tab is hidden behind another WhatsApp tab:
+  /// no polling then, and one catch-up refresh when it is shown again.
+  bool _active = true;
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nowActive = WaTabScope.isActive(context);
+    final becameVisible = nowActive && !_active;
+    _active = nowActive;
+    if (becameVisible) _silent(force: true);
+  }
 
   @override
   void initState() {
@@ -207,9 +230,10 @@ class _CampaignsTabState extends State<_CampaignsTab>
     }
   }
 
-  Future<void> _silent() async {
-    if (!mounted || _loading || _loadingMore || _page > 1) return;
-    if (!_items.any((c) => c.isRunning)) return;
+  /// [force] refreshes even when nothing is running (the catch-up on return).
+  Future<void> _silent({bool force = false}) async {
+    if (!mounted || !_active || _loading || _loadingMore || _page > 1) return;
+    if (!force && !_items.any((c) => c.isRunning)) return;
     try {
       final res = await WhatsAppService.campaigns();
       if (mounted && _page == 1) {
@@ -422,8 +446,21 @@ class _BulkTabState extends State<_BulkTab> with AutomaticKeepAliveClientMixin {
   bool _loadingMore = false;
   Object? _error;
 
+  /// False while the whole Campaigns tab is hidden behind another WhatsApp tab:
+  /// no polling then, and one catch-up refresh when it is shown again.
+  bool _active = true;
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nowActive = WaTabScope.isActive(context);
+    final becameVisible = nowActive && !_active;
+    _active = nowActive;
+    if (becameVisible) _silent(force: true);
+  }
 
   @override
   void initState() {
@@ -462,9 +499,10 @@ class _BulkTabState extends State<_BulkTab> with AutomaticKeepAliveClientMixin {
     }
   }
 
-  Future<void> _silent() async {
-    if (!mounted || _loading || _loadingMore || _page > 1) return;
-    if (!_items.any((b) => b.processing)) return;
+  /// [force] refreshes even when nothing is sending (the catch-up on return).
+  Future<void> _silent({bool force = false}) async {
+    if (!mounted || !_active || _loading || _loadingMore || _page > 1) return;
+    if (!force && !_items.any((b) => b.processing)) return;
     try {
       final res = await WhatsAppService.bulkSends();
       if (mounted && _page == 1) {

@@ -5,13 +5,14 @@ import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/wa_tab_scope.dart';
+import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_screen.dart';
 
-/// The WhatsApp area with a bottom bar: Home, Inbox (with the unread count) and
-/// Contacts. More tabs are added one at a time; until then everything else is
-/// reached from the tiles on Home, exactly as before.
+/// The WhatsApp area with a bottom bar: Home, Inbox (with the unread count),
+/// Contacts and Campaigns. The rest (Templates, Chatbots, Analytics) is reached
+/// from the tiles on Home until the More tab is added.
 class WhatsAppShell extends StatefulWidget {
   const WhatsAppShell({super.key});
 
@@ -24,7 +25,8 @@ class WhatsAppShellState extends State<WhatsAppShell>
   static const _homeTab = 0;
   static const _inboxTab = 1;
   static const _contactsTab = 2;
-  static const _tabCount = 3;
+  static const _campaignsTab = 3;
+  static const _tabCount = 4;
 
   int _index = _homeTab;
 
@@ -109,6 +111,8 @@ class WhatsAppShellState extends State<WhatsAppShell>
         );
       case _contactsTab:
         return const WhatsAppContactsScreen(embedded: true);
+      case _campaignsTab:
+        return const WhatsAppCampaignsScreen(embedded: true);
       default:
         return WhatsAppScreen(onOpenInbox: () => _select(_inboxTab));
     }
@@ -172,6 +176,12 @@ class WhatsAppShellState extends State<WhatsAppShell>
                   selectedIcon: Icon(Icons.contacts_rounded),
                   label: 'Contacts',
                   tooltip: 'Contacts',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.campaign_outlined),
+                  selectedIcon: Icon(Icons.campaign_rounded),
+                  label: 'Campaigns',
+                  tooltip: 'Campaigns',
                 ),
               ],
             ),
