@@ -12,6 +12,7 @@ import 'package:review_flow/screens/whatsapp_campaigns_screen.dart';
 import 'package:review_flow/screens/whatsapp_chat_screen.dart';
 import 'package:review_flow/screens/whatsapp_chatbot_screen.dart';
 import 'package:review_flow/screens/whatsapp_connect_sheet.dart';
+import 'package:review_flow/screens/whatsapp_contact_info_sheet.dart';
 import 'package:review_flow/screens/whatsapp_contact_sheet.dart';
 import 'package:review_flow/screens/whatsapp_contacts_screen.dart';
 import 'package:review_flow/screens/whatsapp_inbox_screen.dart';
@@ -111,6 +112,8 @@ final Map<String, Widget Function()> _cases = {
   'WhatsAppContactSheet (new)': () => const WhatsAppContactSheet(),
   'WhatsAppContactSheet (edit)': () => WhatsAppContactSheet(contact: _contact),
   'WhatsAppTemplateSheet': () => WhatsAppTemplateSheet(template: _template),
+  'WhatsAppContactInfoSheet': () =>
+      WhatsAppContactInfoSheet(conversation: _conversation),
   'WhatsAppTemplatePicker': () => const WhatsAppTemplatePicker(),
 };
 

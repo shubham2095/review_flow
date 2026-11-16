@@ -1,22 +1,91 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/whatsapp_models.dart';
 import '../services/access_problem.dart';
 import '../services/api_service.dart';
+import '../services/session.dart';
+import '../services/wa_drafts.dart';
 import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/date_format.dart';
+import '../widgets/linkified_text.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/wa_ui.dart';
+import 'whatsapp_contact_info_sheet.dart';
 import 'whatsapp_template_picker.dart';
+
+/// "Can reply · 3h 20m left", "Can reply · 12m left" or "Reply window closed".
+/// [now] is a parameter so the wording can be tested.
+String chatWindowLabel(DateTime? expiresAt, bool open, DateTime now) {
+  if (!open || (expiresAt != null && !expiresAt.isAfter(now))) {
+    return 'Reply window closed';
+  }
+  if (expiresAt == null) return 'Can reply';
+  final left = expiresAt.difference(now);
+  if (left.inHours >= 1) {
+    return 'Can reply · ${left.inHours}h ${left.inMinutes % 60}m left';
+  }
+  if (left.inMinutes >= 1) return 'Can reply · ${left.inMinutes}m left';
+  return 'Can reply · less than a minute left';
+}
+
+/// A reply that is being sent (or failed). It shows at the bottom straight
+/// away and turns into the real message when the server accepts it.
+class _PendingText {
+  _PendingText(this.text) : createdAt = DateTime.now();
+
+  final String text;
+  final DateTime createdAt;
+  bool sending = false;
+  String? error;
+}
+
+/// One line of the chat: a real message or a pending reply.
+class _ChatRow {
+  _ChatRow.message(WaMessage m)
+    : message = m,
+      pending = null,
+      outbound = m.outbound,
+      at = m.createdAt,
+      sender = m.senderName;
+
+  _ChatRow.pending(_PendingText p)
+    : message = null,
+      pending = p,
+      outbound = true,
+      at = p.createdAt,
+      sender = Session.current?.name ?? '';
+
+  final WaMessage? message;
+  final _PendingText? pending;
+  final bool outbound;
+  final DateTime? at;
+  final String sender;
+}
+
+/// Neighbouring bubbles from the same side within five minutes are one group.
+bool _sameGroup(_ChatRow a, _ChatRow b) {
+  final x = a.at;
+  final y = b.at;
+  if (x == null || y == null) return false;
+  return a.outbound == b.outbound &&
+      a.sender == b.sender &&
+      _sameDay(x, y) &&
+      x.difference(y).abs() < const Duration(minutes: 5);
+}
 
 /// One chat: messages oldest to newest (newest at the bottom), older ones load
 /// as you scroll up, new ones arrive on their own while the screen is open.
@@ -35,9 +104,14 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
   final _input = TextEditingController();
   bool _sending = false;
   Timer? _poll;
+  Timer? _windowTicker;
+  Timer? _draftTimer;
 
   /// Newest first, so the reversed list draws the newest at the bottom.
   List<WaMessage> _messages = [];
+
+  /// Replies being sent or failed, newest first (they sit below every message).
+  final List<_PendingText> _pending = [];
   String? _cursor;
   bool _hasMore = false;
   bool _loading = true;
@@ -45,7 +119,14 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
   bool _foreground = true;
   Object? _error;
 
+  /// Scrolled away from the newest message: show "jump to latest".
+  bool _awayFromLatest = false;
+
+  /// Customer messages that arrived while scrolled away.
+  int _newWhileAway = 0;
+
   WaConversation get _c => widget.conversation;
+  String get _userId => Session.current?.id ?? '';
 
   @override
   void initState() {
@@ -54,12 +135,23 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
     _scroll.addListener(_onScroll);
     _load();
     _poll = Timer.periodic(const Duration(seconds: 6), (_) => _refresh());
+    // Keeps the "time left" in the title current.
+    _windowTicker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+    _restoreDraft();
+    WaDrafts.prune();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
+    _windowTicker?.cancel();
+    _draftTimer?.cancel();
+    // Whatever is typed but not sent is kept for next time.
+    final unsent = _input.text;
+    if (unsent.trim().isNotEmpty) WaDrafts.save(_userId, _c.id, unsent);
     _scroll.dispose();
     _input.dispose();
     super.dispose();
@@ -71,9 +163,39 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
     if (_foreground) _refresh();
   }
 
+  Future<void> _restoreDraft() async {
+    final saved = await WaDrafts.read(_userId, _c.id);
+    if (saved == null || !mounted || _input.text.isNotEmpty) return;
+    setState(() => _input.text = saved);
+  }
+
+  void _onTextChanged(String _) {
+    setState(() {});
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 600), () {
+      WaDrafts.save(_userId, _c.id, _input.text);
+    });
+  }
+
   void _onScroll() {
     // The list is reversed: the "end" is the oldest message.
     if (_scroll.position.extentAfter < 300) _loadOlder();
+    final away = _scroll.offset > 300;
+    if (away != _awayFromLatest) {
+      setState(() {
+        _awayFromLatest = away;
+        if (!away) _newWhileAway = 0;
+      });
+    }
+  }
+
+  void _jumpToLatest() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
   }
 
   Future<void> _load() async {
@@ -105,9 +227,9 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
       final page = await WhatsAppService.messages(_c.id);
       if (!mounted || _loadingOlder) return;
       final fresh = page.items.map((m) => m.id).toSet();
-      final newOnes = page.items.where(
-        (m) => !_messages.any((o) => o.id == m.id),
-      );
+      final newOnes = page.items
+          .where((m) => !_messages.any((o) => o.id == m.id))
+          .toList();
       final arrived = newOnes.isNotEmpty;
       final inbound = newOnes.where((m) => !m.outbound).toList();
       setState(() {
@@ -120,6 +242,9 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
             _c.windowOpen = true;
             _c.windowExpiresAt = until;
           }
+        }
+        if (inbound.isNotEmpty && _awayFromLatest) {
+          _newWhileAway += inbound.length;
         }
         _messages = [
           ...page.items,
@@ -174,38 +299,60 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   /// A message the server accepted goes to the bottom straight away.
   void _added(WaMessage m) {
     setState(() => _messages = [m, ..._messages]);
-    if (_scroll.hasClients) {
-      _scroll.animateTo(
-        0,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
+    _jumpToLatest();
+  }
+
+  /// The text appears at the bottom at once (with a clock) and the box is free
+  /// for the next message. If sending fails the text stays in a "Not sent"
+  /// bubble with Retry, and the saved draft keeps it too.
+  void _sendText() {
+    final text = _input.text.trim();
+    if (text.isEmpty) return;
+    _draftTimer?.cancel();
+    _input.clear();
+    final p = _PendingText(text);
+    setState(() => _pending.insert(0, p));
+    _jumpToLatest();
+    _deliver(p);
+  }
+
+  Future<void> _deliver(_PendingText p) async {
+    if (p.sending) return;
+    setState(() {
+      p.sending = true;
+      p.error = null;
+    });
+    try {
+      final m = await WhatsAppService.sendText(_c.id, p.text);
+      if (!mounted) return;
+      setState(() {
+        _pending.remove(p);
+        _messages = [m, ..._messages];
+      });
+      // Sent: the saved draft is done with, unless something new is being typed.
+      if (_input.text.trim().isEmpty && _pending.isEmpty) {
+        WaDrafts.clear(_userId, _c.id);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      HapticFeedback.lightImpact();
+      setState(() {
+        p.sending = false;
+        p.error = errorLine(e);
+      });
     }
   }
 
-  Future<void> _sendText() async {
-    final text = _input.text.trim();
-    if (text.isEmpty || _sending) return;
-    setState(() => _sending = true);
-    try {
-      final m = await WhatsAppService.sendText(_c.id, text);
-      if (!mounted) return;
-      _input.clear();
-      _added(m);
-    } catch (e) {
-      // The text stays in the box so nothing typed is lost.
-      HapticFeedback.lightImpact();
-      _snack(errorLine(e));
-    } finally {
-      if (mounted) setState(() => _sending = false);
+  void _discard(_PendingText p) {
+    setState(() => _pending.remove(p));
+    if (_input.text.trim().isEmpty && _pending.isEmpty) {
+      WaDrafts.clear(_userId, _c.id);
     }
   }
 
@@ -258,31 +405,36 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
 
   Future<void> _attach() async {
     if (_sending) return;
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    final choice = await showAppSheet<String>(
+      context,
+      title: 'Send a file',
+      child: Builder(
+        builder: (ctx) => Wrap(
+          spacing: 8,
+          runSpacing: 12,
           children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Photo from gallery'),
+            _AttachOption(
+              icon: Icons.photo_library_rounded,
+              label: 'Photo',
+              color: const Color(0xFF7048E8),
               onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_rounded),
-              title: const Text('Take a photo'),
+            _AttachOption(
+              icon: Icons.photo_camera_rounded,
+              label: 'Camera',
+              color: const Color(0xFFC2255C),
               onTap: () => Navigator.pop(ctx, 'camera'),
             ),
-            ListTile(
-              leading: const Icon(Icons.videocam_rounded),
-              title: const Text('Video'),
+            _AttachOption(
+              icon: Icons.videocam_rounded,
+              label: 'Video',
+              color: const Color(0xFF0C8599),
               onTap: () => Navigator.pop(ctx, 'video'),
             ),
-            ListTile(
-              leading: const Icon(Icons.insert_drive_file_rounded),
-              title: const Text('Document'),
+            _AttachOption(
+              icon: Icons.insert_drive_file_rounded,
+              label: 'Document',
+              color: const Color(0xFF3B5BDB),
               onTap: () => Navigator.pop(ctx, 'document'),
             ),
           ],
@@ -464,6 +616,18 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
     }
   }
 
+  void _showContactInfo() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => WhatsAppContactInfoSheet(conversation: _c),
+    );
+  }
+
   Widget _composer() {
     final bottom = MediaQuery.paddingOf(context).bottom;
     if (!_canReply) {
@@ -514,14 +678,19 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
     }
     return Container(
       color: Colors.white,
-      padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + bottom),
+      padding: EdgeInsets.fromLTRB(4, 8, 8, 8 + bottom),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           IconButton(
-            tooltip: 'Attach',
+            tooltip: 'Attach a file',
             onPressed: _sending ? null : _attach,
             icon: const Icon(Icons.attach_file_rounded),
+          ),
+          IconButton(
+            tooltip: 'Send a template',
+            onPressed: _sending ? null : _pickTemplate,
+            icon: const Icon(Icons.description_outlined),
           ),
           Expanded(
             child: TextField(
@@ -529,9 +698,8 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
               minLines: 1,
               maxLines: 5,
               maxLength: 4096,
-              enabled: !_sending,
               textCapitalization: TextCapitalization.sentences,
-              onChanged: (_) => setState(() {}),
+              onChanged: _onTextChanged,
               decoration: InputDecoration(
                 hintText: 'Type a message',
                 counterText: '',
@@ -550,20 +718,9 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
           ),
           const SizedBox(width: 6),
           IconButton.filled(
-            tooltip: 'Send',
-            onPressed: _sending || _input.text.trim().isEmpty
-                ? null
-                : _sendText,
-            icon: _sending
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.send_rounded, size: 20),
+            tooltip: 'Send message',
+            onPressed: _input.text.trim().isEmpty ? null : _sendText,
+            icon: const Icon(Icons.send_rounded, size: 20),
           ),
         ],
       ),
@@ -575,7 +732,7 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
     if (_loading) {
       return const SkeletonList(count: 6, itemHeight: 82, headerHeight: null);
     }
-    if (error != null && _messages.isEmpty) {
+    if (error != null && _messages.isEmpty && _pending.isEmpty) {
       final access = accessProblem(error);
       return Center(
         child: SingleChildScrollView(
@@ -596,19 +753,24 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
         ),
       );
     }
-    if (_messages.isEmpty) {
+    if (_messages.isEmpty && _pending.isEmpty) {
       return const StateView(
         icon: Icons.chat_bubble_outline_rounded,
         title: 'No messages yet',
       );
     }
+    // Pending replies first (they are the newest), then the real messages.
+    final rows = [
+      for (final p in _pending) _ChatRow.pending(p),
+      for (final m in _messages) _ChatRow.message(m),
+    ];
     return ListView.builder(
       controller: _scroll,
       reverse: true,
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-      itemCount: _messages.length + (_loadingOlder ? 1 : 0),
+      itemCount: rows.length + (_loadingOlder ? 1 : 0),
       itemBuilder: (_, i) {
-        if (i >= _messages.length) {
+        if (i >= rows.length) {
           return const Padding(
             padding: EdgeInsets.all(12),
             child: Center(
@@ -620,17 +782,35 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
             ),
           );
         }
-        final m = _messages[i];
-        // _messages is newest first, so the next index is the older message.
-        final older = i + 1 < _messages.length ? _messages[i + 1] : null;
+        final row = rows[i];
+        // rows are newest first: the next index is the older one.
+        final older = i + 1 < rows.length ? rows[i + 1] : null;
+        final newer = i > 0 ? rows[i - 1] : null;
         final newDay =
-            m.createdAt != null &&
-            (older?.createdAt == null ||
-                !_sameDay(m.createdAt!, older!.createdAt!));
+            row.at != null &&
+            (older?.at == null || !_sameDay(row.at!, older!.at!));
+        final first = older == null || newDay || !_sameGroup(row, older);
+        final last = newer == null || !_sameGroup(newer, row);
+        final m = row.message;
+        final p = row.pending;
         return Column(
           children: [
-            if (newDay) _DayChip(m.createdAt!),
-            _Bubble(message: m, onLongPress: () => _bubbleMenu(m)),
+            if (newDay) _DayChip(row.at!),
+            if (m != null)
+              _Bubble(
+                message: m,
+                first: first,
+                last: last,
+                onLongPress: () => _bubbleMenu(m),
+              )
+            else if (p != null)
+              _PendingBubble(
+                pending: p,
+                first: first,
+                last: last,
+                onRetry: () => _deliver(p),
+                onDiscard: () => _discard(p),
+              ),
           ],
         );
       },
@@ -639,53 +819,115 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
 
   @override
   Widget build(BuildContext context) {
+    final contact = _c.contact;
+    final label = chatWindowLabel(_c.windowExpiresAt, _c.windowOpen, DateTime.now());
+    final closed = label == 'Reply window closed';
+    final soon =
+        !closed &&
+        _c.windowExpiresAt != null &&
+        _c.windowExpiresAt!.difference(DateTime.now()) <
+            const Duration(hours: 2);
+    final labelColor = closed ? muted : (soon ? warn : good);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFEFEAE2),
+      backgroundColor: waChatBg,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: ink,
         titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    _c.contact.title,
+        title: Semantics(
+          button: true,
+          label: 'Contact details for ${contact.title}. $label',
+          excludeSemantics: true,
+          child: InkWell(
+            onTap: _showContactInfo,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          contact.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: ink,
+                          ),
+                        ),
+                      ),
+                      if (contact.isHot) ...[
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.local_fire_department_rounded,
+                          size: 18,
+                          color: bad,
+                        ),
+                      ],
+                    ],
+                  ),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        if (contact.name.trim().isNotEmpty &&
+                            contact.phone.isNotEmpty)
+                          TextSpan(
+                            text: '${contact.phone}  ·  ',
+                            style: const TextStyle(color: muted),
+                          ),
+                        TextSpan(
+                          text: label,
+                          style: TextStyle(
+                            color: labelColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                      color: ink,
-                    ),
-                  ),
-                ),
-                if (_c.contact.isHot) ...[
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.local_fire_department_rounded,
-                    size: 18,
-                    color: bad,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11.5),
                   ),
                 ],
-              ],
-            ),
-            if (_c.contact.name.trim().isNotEmpty &&
-                _c.contact.phone.isNotEmpty)
-              Text(
-                _c.contact.phone,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
               ),
-          ],
+            ),
+          ),
         ),
       ),
       body: Column(
         children: [
           const OfflineBanner(),
-          Expanded(child: _body()),
+          Expanded(
+            child: Stack(
+              children: [
+                _body(),
+                if (_awayFromLatest)
+                  Positioned(
+                    right: 14,
+                    bottom: 14,
+                    child: FloatingActionButton.small(
+                      heroTag: 'wa-jump-latest',
+                      tooltip: _newWhileAway > 0
+                          ? 'Jump to latest, $_newWhileAway new'
+                          : 'Jump to latest',
+                      backgroundColor: Colors.white,
+                      foregroundColor: ink,
+                      onPressed: _jumpToLatest,
+                      child: Badge(
+                        isLabelVisible: _newWhileAway > 0,
+                        label: Text('$_newWhileAway'),
+                        child: const Icon(Icons.keyboard_arrow_down_rounded),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           _composer(),
         ],
       ),
@@ -706,6 +948,64 @@ String _size(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+class _AttachOption extends StatelessWidget {
+  const _AttachOption({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: SizedBox(
+          width: 76,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 26),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DayChip extends StatelessWidget {
@@ -729,12 +1029,71 @@ class _DayChip extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: muted,
+        child: Semantics(
+          header: true,
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: muted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The bubble shape shared by real and pending messages: which side, how close
+/// it sits to its neighbours, and the square corner at the bottom of a group.
+class _BubbleShell extends StatelessWidget {
+  const _BubbleShell({
+    required this.mine,
+    required this.first,
+    required this.last,
+    required this.spoken,
+    required this.child,
+    this.onLongPress,
+    this.dim = false,
+  });
+
+  final bool mine;
+  final bool first;
+  final bool last;
+
+  /// What a screen reader says before the content: who, when, status.
+  final String spoken;
+  final Widget child;
+  final VoidCallback? onLongPress;
+  final bool dim;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.78;
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Semantics(
+        container: true,
+        label: spoken,
+        child: GestureDetector(
+          onLongPress: onLongPress,
+          child: Container(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            margin: EdgeInsets.only(top: first ? 8 : 2, bottom: 2),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+            decoration: BoxDecoration(
+              color: (mine ? waBubbleOut : waBubbleIn).withValues(
+                alpha: dim ? 0.7 : 1,
+              ),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(14),
+                topRight: const Radius.circular(14),
+                bottomLeft: Radius.circular(!mine && last ? 4 : 14),
+                bottomRight: Radius.circular(mine && last ? 4 : 14),
+              ),
+            ),
+            child: child,
           ),
         ),
       ),
@@ -743,16 +1102,22 @@ class _DayChip extends StatelessWidget {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.message, required this.onLongPress});
+  const _Bubble({
+    required this.message,
+    required this.first,
+    required this.last,
+    required this.onLongPress,
+  });
 
   final WaMessage message;
+  final bool first;
+  final bool last;
   final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final m = message;
     final mine = m.outbound;
-    final maxWidth = MediaQuery.sizeOf(context).width * 0.78;
     final text = m.body.trim();
     final hasMedia = m.attachments.isNotEmpty;
     final showText =
@@ -760,91 +1125,174 @@ class _Bubble extends StatelessWidget {
         // A caption is shown under the media, not twice.
         !(hasMedia && m.attachments.every((a) => a.caption.trim() == text));
 
-    return Align(
-      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onLongPress: onLongPress,
-        child: Container(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          margin: const EdgeInsets.symmetric(vertical: 3),
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-          decoration: BoxDecoration(
-            color: mine ? const Color(0xFFD9FDD3) : Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(14),
-              topRight: const Radius.circular(14),
-              bottomLeft: Radius.circular(mine ? 14 : 4),
-              bottomRight: Radius.circular(mine ? 4 : 14),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (mine && m.senderName.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(
-                    m.senderName,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: brandDeep,
-                    ),
-                  ),
+    final who = mine
+        ? (m.senderName.isNotEmpty ? m.senderName : 'You')
+        : 'Customer';
+    final when = m.createdAt == null ? '' : ', ${_clock(m.createdAt!)}';
+    final status = mine && m.status.isNotEmpty ? ', ${m.status}' : '';
+
+    return _BubbleShell(
+      mine: mine,
+      first: first,
+      last: last,
+      spoken: '$who$when$status',
+      onLongPress: onLongPress,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The sender's name only above the first bubble of a group.
+          if (mine && m.senderName.isNotEmpty && first)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Text(
+                m.senderName,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: brandDeep,
                 ),
-              for (final a in m.attachments) _AttachmentView(attachment: a),
-              if (showText)
+              ),
+            ),
+          for (final a in m.attachments) _AttachmentView(attachment: a),
+          if (showText)
+            LinkifiedText(
+              text,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                height: 1.35,
+                color: ink,
+              ),
+            )
+          else if (!hasMedia)
+            Text(
+              m.type.isEmpty ? 'Message' : '[${m.type} message]',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+                color: muted,
+              ),
+            ),
+          if (m.failed)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                m.errorMessage.isEmpty
+                    ? 'This message could not be delivered.'
+                    : m.errorMessage,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11.5,
+                  color: bad,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          const SizedBox(height: 3),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (m.createdAt != null)
                 Text(
-                  text,
+                  _clock(m.createdAt!),
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    height: 1.35,
-                    color: ink,
-                  ),
-                )
-              else if (!hasMedia)
-                Text(
-                  m.type.isEmpty ? 'Message' : '[${m.type} message]',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
+                    fontSize: 10.5,
                     color: muted,
                   ),
                 ),
-              if (m.failed)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    m.errorMessage.isEmpty
-                        ? 'This message could not be delivered.'
-                        : m.errorMessage,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
-                      color: bad,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 3),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (m.createdAt != null)
-                    Text(
-                      _clock(m.createdAt!),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10.5,
-                        color: muted,
-                      ),
-                    ),
-                  if (mine) ...[const SizedBox(width: 4), _Ticks(m.status)],
-                ],
-              ),
+              if (mine) ...[const SizedBox(width: 4), _Ticks(m.status)],
             ],
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A reply on its way (clock) or one that failed (red, with Retry and Discard).
+class _PendingBubble extends StatelessWidget {
+  const _PendingBubble({
+    required this.pending,
+    required this.first,
+    required this.last,
+    required this.onRetry,
+    required this.onDiscard,
+  });
+
+  final _PendingText pending;
+  final bool first;
+  final bool last;
+  final VoidCallback onRetry;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = pending;
+    final failed = p.error != null;
+    return _BubbleShell(
+      mine: true,
+      first: first,
+      last: last,
+      dim: !failed,
+      spoken: failed
+          ? 'You, ${_clock(p.createdAt)}, not sent'
+          : 'You, ${_clock(p.createdAt)}, sending',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LinkifiedText(
+            p.text,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              height: 1.35,
+              color: ink,
+            ),
+          ),
+          if (failed) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Not sent: ${p.error}',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11.5,
+                color: bad,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('Retry'),
+                ),
+                TextButton(
+                  onPressed: onDiscard,
+                  style: TextButton.styleFrom(foregroundColor: muted),
+                  child: const Text('Discard'),
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 3),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  _clock(p.createdAt),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10.5,
+                    color: muted,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.schedule_rounded, size: 14, color: muted),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -859,11 +1307,7 @@ class _Ticks extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (status) {
       case 'read':
-        return const Icon(
-          Icons.done_all_rounded,
-          size: 15,
-          color: Color(0xFF2196F3),
-        );
+        return const Icon(Icons.done_all_rounded, size: 15, color: waTick);
       case 'delivered':
         return const Icon(Icons.done_all_rounded, size: 15, color: muted);
       case 'failed':
@@ -887,9 +1331,7 @@ class _AttachmentView extends StatelessWidget {
           mode: LaunchMode.externalApplication,
         );
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open this file.')),
-      );
+      showToast(context, 'Could not open this file.');
     }
   }
 
@@ -907,29 +1349,40 @@ class _AttachmentView extends StatelessWidget {
     if (a.isImage) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 4),
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (_) => _FullImage(url: a.url)),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              a.url,
-              fit: BoxFit.cover,
-              height: 200,
-              width: double.infinity,
-              loadingBuilder: (_, child, p) => p == null
-                  ? child
-                  : const SizedBox(
-                      height: 200,
-                      child: Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
+        child: Semantics(
+          button: true,
+          label: 'Photo. Open full screen',
+          excludeSemantics: true,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => _FullImage(
+                  url: a.url,
+                  fileName: a.fileName,
+                  mime: a.mime,
+                ),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                a.url,
+                fit: BoxFit.cover,
+                height: 200,
+                width: double.infinity,
+                loadingBuilder: (_, child, p) => p == null
+                    ? child
+                    : const SizedBox(
+                        height: 200,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       ),
-                    ),
-              errorBuilder: (_, _, _) => const SizedBox(
-                height: 120,
-                child: Center(
-                  child: Icon(Icons.broken_image_outlined, color: muted),
+                errorBuilder: (_, _, _) => const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Icon(Icons.broken_image_outlined, color: muted),
+                  ),
                 ),
               ),
             ),
@@ -1023,10 +1476,57 @@ class _FileTile extends StatelessWidget {
   }
 }
 
-class _FullImage extends StatelessWidget {
-  const _FullImage({required this.url});
+/// A photo full screen: pinch to zoom, and a Share button that sends the real
+/// picture (not just a link) to another app.
+class _FullImage extends StatefulWidget {
+  const _FullImage({
+    required this.url,
+    required this.fileName,
+    required this.mime,
+  });
 
   final String url;
+  final String fileName;
+  final String mime;
+
+  @override
+  State<_FullImage> createState() => _FullImageState();
+}
+
+class _FullImageState extends State<_FullImage> {
+  bool _sharing = false;
+
+  Future<void> _share() async {
+    if (_sharing) return;
+    setState(() => _sharing = true);
+    try {
+      final res = await http
+          .get(Uri.parse(widget.url))
+          .timeout(const Duration(seconds: 30));
+      if (res.statusCode != 200 || res.bodyBytes.isEmpty) {
+        throw const HttpException('download failed');
+      }
+      final dir = await getTemporaryDirectory();
+      final raw = widget.fileName.isEmpty ? 'photo.jpg' : widget.fileName;
+      final safe = raw.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final file = File('${dir.path}/eydia_$safe');
+      await file.writeAsBytes(res.bodyBytes);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(
+              file.path,
+              mimeType: widget.mime.isEmpty ? 'image/jpeg' : widget.mime,
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (mounted) showToast(context, 'Could not share this photo. Try again.');
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1036,12 +1536,28 @@ class _FullImage extends StatelessWidget {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          IconButton(
+            tooltip: 'Share photo',
+            onPressed: _sharing ? null : _share,
+            icon: _sharing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.share_rounded),
+          ),
+        ],
       ),
       body: Center(
         child: InteractiveViewer(
           maxScale: 5,
           child: Image.network(
-            url,
+            widget.url,
             errorBuilder: (_, _, _) => const Icon(
               Icons.broken_image_outlined,
               color: Colors.white54,
