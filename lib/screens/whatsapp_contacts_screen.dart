@@ -8,6 +8,7 @@ import '../services/access_problem.dart';
 import '../services/api_service.dart';
 import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
+import '../widgets/text_scale.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/pressable.dart';
@@ -123,9 +124,7 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   Future<void> _openSheet(WaContactRecord? contact) async {
@@ -254,7 +253,9 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
       _Filter.blocked: 'Blocked',
       _Filter.optedOut: 'Opted out',
     };
-    final title = _loading || _error != null ? 'Contacts' : 'Contacts ($_total)';
+    final title = _loading || _error != null
+        ? 'Contacts'
+        : 'Contacts ($_total)';
     return Scaffold(
       backgroundColor: surface,
       appBar: widget.embedded
@@ -285,91 +286,97 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
       ),
       body: ContentWidth(
         child: Column(
-        children: [
-          if (!widget.embedded) const OfflineBanner(),
-          if (widget.embedded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Semantics(
-                      header: true,
-                      child: Text(
-                        title,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                          color: ink,
+          children: [
+            if (!widget.embedded) const OfflineBanner(),
+            if (widget.embedded)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Semantics(
+                        header: true,
+                        child: Text(
+                          title,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                            color: ink,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Blocked numbers',
-                    icon: const Icon(Icons.block_rounded),
-                    onPressed: _openBlocked,
-                  ),
-                ],
+                    IconButton(
+                      tooltip: 'Blocked numbers',
+                      icon: const Icon(Icons.block_rounded),
+                      onPressed: _openBlocked,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              controller: _search,
-              textInputAction: TextInputAction.search,
-              onChanged: (_) {
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 450), _restart);
-              },
-              decoration: InputDecoration(
-                hintText: 'Search name, number, email or tag',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () {
-                          _search.clear();
-                          _restart();
-                        },
-                      ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                controller: _search,
+                textInputAction: TextInputAction.search,
+                onChanged: (_) {
+                  _debounce?.cancel();
+                  _debounce = Timer(
+                    const Duration(milliseconds: 450),
+                    _restart,
+                  );
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search name, number, email or tag',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _search.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () {
+                            _search.clear();
+                            _restart();
+                          },
+                        ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              children: [
-                for (final f in _Filter.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(labels[f]!),
-                      selected: _filter == f,
-                      onSelected: (_) {
-                        if (_filter == f) return;
-                        _filter = f;
-                        _restart();
-                      },
+            SizedBox(
+              height: textScaled(context, 48),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                children: [
+                  for (final f in _Filter.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(labels[f]!),
+                        selected: _filter == f,
+                        onSelected: (_) {
+                          if (_filter == f) return;
+                          _filter = f;
+                          _restart();
+                        },
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(child: _body()),
-        ],
-      ),
+            Expanded(child: _body()),
+          ],
+        ),
       ),
     );
   }
@@ -401,65 +408,65 @@ class _ContactTile extends StatelessWidget {
         label: spoken.toString(),
         excludeSemantics: true,
         child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: cardDecoration(),
-        child: Row(
-          children: [
-            ContactAvatar(name: c.title),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          c.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w700,
-                            color: ink,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: cardDecoration(),
+          child: Row(
+            children: [
+              ContactAvatar(name: c.title),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            c.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w700,
+                              color: ink,
+                            ),
                           ),
                         ),
-                      ),
+                        Text(
+                          shortWhen(c.lastInteractionAt),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (c.name.trim().isNotEmpty)
                       Text(
-                        shortWhen(c.lastInteractionAt),
+                        c.phone,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: muted,
                         ),
                       ),
-                    ],
-                  ),
-                  if (c.name.trim().isNotEmpty)
-                    Text(
-                      c.phone,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        color: muted,
+                    if (c.tags.isNotEmpty || flags.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          ...flags,
+                          for (final t in c.tags.take(3)) _TagChip(t),
+                          if (c.tags.length > 3)
+                            _TagChip('+${c.tags.length - 3}'),
+                        ],
                       ),
-                    ),
-                  if (c.tags.isNotEmpty || flags.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        ...flags,
-                        for (final t in c.tags.take(3)) _TagChip(t),
-                        if (c.tags.length > 3)
-                          _TagChip('+${c.tags.length - 3}'),
-                      ],
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );

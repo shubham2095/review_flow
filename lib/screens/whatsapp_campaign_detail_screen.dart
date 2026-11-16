@@ -8,6 +8,7 @@ import '../services/access_problem.dart';
 import '../services/api_service.dart';
 import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
+import '../widgets/text_scale.dart';
 import '../widgets/date_format.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
@@ -72,9 +73,7 @@ class _WhatsAppCampaignDetailScreenState
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   Future<bool> _confirm(
@@ -267,13 +266,15 @@ class _WhatsAppCampaignDetailScreenState
             ),
           ),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 3,
+          GridView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.35,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              mainAxisExtent: textScaled(context, 78),
+            ),
             children: [
               _Stat('Recipients', c.total),
               _Stat('Sent', c.sent),

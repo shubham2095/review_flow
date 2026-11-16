@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
+import '../widgets/text_scale.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/wa_tab_scope.dart';
 import 'whatsapp_campaigns_screen.dart';
@@ -163,7 +164,7 @@ class WhatsAppShellState extends State<WhatsAppShell>
               shadowColor: royalNavy.withValues(alpha: 0.25),
               indicatorColor: brand.withValues(alpha: 0.14),
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              height: 68,
+              height: textScaled(context, 68),
               destinations: [
                 const NavigationDestination(
                   icon: Icon(Icons.home_outlined),

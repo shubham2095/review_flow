@@ -346,18 +346,7 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
   }
 
   InputDecoration _dec(String label, {String? hint, String? helper}) =>
-      InputDecoration(
-        labelText: label,
-        hintText: hint,
-        helperText: helper,
-        helperMaxLines: 3,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-      );
+      waInputDecoration(label, hint: hint, helper: helper, onWhite: false);
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
@@ -383,239 +372,255 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
         if (!didPop && !_busy) setState(() => _reviewing = false);
       },
       child: Scaffold(
-      backgroundColor: surface,
-      appBar: AppBar(
-        title: Text(
-          _reviewing ? 'Review bulk send' : 'New bulk send',
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w800,
-            color: ink,
+        backgroundColor: surface,
+        appBar: AppBar(
+          title: Text(
+            _reviewing ? 'Review bulk send' : 'New bulk send',
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w800,
+              color: ink,
+            ),
           ),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: ink,
         ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: ink,
-      ),
-      body: ContentWidth(
-        child: _reviewing ? _reviewView() : ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          8,
-          16,
-          24 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        children: [
-          _label('Message'),
-          InkWell(
-            onTap: _busy ? null : _pickTemplate,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: t == null
-                  ? Row(
-                      children: [
-                        const Icon(Icons.description_outlined, color: brand),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Choose an approved template',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w700,
-                              color: brand,
-                            ),
+        body: ContentWidth(
+          child: _reviewing
+              ? _reviewView()
+              : ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    24 + MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  children: [
+                    _label('Message'),
+                    InkWell(
+                      onTap: _busy ? null : _pickTemplate,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: t == null
+                            ? Row(
+                                children: [
+                                  const Icon(
+                                    Icons.description_outlined,
+                                    color: brand,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Choose an approved template',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontWeight: FontWeight.w700,
+                                        color: brand,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: muted,
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          t.name,
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontWeight: FontWeight.w800,
+                                            color: ink,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        'Change',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontWeight: FontWeight.w700,
+                                          color: brand,
+                                          fontSize: 12.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (t.body.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      t.body,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12.5,
+                                        height: 1.4,
+                                        color: inkSoft,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                      ),
+                    ),
+                    if (t != null && t.bodyVariables.isNotEmpty) ...[
+                      _label('Fill in the fields'),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8, left: 4),
+                        child: Text(
+                          'Everyone gets the same values.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            color: muted,
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: muted),
+                      ),
+                      for (final n in t.bodyVariables) ...[
+                        TextField(
+                          controller: _varFor(n),
+                          enabled: !_busy,
+                          decoration: _dec('Value for {{$n}}'),
+                        ),
+                        const SizedBox(height: 10),
                       ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                t.name,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FontWeight.w800,
-                                  color: ink,
+                    ],
+                    if (t != null && t.hasMediaHeader) ...[
+                      _label('Header ${t.headerFormat.toLowerCase()}'),
+                      OutlinedButton.icon(
+                        onPressed: _busy || _uploading ? null : _pickHeader,
+                        icon: _uploading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
                                 ),
+                              )
+                            : Icon(
+                                _mediaId.isEmpty
+                                    ? Icons.upload_file_rounded
+                                    : Icons.check_circle_rounded,
+                                size: 18,
+                                color: _mediaId.isEmpty ? null : good,
                               ),
-                            ),
-                            Text(
-                              'Change',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.w700,
-                                color: brand,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
+                        label: Text(
+                          _mediaId.isEmpty
+                              ? 'Upload the file to send (up to 16 MB)'
+                              : 'Ready: $_mediaName',
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        if (t.body.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            t.body,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12.5,
-                              height: 1.4,
-                              color: const Color(0xFF4A5468),
-                            ),
+                      ),
+                    ],
+                    _label('Phone numbers'),
+                    TextField(
+                      controller: _numbers,
+                      enabled: !_busy,
+                      minLines: 5,
+                      maxLines: 12,
+                      keyboardType: TextInputType.multiline,
+                      onChanged: (_) => setState(() {}),
+                      decoration: _dec(
+                        'Numbers',
+                        hint: '919876543210\n919812345678',
+                        helper:
+                            'One per line, or separated by commas. Include the country '
+                            'code (91 for India). Up to 1000.',
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                      child: Text(
+                        [
+                          '$count valid ${count == 1 ? 'number' : 'numbers'}',
+                          if (rejected > 0)
+                            '$rejected skipped (too short or too long)',
+                        ].join(' · '),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: count == 0 ? muted : good,
+                        ),
+                      ),
+                    ),
+                    if (_tenDigit > 0)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                        child: Text(
+                          '$_tenDigit ${_tenDigit == 1 ? 'number has' : 'numbers have'} only 10 digits. '
+                          'Without the country code (91) WhatsApp cannot deliver them.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            color: warn,
+                            height: 1.4,
                           ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(
+                              Icons.content_paste_rounded,
+                              size: 16,
+                            ),
+                            label: const Text('Paste from clipboard'),
+                            onPressed: _busy ? null : _paste,
+                          ),
+                          if (_tenDigit > 0)
+                            ActionChip(
+                              avatar: const Icon(Icons.add_rounded, size: 16),
+                              label: Text(
+                                'Add 91 to $_tenDigit ${_tenDigit == 1 ? 'number' : 'numbers'}',
+                              ),
+                              tooltip:
+                                  'Put the India country code 91 in front of 10-digit numbers',
+                              onPressed: _busy ? null : _addCode,
+                            ),
                         ],
-                      ],
+                      ),
                     ),
-            ),
-          ),
-          if (t != null && t.bodyVariables.isNotEmpty) ...[
-            _label('Fill in the fields'),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8, left: 4),
-              child: Text(
-                'Everyone gets the same values.',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11.5,
-                  color: muted,
-                ),
-              ),
-            ),
-            for (final n in t.bodyVariables) ...[
-              TextField(
-                controller: _varFor(n),
-                enabled: !_busy,
-                decoration: _dec('Value for {{$n}}'),
-              ),
-              const SizedBox(height: 10),
-            ],
-          ],
-          if (t != null && t.hasMediaHeader) ...[
-            _label('Header ${t.headerFormat.toLowerCase()}'),
-            OutlinedButton.icon(
-              onPressed: _busy || _uploading ? null : _pickHeader,
-              icon: _uploading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(
-                      _mediaId.isEmpty
-                          ? Icons.upload_file_rounded
-                          : Icons.check_circle_rounded,
-                      size: 18,
-                      color: _mediaId.isEmpty ? null : good,
+                    if (count > 0) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          for (final n in _parsed.take(12))
+                            InputChip(
+                              label: Text(n),
+                              onDeleted: _busy ? null : () => _removeNumber(n),
+                              deleteButtonTooltipMessage: 'Remove $n',
+                            ),
+                          if (count > 12)
+                            InfoChip('and ${count - 12} more', color: muted),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    SheetNotice(_notice),
+                    FilledButton.icon(
+                      onPressed: _busy || _uploading ? null : _review,
+                      icon: const Icon(Icons.fact_check_outlined, size: 18),
+                      label: Text(
+                        count == 0
+                            ? 'Review'
+                            : 'Review $count ${count == 1 ? 'number' : 'numbers'}',
+                      ),
                     ),
-              label: Text(
-                _mediaId.isEmpty
-                    ? 'Upload the file to send (up to 16 MB)'
-                    : 'Ready: $_mediaName',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-          _label('Phone numbers'),
-          TextField(
-            controller: _numbers,
-            enabled: !_busy,
-            minLines: 5,
-            maxLines: 12,
-            keyboardType: TextInputType.multiline,
-            onChanged: (_) => setState(() {}),
-            decoration: _dec(
-              'Numbers',
-              hint: '919876543210\n919812345678',
-              helper:
-                  'One per line, or separated by commas. Include the country '
-                  'code (91 for India). Up to 1000.',
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-            child: Text(
-              [
-                '$count valid ${count == 1 ? 'number' : 'numbers'}',
-                if (rejected > 0) '$rejected skipped (too short or too long)',
-              ].join(' · '),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: count == 0 ? muted : good,
-              ),
-            ),
-          ),
-          if (_tenDigit > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
-              child: Text(
-                '$_tenDigit ${_tenDigit == 1 ? 'number has' : 'numbers have'} only 10 digits. '
-                'Without the country code (91) WhatsApp cannot deliver them.',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  color: warn,
-                  height: 1.4,
+                  ],
                 ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                ActionChip(
-                  avatar: const Icon(Icons.content_paste_rounded, size: 16),
-                  label: const Text('Paste from clipboard'),
-                  onPressed: _busy ? null : _paste,
-                ),
-                if (_tenDigit > 0)
-                  ActionChip(
-                    avatar: const Icon(Icons.add_rounded, size: 16),
-                    label: Text(
-                      'Add 91 to $_tenDigit ${_tenDigit == 1 ? 'number' : 'numbers'}',
-                    ),
-                    tooltip: 'Put the India country code 91 in front of 10-digit numbers',
-                    onPressed: _busy ? null : _addCode,
-                  ),
-              ],
-            ),
-          ),
-          if (count > 0) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final n in _parsed.take(12))
-                  InputChip(
-                    label: Text(n),
-                    onDeleted: _busy ? null : () => _removeNumber(n),
-                    deleteButtonTooltipMessage: 'Remove $n',
-                  ),
-                if (count > 12)
-                  InfoChip('and ${count - 12} more', color: muted),
-              ],
-            ),
-          ],
-          const SizedBox(height: 22),
-          SheetNotice(_notice),
-          FilledButton.icon(
-            onPressed: _busy || _uploading ? null : _review,
-            icon: const Icon(Icons.fact_check_outlined, size: 18),
-            label: Text(
-              count == 0
-                  ? 'Review'
-                  : 'Review $count ${count == 1 ? 'number' : 'numbers'}',
-            ),
-          ),
-        ],
-      ),
-      ),
+        ),
       ),
     );
   }
@@ -710,7 +715,11 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const ExcludeSemantics(
-                  child: Icon(Icons.info_outline_rounded, size: 18, color: warn),
+                  child: Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: warn,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(

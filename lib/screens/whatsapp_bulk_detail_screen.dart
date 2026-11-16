@@ -95,11 +95,7 @@ class _WhatsAppBulkDetailScreenState extends State<WhatsAppBulkDetailScreen> {
       final fresh = await WhatsAppService.retryBulk(s.id);
       if (mounted) setState(() => _send = fresh);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(errorLine(e))));
-      }
+      if (mounted) showToast(context, errorLine(e));
     } finally {
       if (mounted) setState(() => _retrying = false);
     }

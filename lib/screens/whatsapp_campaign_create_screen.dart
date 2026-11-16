@@ -149,16 +149,8 @@ class _WhatsAppCampaignCreateScreenState
     }
   }
 
-  InputDecoration _dec(String label, {String? hint}) => InputDecoration(
-    labelText: label,
-    hintText: hint,
-    filled: true,
-    fillColor: Colors.white,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide.none,
-    ),
-  );
+  InputDecoration _dec(String label, {String? hint}) =>
+      waInputDecoration(label, hint: hint, onWhite: false);
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
@@ -187,189 +179,205 @@ class _WhatsAppCampaignCreateScreenState
         if (!didPop && !_busy) setState(() => _reviewing = false);
       },
       child: Scaffold(
-      backgroundColor: surface,
-      appBar: AppBar(
-        title: Text(
-          _reviewing ? 'Review campaign' : 'New campaign',
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w800,
-            color: ink,
+        backgroundColor: surface,
+        appBar: AppBar(
+          title: Text(
+            _reviewing ? 'Review campaign' : 'New campaign',
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w800,
+              color: ink,
+            ),
           ),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: ink,
         ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: ink,
-      ),
-      body: ContentWidth(
-        child: _reviewing ? _reviewView() : ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          8,
-          16,
-          24 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        children: [
-          _label('Name'),
-          TextField(
-            controller: _name,
-            enabled: !_busy,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: _dec('Campaign name', hint: 'Diwali offer'),
-          ),
-          _label('Message'),
-          InkWell(
-            onTap: _busy ? null : _pickTemplate,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: t == null
-                  ? Row(
-                      children: [
-                        const Icon(Icons.description_outlined, color: brand),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Choose an approved template',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w700,
-                              color: brand,
-                            ),
-                          ),
+        body: ContentWidth(
+          child: _reviewing
+              ? _reviewView()
+              : ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    24 + MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  children: [
+                    _label('Name'),
+                    TextField(
+                      controller: _name,
+                      enabled: !_busy,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: _dec('Campaign name', hint: 'Diwali offer'),
+                    ),
+                    _label('Message'),
+                    InkWell(
+                      onTap: _busy ? null : _pickTemplate,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: muted),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                        child: t == null
+                            ? Row(
+                                children: [
+                                  const Icon(
+                                    Icons.description_outlined,
+                                    color: brand,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Choose an approved template',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontWeight: FontWeight.w700,
+                                        color: brand,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: muted,
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          t.name,
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontWeight: FontWeight.w800,
+                                            color: ink,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        'Change',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontWeight: FontWeight.w700,
+                                          color: brand,
+                                          fontSize: 12.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (t.body.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      t.body,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12.5,
+                                        height: 1.4,
+                                        color: inkSoft,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                      ),
+                    ),
+                    _label('Who gets it'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                t.name,
+                        for (final e in sources.entries)
+                          ChoiceChip(
+                            label: Text(e.value),
+                            selected: _source == e.key,
+                            onSelected: _busy
+                                ? null
+                                : (_) => setState(() => _source = e.key),
+                          ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                      child: Text(
+                        'Contacts you blocked or who opted out are always left out. '
+                        'The recipient list is fixed when you create the campaign.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: muted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Schedule for later'),
+                      subtitle: const Text('Otherwise you start it yourself'),
+                      value: _schedule,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(() {
+                              _schedule = v;
+                              if (!v) _scheduledAt = null;
+                            }),
+                    ),
+                    if (_schedule)
+                      InkWell(
+                        onTap: _busy ? null : _pickTime,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.event_rounded,
+                                size: 18,
+                                color: brand,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                _scheduledAt == null
+                                    ? 'Pick date and time'
+                                    : fmtDateTime(_scheduledAt!),
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   color: ink,
                                 ),
                               ),
-                            ),
-                            Text(
-                              'Change',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.w700,
-                                color: brand,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (t.body.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            t.body,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12.5,
-                              height: 1.4,
-                              color: const Color(0xFF4A5468),
-                            ),
+                            ],
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
+                    const SizedBox(height: 22),
+                    SheetNotice(_notice),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _review,
+                      icon: const Icon(Icons.fact_check_outlined, size: 18),
+                      label: const Text('Review'),
                     ),
-            ),
-          ),
-          _label('Who gets it'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              for (final e in sources.entries)
-                ChoiceChip(
-                  label: Text(e.value),
-                  selected: _source == e.key,
-                  onSelected: _busy
-                      ? null
-                      : (_) => setState(() => _source = e.key),
-                ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-            child: Text(
-              'Contacts you blocked or who opted out are always left out. '
-              'The recipient list is fixed when you create the campaign.',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                color: muted,
-                height: 1.4,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Schedule for later'),
-            subtitle: const Text('Otherwise you start it yourself'),
-            value: _schedule,
-            onChanged: _busy
-                ? null
-                : (v) => setState(() {
-                    _schedule = v;
-                    if (!v) _scheduledAt = null;
-                  }),
-          ),
-          if (_schedule)
-            InkWell(
-              onTap: _busy ? null : _pickTime,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.event_rounded, size: 18, color: brand),
-                    const SizedBox(width: 10),
-                    Text(
-                      _scheduledAt == null
-                          ? 'Pick date and time'
-                          : fmtDateTime(_scheduledAt!),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w700,
-                        color: ink,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+                      child: Text(
+                        'Nothing is saved or sent yet. You check everything on the next '
+                        'page first.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: muted,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-          const SizedBox(height: 22),
-          SheetNotice(_notice),
-          FilledButton.icon(
-            onPressed: _busy ? null : _review,
-            icon: const Icon(Icons.fact_check_outlined, size: 18),
-            label: const Text('Review'),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
-            child: Text(
-              'Nothing is saved or sent yet. You check everything on the next '
-              'page first.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
-            ),
-          ),
-        ],
-      ),
-      ),
+        ),
       ),
     );
   }

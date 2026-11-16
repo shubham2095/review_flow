@@ -491,94 +491,63 @@ class _NewChatbotSheetState extends State<_NewChatbotSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          12,
-          20,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: muted.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
+    return AppSheet(
+      title: 'New chatbot',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _name,
+            enabled: !_busy,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: waInputDecoration('Name', hint: 'Shop assistant'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _welcome,
+            enabled: !_busy,
+            minLines: 2,
+            maxLines: 5,
+            decoration: waInputDecoration(
+              'Welcome message (optional)',
+              hint: 'Hi! How can we help?',
             ),
-            const SizedBox(height: 14),
-            Text(
-              'New chatbot',
-              style: GoogleFonts.plusJakartaSans(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                color: ink,
-              ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _fallback,
+            enabled: !_busy,
+            minLines: 2,
+            maxLines: 5,
+            decoration: waInputDecoration(
+              'When nothing matches (optional)',
+              hint: 'Thanks, a team member will reply soon.',
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _name,
-              enabled: !_busy,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: waInputDecoration('Name', hint: 'Shop assistant'),
+          ),
+          const SizedBox(height: 14),
+          SheetNotice(_notice),
+          FilledButton(
+            onPressed: _busy ? null : _create,
+            child: _busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Create chatbot'),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'You add keyword rules next. Nothing is sent to customers until you switch it on.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _welcome,
-              enabled: !_busy,
-              minLines: 2,
-              maxLines: 5,
-              decoration: waInputDecoration(
-                'Welcome message (optional)',
-                hint: 'Hi! How can we help?',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _fallback,
-              enabled: !_busy,
-              minLines: 2,
-              maxLines: 5,
-              decoration: waInputDecoration(
-                'When nothing matches (optional)',
-                hint: 'Thanks, a team member will reply soon.',
-              ),
-            ),
-            const SizedBox(height: 14),
-            SheetNotice(_notice),
-            FilledButton(
-              onPressed: _busy ? null : _create,
-              child: _busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Create chatbot'),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'You add keyword rules next. Nothing is sent to customers until you switch it on.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11.5,
-                  color: muted,
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

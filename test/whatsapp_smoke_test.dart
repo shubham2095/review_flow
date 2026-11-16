@@ -138,5 +138,33 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expectNoRealErrors(tester);
     });
+
+    // A small phone with the text enlarged 1.5x: nothing may overflow.
+    testWidgets('${entry.key} fits a small phone at 1.5x text', (tester) async {
+      ignoreFontErrors();
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: child!,
+          ),
+          home: Scaffold(body: entry.value()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(seconds: 2));
+      expectNoRealErrors(tester);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+      expectNoRealErrors(tester);
+    });
   }
 }

@@ -365,24 +365,25 @@ class _WhatsAppTemplateCreateScreenState
   );
 
   Widget _stepHeader() {
+    // Only the circles sit in the row, so enlarged text can never push it
+    // wider than the screen; the current step's name is written underneath.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Semantics(
         label: 'Step ${_step + 1} of ${_stepNames.length}: ${_stepNames[_step]}',
         excludeSemantics: true,
-        child: Row(
+        child: Column(
           children: [
-            for (var i = 0; i < _stepNames.length; i++) ...[
-              if (i > 0)
-                Expanded(
-                  child: Container(
-                    height: 2,
-                    margin: const EdgeInsets.only(bottom: 18),
-                    color: i <= _step ? brand : track,
-                  ),
-                ),
-              Column(
-                children: [
+            Row(
+              children: [
+                for (var i = 0; i < _stepNames.length; i++) ...[
+                  if (i > 0)
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: i <= _step ? brand : track,
+                      ),
+                    ),
                   Container(
                     width: 30,
                     height: 30,
@@ -407,18 +408,18 @@ class _WhatsAppTemplateCreateScreenState
                             ),
                           ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _stepNames[i],
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: i == _step ? FontWeight.w800 : FontWeight.w600,
-                      color: i == _step ? ink : muted,
-                    ),
-                  ),
                 ],
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _stepNames[_step],
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: ink,
               ),
-            ],
+            ),
           ],
         ),
       ),

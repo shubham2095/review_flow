@@ -8,6 +8,7 @@ import '../services/access_problem.dart';
 import '../services/api_service.dart';
 import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
+import '../widgets/text_scale.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/pressable.dart';
@@ -173,9 +174,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   Future<void> _sync() async {
@@ -331,69 +330,75 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
       ),
       body: ContentWidth(
         child: Column(
-        children: [
-          const OfflineBanner(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              controller: _search,
-              textInputAction: TextInputAction.search,
-              onChanged: (_) {
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 450), _restart);
-              },
-              decoration: InputDecoration(
-                hintText: 'Search by template name',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () {
-                          _search.clear();
-                          _restart();
-                        },
-                      ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+          children: [
+            const OfflineBanner(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                controller: _search,
+                textInputAction: TextInputAction.search,
+                onChanged: (_) {
+                  _debounce?.cancel();
+                  _debounce = Timer(
+                    const Duration(milliseconds: 450),
+                    _restart,
+                  );
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search by template name',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _search.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () {
+                            _search.clear();
+                            _restart();
+                          },
+                        ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              children: [
-                for (final e in filters.entries)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(
-                        counts == null
-                            ? e.value
-                            : '${e.value} (${counts[e.key ?? 'all'] ?? 0})',
+            SizedBox(
+              height: textScaled(context, 48),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                children: [
+                  for (final e in filters.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
+                          counts == null
+                              ? e.value
+                              : '${e.value} (${counts[e.key ?? 'all'] ?? 0})',
+                        ),
+                        selected: _status == e.key,
+                        onSelected: (_) {
+                          if (_status == e.key) return;
+                          _status = e.key;
+                          _restart();
+                        },
                       ),
-                      selected: _status == e.key,
-                      onSelected: (_) {
-                        if (_status == e.key) return;
-                        _status = e.key;
-                        _restart();
-                      },
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(child: _body()),
-        ],
-      ),
+            Expanded(child: _body()),
+          ],
+        ),
       ),
     );
   }
