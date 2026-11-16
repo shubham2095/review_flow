@@ -13,6 +13,7 @@ import '../widgets/offline_banner.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/wa_ui.dart';
 import 'whatsapp_template_create_screen.dart';
 import 'whatsapp_template_sheet.dart';
 
@@ -67,6 +68,38 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
   Object? _error;
   int _generation = 0;
 
+  /// How many templates there are per status. Only known when every template
+  /// is loaded (no filter, no search, no more pages): the server does not send
+  /// totals per status. Null hides the numbers on the chips.
+  Map<String, int>? _counts;
+
+  void _updateCounts() {
+    if (_status != null || _search.text.trim().isNotEmpty) return;
+    if (_hasMore) {
+      _counts = null;
+      return;
+    }
+    var approved = 0;
+    var pending = 0;
+    var rejected = 0;
+    for (final t in _items) {
+      switch (t.status.toUpperCase()) {
+        case 'APPROVED':
+          approved++;
+        case 'PENDING' || 'IN_APPEAL':
+          pending++;
+        case 'REJECTED':
+          rejected++;
+      }
+    }
+    _counts = {
+      'all': _items.length,
+      'approved': approved,
+      'pending': pending,
+      'rejected': rejected,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +134,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
         _hasMore = res.hasMore;
         _error = null;
         _loading = false;
+        _updateCounts();
       });
     } catch (e) {
       if (!mounted || gen != _generation) return;
@@ -123,6 +157,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
         _items = [..._items, ...res.items.where((t) => !have.contains(t.id))];
         _page = res.page;
         _hasMore = res.hasMore;
+        _updateCounts();
       });
     } catch (_) {
       // The next scroll tries again.
@@ -148,6 +183,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
     setState(() => _syncing = true);
     try {
       _snack(await WhatsAppService.syncTemplates());
+      _counts = null;
       await _load();
     } catch (e) {
       _snack(errorLine(e));
@@ -168,6 +204,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
     );
     if (message == null) return;
     _snack(message);
+    _counts = null;
     _load();
   }
 
@@ -177,13 +214,14 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
     );
     if (message == null) return;
     _snack(message);
+    _counts = null;
     _load();
   }
 
   Widget _body() {
     final error = _error;
     if (_loading && _items.isEmpty) {
-      return const SkeletonList(count: 5, itemHeight: 82, headerHeight: null);
+      return const SkeletonList(count: 5, itemHeight: 96, headerHeight: null);
     }
     if (error != null && _items.isEmpty) {
       final access = accessProblem(error);
@@ -258,6 +296,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
       'pending': 'Pending',
       'rejected': 'Rejected',
     };
+    final counts = _counts;
     return Scaffold(
       backgroundColor: surface,
       appBar: AppBar(
@@ -290,7 +329,8 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
         icon: const Icon(Icons.add_rounded),
         label: const Text('New template'),
       ),
-      body: Column(
+      body: ContentWidth(
+        child: Column(
         children: [
           const OfflineBanner(),
           Padding(
@@ -308,7 +348,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
                 suffixIcon: _search.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: 'Clear',
+                        tooltip: 'Clear search',
                         icon: const Icon(Icons.close_rounded),
                         onPressed: () {
                           _search.clear();
@@ -335,7 +375,11 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
-                      label: Text(e.value),
+                      label: Text(
+                        counts == null
+                            ? e.value
+                            : '${e.value} (${counts[e.key ?? 'all'] ?? 0})',
+                      ),
                       selected: _status == e.key,
                       onSelected: (_) {
                         if (_status == e.key) return;
@@ -349,6 +393,7 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
           ),
           Expanded(child: _body()),
         ],
+      ),
       ),
     );
   }
@@ -364,82 +409,111 @@ class _TemplateTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = template;
     final s = templateStatus(t.status);
+    final category = t.category.isEmpty
+        ? ''
+        : t.category[0] + t.category.substring(1).toLowerCase();
+    final media = t.headerFormat.isNotEmpty && t.headerFormat != 'TEXT';
+    final rejected =
+        t.status.toUpperCase() == 'REJECTED' && t.rejectionReason.isNotEmpty;
     return Pressable(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: cardDecoration(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    t.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w800,
-                      color: ink,
+      child: Semantics(
+        label:
+            '${t.name}, ${s.label}'
+            '${category.isEmpty ? '' : ', $category'}, ${t.language}'
+            '${t.body.isEmpty ? '' : ': ${t.body}'}'
+            '${rejected ? '. Rejected: ${t.rejectionReason}' : ''}',
+        excludeSemantics: true,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      t.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        color: ink,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  StatusBadge(s.label, s.color),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                [
+                  if (category.isNotEmpty) category,
+                  t.language,
+                ].where((x) => x.isNotEmpty).join(' · '),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11.5,
+                  color: muted,
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: s.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    s.label,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: s.color,
-                    ),
+              ),
+              if (t.body.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  t.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    color: inkSoft,
+                    height: 1.35,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              [
-                if (t.category.isNotEmpty)
-                  t.category[0] + t.category.substring(1).toLowerCase(),
-                t.language,
-              ].where((x) => x.isNotEmpty).join(' · '),
-              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
-            ),
-            if (t.body.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                t.body,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  color: const Color(0xFF4A5468),
-                  height: 1.35,
+              if (media || t.buttons.isNotEmpty || t.needsInput) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (media)
+                      InfoChip(
+                        '${t.headerFormat[0]}${t.headerFormat.substring(1).toLowerCase()} header',
+                        icon: Icons.photo_outlined,
+                      ),
+                    if (t.buttons.isNotEmpty)
+                      InfoChip(
+                        t.buttons.length == 1
+                            ? '1 button'
+                            : '${t.buttons.length} buttons',
+                        icon: Icons.touch_app_outlined,
+                      ),
+                    if (t.needsInput && t.bodyVariables.isNotEmpty)
+                      InfoChip(
+                        t.bodyVariables.length == 1
+                            ? '1 field'
+                            : '${t.bodyVariables.length} fields',
+                        icon: Icons.data_object_rounded,
+                      ),
+                  ],
                 ),
-              ),
+              ],
+              if (rejected) ...[
+                const SizedBox(height: 6),
+                Text(
+                  t.rejectionReason,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    color: bad,
+                  ),
+                ),
+              ],
             ],
-            if (t.status.toUpperCase() == 'REJECTED' &&
-                t.rejectionReason.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                t.rejectionReason,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: bad),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
