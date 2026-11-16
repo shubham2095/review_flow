@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -10,6 +12,7 @@ import '../widgets/date_format.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/wa_ui.dart';
 
 /// Numbers that are never messaged: every send, campaigns included, skips them.
 class WhatsAppBlacklistScreen extends StatefulWidget {
@@ -21,9 +24,12 @@ class WhatsAppBlacklistScreen extends StatefulWidget {
 }
 
 class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
+  final _search = TextEditingController();
+  Timer? _debounce;
   List<WaBlacklistEntry> _items = [];
   bool _loading = true;
   Object? _error;
+  int _generation = 0;
 
   @override
   void initState() {
@@ -31,17 +37,32 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _restart() {
+    setState(() => _loading = true);
+    _load();
+  }
+
   Future<void> _load() async {
+    final gen = ++_generation;
     try {
-      final list = await WhatsAppService.blacklist();
-      if (!mounted) return;
+      final list = await WhatsAppService.blacklist(
+        search: _search.text.trim(),
+      );
+      if (!mounted || gen != _generation) return;
       setState(() {
         _items = list;
         _error = null;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || gen != _generation) return;
       setState(() {
         _error = e;
         _loading = false;
@@ -51,9 +72,7 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   Future<void> _add() async {
@@ -180,13 +199,19 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
       child: _items.isEmpty
           ? ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
-                StateView(
-                  icon: Icons.block_rounded,
-                  title: 'No blocked numbers',
-                  text:
-                      'Numbers you block here are skipped by every message you send.',
-                ),
+              children: [
+                _search.text.trim().isNotEmpty
+                    ? const StateView(
+                        icon: Icons.search_off_rounded,
+                        title: 'No blocked number matches',
+                        text: 'Try a different name or number.',
+                      )
+                    : const StateView(
+                        icon: Icons.block_rounded,
+                        title: 'No blocked numbers',
+                        text:
+                            'Numbers you block here are skipped by every message you send. Use the button below to block one.',
+                      ),
               ],
             )
           : ListView.builder(
@@ -195,13 +220,20 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
               itemCount: _items.length,
               itemBuilder: (_, i) {
                 final e = _items[i];
-                return Container(
+                return Semantics(
+                  container: true,
+                  label:
+                      'Blocked: ${e.name.isEmpty ? e.phone : '${e.name}, ${e.phone}'}'
+                      '${e.reason.isEmpty ? '' : ', ${e.reason}'}',
+                  child: Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
                   decoration: cardDecoration(),
                   child: Row(
                     children: [
-                      const Icon(Icons.block_rounded, color: muted),
+                      const ExcludeSemantics(
+                        child: Icon(Icons.block_rounded, color: muted),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -230,12 +262,13 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Unblock',
+                        tooltip: 'Unblock ${e.phone}',
                         icon: const Icon(Icons.lock_open_rounded),
                         onPressed: () => _remove(e),
                       ),
                     ],
                   ),
+                ),
                 );
               },
             ),
@@ -263,11 +296,48 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
         icon: const Icon(Icons.add_rounded),
         label: const Text('Block a number'),
       ),
-      body: Column(
-        children: [
-          const OfflineBanner(),
-          Expanded(child: _body()),
-        ],
+      body: ContentWidth(
+        child: Column(
+          children: [
+            const OfflineBanner(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: _search,
+                textInputAction: TextInputAction.search,
+                onChanged: (_) {
+                  _debounce?.cancel();
+                  _debounce = Timer(
+                    const Duration(milliseconds: 450),
+                    _restart,
+                  );
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search name or number',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _search.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () {
+                            _search.clear();
+                            _restart();
+                          },
+                        ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(child: _body()),
+          ],
+        ),
       ),
     );
   }

@@ -13,6 +13,7 @@ import '../widgets/offline_banner.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/wa_ui.dart';
 import 'whatsapp_blacklist_screen.dart';
 import 'whatsapp_contact_sheet.dart';
 import 'whatsapp_inbox_screen.dart' show shortWhen;
@@ -148,10 +149,48 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
     );
   }
 
+  /// What to say when there is nothing to list, for each search and filter.
+  Widget _empty() {
+    if (_search.text.trim().isNotEmpty) {
+      return const StateView(
+        icon: Icons.search_off_rounded,
+        title: 'No contacts found',
+        text: 'Try a different name, number, email or tag.',
+      );
+    }
+    switch (_filter) {
+      case _Filter.hot:
+        return const StateView(
+          icon: Icons.local_fire_department_outlined,
+          title: 'No hot leads right now',
+          text: 'Contacts the AI marks as hot leads show up here.',
+        );
+      case _Filter.blocked:
+        return const StateView(
+          icon: Icons.block_rounded,
+          title: 'No blocked contacts',
+          text: 'Contacts you block are listed here.',
+        );
+      case _Filter.optedOut:
+        return const StateView(
+          icon: Icons.unsubscribe_outlined,
+          title: 'Nobody has opted out',
+          text: 'Contacts who ask to stop receiving messages show up here.',
+        );
+      case _Filter.all:
+        return const StateView(
+          icon: Icons.contacts_outlined,
+          title: 'No contacts yet',
+          text:
+              'People who message you are added here automatically. You can also add one with the button below.',
+        );
+    }
+  }
+
   Widget _body() {
     final error = _error;
     if (_loading && _items.isEmpty) {
-      return const SkeletonList(count: 6, itemHeight: 82, headerHeight: null);
+      return const SkeletonList(count: 6, itemHeight: 96, headerHeight: null);
     }
     if (error != null && _items.isEmpty) {
       final access = accessProblem(error);
@@ -171,25 +210,13 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
         ),
       );
     }
-    final filtering = _search.text.trim().isNotEmpty || _filter != _Filter.all;
     return RefreshIndicator(
       color: brand,
       onRefresh: _load,
       child: _items.isEmpty
           ? ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                StateView(
-                  icon: filtering
-                      ? Icons.search_off_rounded
-                      : Icons.contacts_outlined,
-                  title: filtering ? 'No contacts found' : 'No contacts yet',
-                  text: filtering
-                      ? 'Try a different search or filter.'
-                      : 'People who message you are added here automatically. '
-                            'You can also add one with the button below.',
-                ),
-              ],
+              children: [_empty()],
             )
           : ListView.builder(
               controller: _scroll,
@@ -256,7 +283,8 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Add contact'),
       ),
-      body: Column(
+      body: ContentWidth(
+        child: Column(
         children: [
           if (!widget.embedded) const OfflineBanner(),
           if (widget.embedded)
@@ -300,7 +328,7 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
                 suffixIcon: _search.text.isEmpty
                     ? null
                     : IconButton(
-                        tooltip: 'Clear',
+                        tooltip: 'Clear search',
                         icon: const Icon(Icons.close_rounded),
                         onPressed: () {
                           _search.clear();
@@ -342,6 +370,7 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
           Expanded(child: _body()),
         ],
       ),
+      ),
     );
   }
 }
@@ -355,33 +384,29 @@ class _ContactTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = contact;
-    final initial = c.title.trim().isEmpty
-        ? '?'
-        : c.title.trim()[0].toUpperCase();
     final flags = <Widget>[
       if (c.isHot) _Flag('Hot', bad, Icons.local_fire_department_rounded),
       if (c.isBlocked) const _Flag('Blocked', muted, Icons.block_rounded),
       if (c.optedOut) const _Flag('Opted out', warn, Icons.unsubscribe_rounded),
     ];
+    final spoken = StringBuffer(c.title);
+    if (c.name.trim().isNotEmpty) spoken.write(', ${c.phone}');
+    if (c.isHot) spoken.write(', hot lead');
+    if (c.isBlocked) spoken.write(', blocked');
+    if (c.optedOut) spoken.write(', opted out');
+    if (c.tags.isNotEmpty) spoken.write(', tags ${c.tags.join(', ')}');
     return Pressable(
       onTap: onTap,
-      child: Container(
+      child: Semantics(
+        label: spoken.toString(),
+        excludeSemantics: true,
+        child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: cardDecoration(),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: brand.withValues(alpha: 0.12),
-              child: Text(
-                initial,
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  color: brand,
-                ),
-              ),
-            ),
+            ContactAvatar(name: c.title),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -434,6 +459,7 @@ class _ContactTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
