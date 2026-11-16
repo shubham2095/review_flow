@@ -7,6 +7,7 @@ import '../services/access_problem.dart';
 import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/sheet_notice.dart';
+import '../widgets/wa_ui.dart';
 
 /// Actions for one connected number. Pops with a message when something
 /// changed (so the list reloads and shows it); pops null when nothing did.
@@ -206,143 +207,237 @@ class _WhatsAppNumberSheetState extends State<WhatsAppNumberSheet> {
     }
   }
 
+  Future<void> _copy(String label, String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (mounted) _show('$label copied.', error: false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final n = _n;
+    final quality = qualityMeaning(n.quality);
+    final status = numberStatusMeaning(n.status);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !_busy) Navigator.of(context).pop(_changed);
       },
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: muted.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+      child: AppSheet(
+        title: n.displayNumber,
+        subtitle: n.verifiedName.isEmpty ? null : n.verifiedName,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                InfoChip(
+                  n.isRegistered ? 'Sending enabled' : 'Sending not enabled',
+                  icon: n.isRegistered
+                      ? Icons.check_circle_rounded
+                      : Icons.error_outline_rounded,
+                  color: n.isRegistered ? good : warn,
+                ),
+                if (n.status.isNotEmpty) InfoChip(n.status),
+                if (n.quality.isNotEmpty) InfoChip('Quality ${n.quality}'),
+                if (n.isDefault) const InfoChip('Default', color: brand),
+              ],
+            ),
+            if (!n.isRegistered)
+              const _Explain(
+                'Sending is not enabled yet. Use "Enable sending" below, or '
+                'messages from this number will not go out.',
+                color: warn,
+              ),
+            if (quality != null) _Explain(quality),
+            if (status != null) _Explain(status),
+            const SizedBox(height: 10),
+            SheetNotice(_notice, error: _noticeIsError),
+            const SectionTitle('Check and refresh', padding: _groupPad),
+            _Action(
+              Icons.send_rounded,
+              'Send a test message',
+              'Check that this number can send',
+              _busy ? null : _sendTest,
+            ),
+            _Action(
+              Icons.sync_rounded,
+              'Refresh from Meta',
+              'Update name, status and quality',
+              _busy
+                  ? null
+                  : () => _run(() async {
+                      final fresh = await WhatsAppService.sync(n.id);
+                      if (mounted) setState(() => _n = fresh);
+                      return '${fresh.displayNumber} is up to date.';
+                    }),
+            ),
+            const SectionTitle('Sending setup', padding: _groupPad),
+            if (!n.isRegistered)
+              _Action(
+                Icons.verified_user_rounded,
+                'Enable sending',
+                'Register this number with a 6-digit PIN',
+                _busy ? null : _register,
+              ),
+            _Action(
+              Icons.build_circle_outlined,
+              'Fix "no permission to send"',
+              'Re-subscribe the app to the business account',
+              _busy
+                  ? null
+                  : () => _run(() => WhatsAppService.subscribeApp(n.id)),
+            ),
+            _Action(
+              Icons.key_rounded,
+              'Update access token',
+              'Paste a new token from Meta',
+              _busy ? null : _token,
+            ),
+            const SectionTitle('Ids to copy', padding: _groupPad),
+            _CopyRow('Phone number', n.displayNumber, _copy),
+            if (n.phoneNumberId.isNotEmpty)
+              _CopyRow('Phone number ID', n.phoneNumberId, _copy),
+            const SectionTitle('Danger zone', padding: _groupPad),
+            _Action(
+              Icons.link_off_rounded,
+              'Disconnect number',
+              'Stop using it in Eydia',
+              _busy ? null : _disconnect,
+              danger: true,
+            ),
+            if (_busy)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Semantics(
+                  label: 'Working',
+                  child: const LinearProgressIndicator(minHeight: 3),
                 ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                n.displayNumber,
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 20,
-                  color: ink,
-                ),
-              ),
-              if (n.verifiedName.isNotEmpty)
-                Text(
-                  n.verifiedName,
-                  style: GoogleFonts.plusJakartaSans(color: muted),
-                ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _Chip(
-                    n.isRegistered ? 'Sending enabled' : 'Sending not enabled',
-                    n.isRegistered ? good : warn,
-                  ),
-                  if (n.status.isNotEmpty) _Chip(n.status, muted),
-                  if (n.quality.isNotEmpty)
-                    _Chip('Quality ${n.quality}', muted),
-                  if (n.isDefault) const _Chip('Default', brand),
-                ],
-              ),
-              const SizedBox(height: 14),
-              SheetNotice(_notice, error: _noticeIsError),
-              _Action(
-                Icons.send_rounded,
-                'Send a test message',
-                'Check that this number can send',
-                _busy ? null : _sendTest,
-              ),
-              _Action(
-                Icons.sync_rounded,
-                'Refresh from Meta',
-                'Update name, status and quality',
-                _busy
-                    ? null
-                    : () => _run(() async {
-                        final fresh = await WhatsAppService.sync(n.id);
-                        if (mounted) setState(() => _n = fresh);
-                        return '${fresh.displayNumber} is up to date.';
-                      }),
-              ),
-              if (!n.isRegistered)
-                _Action(
-                  Icons.verified_user_rounded,
-                  'Enable sending',
-                  'Register this number with a 6-digit PIN',
-                  _busy ? null : _register,
-                ),
-              _Action(
-                Icons.build_circle_outlined,
-                'Fix "no permission to send"',
-                'Re-subscribe the app to the business account',
-                _busy
-                    ? null
-                    : () => _run(() => WhatsAppService.subscribeApp(n.id)),
-              ),
-              _Action(
-                Icons.key_rounded,
-                'Update access token',
-                'Paste a new token from Meta',
-                _busy ? null : _token,
-              ),
-              _Action(
-                Icons.link_off_rounded,
-                'Disconnect number',
-                'Stop using it in Eydia',
-                _busy ? null : _disconnect,
-                danger: true,
-              ),
-              if (_busy)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: LinearProgressIndicator(minHeight: 3),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip(this.text, this.color);
+const _groupPad = EdgeInsets.fromLTRB(0, 18, 0, 4);
+
+/// What the quality rating from Meta means, in plain words. Null when the
+/// rating is empty or unknown.
+String? qualityMeaning(String quality) {
+  switch (quality.trim().toLowerCase()) {
+    case 'green':
+    case 'high':
+      return 'Quality Green: customers are happy with your messages. You can '
+          'send at your normal limit.';
+    case 'yellow':
+    case 'medium':
+      return 'Quality Yellow: some customers are blocking or reporting you. '
+          'Send fewer messages and only to people who asked for them.';
+    case 'red':
+    case 'low':
+      return 'Quality Red: many customers are blocking or reporting you. Meta '
+          'may limit this number. Pause promotions and send only wanted '
+          'messages.';
+    default:
+      return null;
+  }
+}
+
+/// What the number status from Meta means. Null when empty or unknown.
+String? numberStatusMeaning(String status) {
+  switch (status.trim().toUpperCase()) {
+    case 'CONNECTED':
+      return 'Status Connected: the number is working with WhatsApp.';
+    case 'PENDING':
+      return 'Status Pending: Meta is still checking this number. Try '
+          '"Refresh from Meta" in a little while.';
+    case 'FLAGGED':
+      return 'Status Flagged: Meta has flagged this number for low quality. '
+          'It can be restricted if quality does not improve.';
+    case 'RESTRICTED':
+      return 'Status Restricted: Meta has limited what this number can send. '
+          'Check WhatsApp Manager for the reason.';
+    case 'DISCONNECTED':
+      return 'Status Disconnected: the number is not connected to WhatsApp. '
+          'Check it in WhatsApp Manager.';
+    case 'BANNED':
+      return 'Status Banned: Meta has banned this number. Contact Meta '
+          'support.';
+    default:
+      return null;
+  }
+}
+
+/// One plain sentence under the chips.
+class _Explain extends StatelessWidget {
+  const _Explain(this.text, {this.color = inkSoft});
 
   final String text;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
       child: Text(
         text,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
+          fontSize: 12.5,
           color: color,
+          height: 1.4,
         ),
       ),
+    );
+  }
+}
+
+/// A label and value with a button that copies the value.
+class _CopyRow extends StatelessWidget {
+  const _CopyRow(this.label, this.value, this.onCopy);
+
+  final String label;
+  final String value;
+  final Future<void> Function(String label, String value) onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    color: muted,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Copy $label',
+          icon: const Icon(Icons.copy_rounded, size: 20),
+          color: brand,
+          onPressed: () => onCopy(label, value),
+        ),
+      ],
     );
   }
 }
@@ -369,14 +464,16 @@ class _Action extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       enabled: onTap != null,
       onTap: onTap,
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: (danger ? bad : brand).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
+      leading: ExcludeSemantics(
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: (danger ? bad : brand).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 20, color: danger ? bad : brand),
         ),
-        child: Icon(icon, size: 20, color: danger ? bad : brand),
       ),
       title: Text(
         title,

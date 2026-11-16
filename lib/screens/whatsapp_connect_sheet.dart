@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/access_problem.dart';
 import '../services/whatsapp_service.dart';
-import '../theme/brand.dart';
 import '../widgets/sheet_notice.dart';
+import '../widgets/wa_ui.dart';
 
 /// Connects a WhatsApp number by hand with the ids and token from Meta.
 /// Pops with a success message when the number was connected.
@@ -34,17 +33,6 @@ class _WhatsAppConnectSheetState extends State<WhatsAppConnectSheet> {
     _name.dispose();
     super.dispose();
   }
-
-  InputDecoration _dec(String label, {String? hint}) => InputDecoration(
-    labelText: label,
-    hintText: hint,
-    filled: true,
-    fillColor: surface,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide.none,
-    ),
-  );
 
   Future<void> _connect() async {
     final waba = _waba.text.trim();
@@ -88,105 +76,88 @@ class _WhatsAppConnectSheetState extends State<WhatsAppConnectSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            20 + MediaQuery.viewInsetsOf(context).bottom,
+    return AppSheet(
+      title: 'Connect a WhatsApp number',
+      subtitle:
+          'Copy these from Meta: open WhatsApp Manager, then API setup. The '
+          'token is stored on the server and never shown again.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _waba,
+            keyboardType: TextInputType.number,
+            enabled: !_busy,
+            decoration: waInputDecoration(
+              'WhatsApp Business Account ID',
+              helper: 'API setup, under "WhatsApp Business Account ID".',
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: muted.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Connect a WhatsApp number',
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  color: ink,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Copy these from Meta WhatsApp Manager (API setup). The token '
-                'is stored on the server and never shown again.',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  color: muted,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _waba,
-                keyboardType: TextInputType.number,
-                enabled: !_busy,
-                decoration: _dec('WhatsApp Business Account ID'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneId,
-                keyboardType: TextInputType.number,
-                enabled: !_busy,
-                decoration: _dec('Phone number ID'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _display,
-                keyboardType: TextInputType.phone,
-                enabled: !_busy,
-                decoration: _dec('Phone number', hint: '+91 98765 43210'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _token,
-                obscureText: true,
-                enableSuggestions: false,
-                autocorrect: false,
-                enabled: !_busy,
-                decoration: _dec('Access token'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _name,
-                enabled: !_busy,
-                decoration: _dec('Label (optional)'),
-              ),
-              const SizedBox(height: 16),
-              SheetNotice(_notice),
-              FilledButton(
-                onPressed: _busy ? null : _connect,
-                child: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Connect number'),
-              ),
-            ],
+          const SizedBox(height: 12),
+          TextField(
+            controller: _phoneId,
+            keyboardType: TextInputType.number,
+            enabled: !_busy,
+            decoration: waInputDecoration(
+              'Phone number ID',
+              helper:
+                  'API setup, under "Phone number ID". This is not the phone '
+                  'number itself.',
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _display,
+            keyboardType: TextInputType.phone,
+            enabled: !_busy,
+            decoration: waInputDecoration(
+              'Phone number',
+              hint: '+91 98765 43210',
+              helper: 'The number customers see, with the country code.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _token,
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+            enabled: !_busy,
+            decoration: waInputDecoration(
+              'Access token',
+              helper:
+                  'A permanent token from a Meta system user. A temporary one '
+                  'stops working after about a day.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _name,
+            enabled: !_busy,
+            decoration: waInputDecoration(
+              'Label (optional)',
+              helper: 'A name only you see, such as "Support" or "Sales".',
+            ),
+          ),
+          const SizedBox(height: 16),
+          SheetNotice(_notice),
+          FilledButton(
+            onPressed: _busy ? null : _connect,
+            child: _busy
+                ? Semantics(
+                    label: 'Connecting',
+                    child: const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : const Text('Connect number'),
+          ),
+        ],
       ),
     );
   }
