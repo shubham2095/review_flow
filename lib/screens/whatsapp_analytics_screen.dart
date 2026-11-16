@@ -220,17 +220,16 @@ class _WhatsAppAnalyticsScreenState extends State<WhatsAppAnalyticsScreen> {
           ],
         ),
       ),
-      const _Heading('Message funnel'),
-      Wrap(
-        spacing: 8,
-        children: [
-          for (final r in const [7, 30, 90])
-            ChoiceChip(
-              label: Text('Last $r days'),
-              selected: _days == r,
-              onSelected: (_) => _setRange(r),
-            ),
+      const SectionTitle('Message funnel', padding: _headingPad),
+      SegmentedButton<int>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(value: 7, label: Text('7 days')),
+          ButtonSegment(value: 30, label: Text('30 days')),
+          ButtonSegment(value: 90, label: Text('90 days')),
         ],
+        selected: {_days},
+        onSelectionChanged: (v) => _setRange(v.first),
       ),
       const SizedBox(height: 12),
       if (_rangeError != null)
@@ -253,51 +252,36 @@ class _WhatsAppAnalyticsScreenState extends State<WhatsAppAnalyticsScreen> {
                 title: 'Sent, delivered and read per day',
                 days: s.days,
                 series: [
-                  _Series('Sent', _cSent, (d) => d.sent),
-                  _Series('Delivered', _cDelivered, (d) => d.delivered),
-                  _Series('Read', _cRead, (d) => d.read),
+                  ChartSeries('Sent', _cSent, (d) => d.sent),
+                  ChartSeries('Delivered', _cDelivered, (d) => d.delivered),
+                  ChartSeries('Read', _cRead, (d) => d.read),
                 ],
               ),
               const SizedBox(height: 12),
               _ChartCard(
                 title: 'Received per day',
                 days: s.days,
-                series: [_Series('Received', _cInbound, (d) => d.inbound)],
+                series: [ChartSeries('Received', _cInbound, (d) => d.inbound)],
               ),
             ],
           ),
         ),
-      const _Heading('Recent campaigns'),
+      const SectionTitle('Recent campaigns', padding: _headingPad),
       if (_campaigns.isEmpty)
-        const Padding(
-          padding: EdgeInsets.all(20),
-          child: Text('No campaigns yet.', textAlign: TextAlign.center),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            'No campaigns yet.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(color: muted),
+          ),
         ),
       for (final c in _campaigns) _CampaignRow(stat: c),
     ];
   }
 }
 
-class _Heading extends StatelessWidget {
-  const _Heading(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 26, 4, 12),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontWeight: FontWeight.w800,
-          fontSize: 16,
-          color: ink,
-        ),
-      ),
-    );
-  }
-}
+const _headingPad = EdgeInsets.fromLTRB(4, 26, 4, 12);
 
 class _Tile extends StatelessWidget {
   const _Tile(this.label, this.value, this.icon);
@@ -308,28 +292,33 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: brand),
-          const SizedBox(height: 10),
-          CountUp(
-            value: value,
-            style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w800,
-              fontSize: 24,
-              color: ink,
+    return Semantics(
+      container: true,
+      label: '$label $value',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: brand),
+            const SizedBox(height: 10),
+            CountUp(
+              value: value,
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 24,
+                color: ink,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -337,6 +326,47 @@ class _Tile extends StatelessWidget {
 
 String _pct(double v) =>
     v == v.roundToDouble() ? '${v.round()}%' : '${v.toStringAsFixed(1)}%';
+
+/// One plain sentence about the funnel: "96% delivered and 41% read of 120
+/// sent. 3 were not delivered. Customers sent 45 messages."
+String funnelInsight(WaMessageStats s) {
+  if (s.sent == 0 && s.inbound == 0) return 'No messages in this period.';
+  final parts = <String>[];
+  if (s.sent == 0) {
+    parts.add('You sent no messages.');
+  } else {
+    parts.add(
+      '${_pct(s.deliveryRate)} delivered and ${_pct(s.readRate)} read of '
+      '${s.sent} sent.',
+    );
+    if (s.failed > 0) parts.add('${s.failed} not delivered.');
+  }
+  if (s.inbound > 0) {
+    parts.add(
+      'Customers sent ${s.inbound} ${s.inbound == 1 ? 'message' : 'messages'}.',
+    );
+  }
+  return parts.join(' ');
+}
+
+/// The day with the most of the first series, as text for the chart summary.
+/// Null when there is no data.
+String? busiestDaySummary(List<WaDayStat> days, List<ChartSeries> series) {
+  if (days.isEmpty || series.isEmpty) return null;
+  var best = 0;
+  var bestValue = series.first.value(days.first);
+  for (var i = 1; i < days.length; i++) {
+    final v = series.first.value(days[i]);
+    if (v > bestValue) {
+      best = i;
+      bestValue = v;
+    }
+  }
+  if (bestValue <= 0) return null;
+  final d = days[best];
+  return 'Busiest day ${fmtDate(d.date)}: '
+      '${series.map((s) => '${s.label} ${s.value(d)}').join(', ')}';
+}
 
 class _FunnelCard extends StatelessWidget {
   const _FunnelCard({required this.stats});
@@ -349,44 +379,49 @@ class _FunnelCard extends StatelessWidget {
     final top = s.sent == 0 ? 1 : s.sent;
     Widget row(String label, int value, Color color, {String? note}) {
       final ratio = (value / top).clamp(0.0, 1.0);
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
+      return Semantics(
+        container: true,
+        excludeSemantics: true,
+        label: '$label ${note == null ? '$value' : '$value, $note'}',
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    note == null ? '$value' : '$value  ·  $note',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: ink,
                     ),
                   ),
-                ),
-                Text(
-                  note == null ? '$value' : '$value  ·  $note',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: ratio,
-                minHeight: 10,
-                color: color,
-                backgroundColor: const Color(0xFFEEF1F7),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: ratio,
+                  minHeight: 10,
+                  color: color,
+                  backgroundColor: track,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -407,6 +442,18 @@ class _FunnelCard extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Text(
+                    funnelInsight(s),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: inkSoft,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
                 row('Sent', s.sent, _cSent),
                 row(
                   'Delivered',
@@ -437,8 +484,8 @@ class _FunnelCard extends StatelessWidget {
   }
 }
 
-class _Series {
-  const _Series(this.label, this.color, this.value);
+class ChartSeries {
+  const ChartSeries(this.label, this.color, this.value);
 
   final String label;
   final Color color;
@@ -457,7 +504,7 @@ class _ChartCard extends StatefulWidget {
 
   final String title;
   final List<WaDayStat> days;
-  final List<_Series> series;
+  final List<ChartSeries> series;
 
   @override
   State<_ChartCard> createState() => _ChartCardState();
@@ -539,8 +586,8 @@ class _ChartCardState extends State<_ChartCard> {
             ],
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            height: 12 * 1.6,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 12 * 1.6),
             child: sel == null
                 ? Text(
                     max == 0
@@ -553,7 +600,7 @@ class _ChartCardState extends State<_ChartCard> {
                   )
                 : Text(
                     "${fmtDate(days[sel].date)}:  ${widget.series.map((s) => "${s.label} ${s.value(days[sel])}").join("  ·  ")}",
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11.5,
@@ -566,21 +613,28 @@ class _ChartCardState extends State<_ChartCard> {
           LayoutBuilder(
             builder: (context, box) {
               final width = box.maxWidth;
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: max == 0
-                    ? null
-                    : (d) => _pick(d.localPosition.dx, width),
-                child: SizedBox(
-                  height: 140,
-                  width: width,
-                  child: CustomPaint(
-                    painter: _BarPainter(
-                      days: days,
-                      series: widget.series,
-                      max: max,
-                      selected: sel,
-                      axis: muted,
+              return Semantics(
+                image: true,
+                excludeSemantics: true,
+                label:
+                    '${widget.title}. '
+                    '${busiestDaySummary(days, widget.series) ?? 'No data in this period'}',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: max == 0
+                      ? null
+                      : (d) => _pick(d.localPosition.dx, width),
+                  child: SizedBox(
+                    height: 140,
+                    width: width,
+                    child: CustomPaint(
+                      painter: _BarPainter(
+                        days: days,
+                        series: widget.series,
+                        max: max,
+                        selected: sel,
+                        axis: muted,
+                      ),
                     ),
                   ),
                 ),
@@ -617,7 +671,7 @@ class _BarPainter extends CustomPainter {
   });
 
   final List<WaDayStat> days;
-  final List<_Series> series;
+  final List<ChartSeries> series;
   final int max;
   final int? selected;
   final Color axis;
@@ -690,42 +744,51 @@ class _CampaignRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = stat;
     final s = campaignStatus(c.status);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  c.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    color: ink,
+    return Semantics(
+      container: true,
+      excludeSemantics: true,
+      label:
+          '${c.name}, ${s.label}, ${c.recipients} recipients, '
+          '${c.delivered} delivered (${_pct(c.deliveryRate)}), '
+          '${c.read} read (${_pct(c.readRate)})'
+          '${c.failed > 0 ? ', ${c.failed} failed' : ''}',
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    c.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      color: ink,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              StatusBadge(s.label, s.color),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 16,
-            runSpacing: 6,
-            children: [
-              _Mini('${c.recipients}', 'recipients'),
-              _Mini('${c.delivered}', 'delivered (${_pct(c.deliveryRate)})'),
-              _Mini('${c.read}', 'read (${_pct(c.readRate)})'),
-              if (c.failed > 0) _Mini('${c.failed}', 'failed', bad),
-            ],
-          ),
-        ],
+                const SizedBox(width: 8),
+                StatusBadge(s.label, s.color),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 16,
+              runSpacing: 6,
+              children: [
+                _Mini('${c.recipients}', 'recipients'),
+                _Mini('${c.delivered}', 'delivered (${_pct(c.deliveryRate)})'),
+                _Mini('${c.read}', 'read (${_pct(c.readRate)})'),
+                if (c.failed > 0) _Mini('${c.failed}', 'failed', bad),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
