@@ -8,6 +8,8 @@ import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/date_format.dart';
 import '../widgets/sheet_notice.dart';
+import '../widgets/wa_template_preview.dart';
+import '../widgets/wa_ui.dart';
 import 'whatsapp_template_picker.dart';
 
 /// Builds a campaign draft: a name, an approved template and an audience. It
@@ -29,6 +31,9 @@ class _WhatsAppCampaignCreateScreenState
   DateTime? _scheduledAt;
   bool _busy = false;
   String? _notice;
+
+  /// The review page is showing (the form is kept untouched underneath).
+  bool _reviewing = false;
 
   @override
   void dispose() {
@@ -86,24 +91,41 @@ class _WhatsAppCampaignCreateScreenState
     setState(() => _notice = text);
   }
 
-  Future<void> _create() async {
-    if (_name.text.trim().isEmpty) {
-      _error('Give the campaign a name.');
-      return;
-    }
-    final t = _template;
-    if (t == null) {
-      _error('Choose a template.');
-      return;
-    }
+  /// What is missing or wrong in the form, or null.
+  String? _validate() {
+    if (_name.text.trim().isEmpty) return 'Give the campaign a name.';
+    if (_template == null) return 'Choose a template.';
     if (_schedule) {
       final at = _scheduledAt;
       if (at == null ||
           !at.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
-        _error('Pick a time in the future to schedule.');
-        return;
+        return 'Pick a time in the future to schedule.';
       }
     }
+    return null;
+  }
+
+  /// Checks the form, then shows the review page. Nothing is saved from here.
+  void _review() {
+    final problem = _validate();
+    if (problem != null) {
+      _error(problem);
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _notice = null;
+      _reviewing = true;
+    });
+  }
+
+  Future<void> _create() async {
+    final problem = _validate();
+    if (problem != null) {
+      _error(problem);
+      return;
+    }
+    final t = _template!;
     setState(() {
       _busy = true;
       _notice = null;
@@ -158,11 +180,17 @@ class _WhatsAppCampaignCreateScreenState
       'manual': 'Added by hand',
       'import': 'Imported',
     };
-    return Scaffold(
+    return PopScope(
+      // Back from the review page returns to the form, not out of the screen.
+      canPop: !_reviewing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_busy) setState(() => _reviewing = false);
+      },
+      child: Scaffold(
       backgroundColor: surface,
       appBar: AppBar(
         title: Text(
-          'New campaign',
+          _reviewing ? 'Review campaign' : 'New campaign',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w800,
             color: ink,
@@ -172,7 +200,8 @@ class _WhatsAppCampaignCreateScreenState
         surfaceTintColor: Colors.transparent,
         foregroundColor: ink,
       ),
-      body: ListView(
+      body: ContentWidth(
+        child: _reviewing ? _reviewView() : ListView(
         padding: EdgeInsets.fromLTRB(
           16,
           8,
@@ -324,32 +353,134 @@ class _WhatsAppCampaignCreateScreenState
             ),
           const SizedBox(height: 22),
           SheetNotice(_notice),
-          FilledButton(
-            onPressed: _busy ? null : _create,
-            child: _busy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Text(
-                    _schedule ? 'Create scheduled campaign' : 'Create draft',
-                  ),
+          FilledButton.icon(
+            onPressed: _busy ? null : _review,
+            icon: const Icon(Icons.fact_check_outlined, size: 18),
+            label: const Text('Review'),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
             child: Text(
-              'Nothing is sent yet. You review the recipient count on the next '
-              'page and start it from there.',
+              'Nothing is saved or sent yet. You check everything on the next '
+              'page first.',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
             ),
           ),
         ],
       ),
+      ),
+      ),
+    );
+  }
+
+  /// The last look before the draft is created: the message as customers will
+  /// see it, who it goes to and when.
+  Widget _reviewView() {
+    final t = _template!;
+    const sources = {
+      '': 'All contacts',
+      'manual': 'Contacts added by hand',
+      'import': 'Imported contacts',
+    };
+    Widget row(String label, String value) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Semantics(
+        label: '$label: $value',
+        excludeSemantics: true,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 92,
+              child: Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  color: muted,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: ink,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _label('This is what they will get'),
+        WaTemplatePreview(
+          body: t.body,
+          headerFormat: t.headerFormat,
+          headerText: t.headerText,
+          footer: t.footer,
+          buttons: t.buttons,
+        ),
+        _label('Details'),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              row('Name', _name.text.trim()),
+              row('Template', t.name),
+              row('Audience', sources[_source] ?? _source),
+              row(
+                'When',
+                _schedule && _scheduledAt != null
+                    ? 'Scheduled for ${fmtDateTime(_scheduledAt!)}'
+                    : 'You start it yourself',
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
+          child: Text(
+            'Contacts you blocked or who opted out are left out. The number of '
+            'people is counted when the draft is created, and you see it on the '
+            'next page. Nothing is sent until you start it there.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: muted,
+              height: 1.4,
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        SheetNotice(_notice),
+        FilledButton(
+          onPressed: _busy ? null : _create,
+          child: _busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(_schedule ? 'Create scheduled campaign' : 'Create draft'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: _busy ? null : () => setState(() => _reviewing = false),
+          child: const Text('Back to edit'),
+        ),
+      ],
     );
   }
 }

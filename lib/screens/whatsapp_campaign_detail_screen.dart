@@ -11,7 +11,8 @@ import '../theme/brand.dart';
 import '../widgets/date_format.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
-import 'whatsapp_campaigns_screen.dart' show StatusBadge, campaignStatus;
+import '../widgets/wa_ui.dart';
+import 'whatsapp_campaigns_screen.dart' show campaignStatus;
 
 /// One campaign: delivery numbers, who it went to, and Start, Pause, Cancel
 /// or Delete depending on where it is. Refreshes itself while it is sending.
@@ -30,6 +31,9 @@ class _WhatsAppCampaignDetailScreenState
   WaCampaignDetail? _detail;
   bool _loading = true;
   bool _acting = false;
+
+  /// Which recipients to list: all, sent, failed or pending (waiting).
+  String _filter = 'all';
   Object? _error;
   Timer? _poll;
 
@@ -178,7 +182,9 @@ class _WhatsAppCampaignDetailScreenState
   Widget _body(WaCampaignDetail d) {
     final c = d.campaign;
     final s = campaignStatus(c.status);
-    final ratio = c.total == 0 ? 0.0 : (c.done / c.total).clamp(0.0, 1.0);
+    final shown = d.recipients
+        .where((r) => _filter == 'all' || r.status == _filter)
+        .toList();
     return RefreshIndicator(
       color: brand,
       onRefresh: _load,
@@ -218,27 +224,28 @@ class _WhatsAppCampaignDetailScreenState
                     color: muted,
                   ),
                 ),
-                if (c.status != 'draft') ...[
-                  const SizedBox(height: 14),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: ratio,
-                      minHeight: 8,
-                      color: s.color,
-                      backgroundColor: const Color(0xFFEEF1F7),
-                    ),
+                const SizedBox(height: 10),
+                Text(
+                  campaignStory(c),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    color: inkSoft,
+                    height: 1.4,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${c.done} of ${c.total} handled',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      color: muted,
-                    ),
+                ),
+                if (c.status != 'draft' && c.total > 0) ...[
+                  const SizedBox(height: 14),
+                  StackedBar(
+                    total: c.total,
+                    segments: [
+                      BarSegment('Read', c.read, good),
+                      BarSegment('Delivered', c.delivered, brand),
+                      BarSegment('Sent', c.sent, const Color(0xFF9AA6C8)),
+                      BarSegment('Failed', c.failed, bad),
+                    ],
                   ),
                 ],
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
                   [
                     if (c.scheduledAt != null &&
@@ -277,20 +284,40 @@ class _WhatsAppCampaignDetailScreenState
             ],
           ),
           if (d.recipients.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
-              child: Text(
-                d.totalRecipients > d.recipients.length
-                    ? 'Recipients (first ${d.recipients.length} of ${d.totalRecipients})'
-                    : 'Recipients',
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: ink,
+            SectionTitle(
+              d.totalRecipients > d.recipients.length
+                  ? 'Recipients (first ${d.recipients.length} of ${d.totalRecipients})'
+                  : 'Recipients',
+              padding: const EdgeInsets.fromLTRB(4, 22, 4, 8),
+            ),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final f in const [
+                  ('all', 'All'),
+                  ('sent', 'Sent'),
+                  ('failed', 'Failed'),
+                  ('pending', 'Waiting'),
+                ])
+                  ChoiceChip(
+                    label: Text(f.$2),
+                    selected: _filter == f.$1,
+                    onSelected: (_) => setState(() => _filter = f.$1),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (shown.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    'No recipients here.',
+                    style: GoogleFonts.plusJakartaSans(color: muted),
+                  ),
                 ),
               ),
-            ),
-            for (final r in d.recipients)
+            for (final r in shown)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(
@@ -318,6 +345,8 @@ class _WhatsAppCampaignDetailScreenState
                     StatusBadge(
                       r.status.isEmpty
                           ? '—'
+                          : r.status == 'pending'
+                          ? 'Waiting'
                           : r.status[0].toUpperCase() + r.status.substring(1),
                       switch (r.status) {
                         'failed' => bad,
@@ -471,5 +500,36 @@ class _Stat extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// One plain sentence about where a campaign stands, shown at the top of its
+/// page so nobody has to read the numbers to know.
+String campaignStory(WaCampaign c) {
+  switch (c.status) {
+    case 'draft':
+      return 'Nothing has been sent yet. Check the details, then start sending '
+          'when you are ready.';
+    case 'scheduled':
+      final at = c.scheduledAt;
+      return at == null
+          ? 'Scheduled. You can also start it now.'
+          : 'Scheduled for ${fmtDateTime(at)}. You can also start it now.';
+    case 'running':
+      return 'Sending now: ${c.done} of ${c.total} handled. This page updates '
+          'by itself.';
+    case 'paused':
+      return 'Paused after ${c.done} of ${c.total}. Eydia cannot resume a '
+          'paused campaign, so the others were not reached.';
+    case 'completed':
+      return c.failed > 0
+          ? 'Done. ${c.total - c.failed} of ${c.total} went out, '
+                '${c.failed} could not be sent.'
+          : 'Done. All ${c.total} were sent.';
+    case 'cancelled':
+      return 'Cancelled after ${c.done} of ${c.total}. Messages already sent '
+          'stay sent.';
+    default:
+      return '';
   }
 }

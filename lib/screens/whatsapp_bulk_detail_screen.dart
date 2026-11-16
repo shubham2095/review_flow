@@ -11,7 +11,7 @@ import '../theme/brand.dart';
 import '../widgets/date_format.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
-import 'whatsapp_campaigns_screen.dart' show StatusBadge;
+import '../widgets/wa_ui.dart';
 
 /// One bulk send: progress, each number's result, and "Retry failed".
 /// Refreshes itself while it is still sending.
@@ -106,78 +106,28 @@ class _WhatsAppBulkDetailScreenState extends State<WhatsAppBulkDetailScreen> {
   }
 
   Widget _body(WaBulkSend s) {
-    final ratio = s.total == 0 ? 0.0 : (s.done / s.total).clamp(0.0, 1.0);
     final shown = s.recipients
         .where((r) => _filter == 'all' || r.status == _filter)
         .toList();
+    final hasRecipients = s.recipients.isNotEmpty;
+    final emptyFilter = hasRecipients && shown.isEmpty;
+    // Rows: the summary card, the filter chips, an "empty" note when a filter
+    // matches nothing, then one row per number. A bulk send can have 1000
+    // numbers, so the rows are built lazily as they scroll into view.
+    final lead = 1 + (hasRecipients ? 1 : 0) + (emptyFilter ? 1 : 0);
+
     return RefreshIndicator(
       color: brand,
       onRefresh: _load,
-      child: ListView(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: cardDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        s.template,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                          color: ink,
-                        ),
-                      ),
-                    ),
-                    s.processing
-                        ? const StatusBadge('Sending', brand)
-                        : const StatusBadge('Done', good),
-                  ],
-                ),
-                if (s.createdAt != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      fmtDateTime(s.createdAt!),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        color: muted,
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 14),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: ratio,
-                    minHeight: 8,
-                    color: brand,
-                    backgroundColor: const Color(0xFFEEF1F7),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${s.done} of ${s.total} handled · ${s.sent} sent'
-                  '${s.delivered > 0 ? ' · ${s.delivered} delivered' : ''}'
-                  '${s.failed > 0 ? ' · ${s.failed} failed' : ''}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    color: s.failed > 0 ? warn : muted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (s.recipients.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(0, 18, 0, 6),
+        itemCount: lead + shown.length,
+        itemBuilder: (_, i) {
+          if (i == 0) return _summary(s);
+          if (i == 1 && hasRecipients) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(0, 18, 0, 10),
               child: Wrap(
                 spacing: 8,
                 children: [
@@ -194,69 +144,130 @@ class _WhatsAppBulkDetailScreenState extends State<WhatsAppBulkDetailScreen> {
                     ),
                 ],
               ),
-            ),
-            if (shown.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Text(
-                    'No numbers here.',
-                    style: GoogleFonts.plusJakartaSans(color: muted),
+            );
+          }
+          if (emptyFilter && i == lead - 1) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'No numbers here.',
+                  style: GoogleFonts.plusJakartaSans(color: muted),
+                ),
+              ),
+            );
+          }
+          return _recipientRow(shown[i - lead]);
+        },
+      ),
+    );
+  }
+
+  Widget _summary(WaBulkSend s) {
+    // "Sent" in the bar means sent but not delivered yet: delivered ones are
+    // already counted in the sent total.
+    final sentOnly = s.sent > s.delivered ? s.sent - s.delivered : 0;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  s.template,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: ink,
                   ),
                 ),
               ),
-            for (final r in shown)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: cardDecoration(),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            r.phone,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: ink,
-                            ),
-                          ),
-                          if (r.error.isNotEmpty)
-                            Text(
-                              r.error,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11.5,
-                                color: bad,
-                                height: 1.3,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    StatusBadge(
-                      r.status.isEmpty
-                          ? '—'
-                          : r.status == 'pending'
-                          ? 'Waiting'
-                          : r.status[0].toUpperCase() + r.status.substring(1),
-                      switch (r.status) {
-                        'failed' => bad,
-                        'sent' || 'delivered' || 'read' => good,
-                        _ => muted,
-                      },
-                    ),
-                  ],
-                ),
+              s.processing
+                  ? const StatusBadge('Sending', brand)
+                  : const StatusBadge('Done', good),
+            ],
+          ),
+          if (s.createdAt != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                fmtDateTime(s.createdAt!),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
               ),
+            ),
+          const SizedBox(height: 10),
+          Text(
+            bulkStory(s),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              color: inkSoft,
+              height: 1.4,
+            ),
+          ),
+          if (s.total > 0) ...[
+            const SizedBox(height: 14),
+            StackedBar(
+              total: s.total,
+              segments: [
+                BarSegment('Delivered', s.delivered, brand),
+                BarSegment('Sent', sentOnly, const Color(0xFF9AA6C8)),
+                BarSegment('Failed', s.failed, bad),
+              ],
+            ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _recipientRow(WaBulkRecipient r) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: cardDecoration(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r.phone,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+                if (r.error.isNotEmpty)
+                  Text(
+                    r.error,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      color: bad,
+                      height: 1.3,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          StatusBadge(
+            r.status.isEmpty
+                ? '—'
+                : r.status == 'pending'
+                ? 'Waiting'
+                : r.status[0].toUpperCase() + r.status.substring(1),
+            switch (r.status) {
+              'failed' => bad,
+              'sent' || 'delivered' || 'read' => good,
+              _ => muted,
+            },
+          ),
         ],
       ),
     );
@@ -335,4 +346,17 @@ class _WhatsAppBulkDetailScreenState extends State<WhatsAppBulkDetailScreen> {
             ),
     );
   }
+}
+
+/// One plain sentence about where a bulk send stands.
+String bulkStory(WaBulkSend s) {
+  if (s.processing) {
+    return 'Sending now: ${s.done} of ${s.total} handled. This page updates '
+        'by itself.';
+  }
+  if (s.failed > 0) {
+    return 'Done. ${s.total - s.failed} of ${s.total} went out, ${s.failed} '
+        'failed. You can retry only the failed ones.';
+  }
+  return 'Done. All ${s.total} were sent.';
 }

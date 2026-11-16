@@ -13,7 +13,7 @@ import '../widgets/pressable.dart';
 import '../widgets/sheet_notice.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
-import 'whatsapp_campaigns_screen.dart' show StatusBadge;
+import '../widgets/wa_ui.dart';
 import 'whatsapp_chatbot_screen.dart';
 import 'whatsapp_workflow_screen.dart';
 

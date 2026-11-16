@@ -10,7 +10,7 @@ import '../theme/brand.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/sheet_notice.dart';
 import '../widgets/state_view.dart';
-import 'whatsapp_campaigns_screen.dart' show StatusBadge;
+import '../widgets/wa_ui.dart';
 import 'whatsapp_template_picker.dart';
 
 const _matchLabels = {

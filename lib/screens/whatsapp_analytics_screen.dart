@@ -12,7 +12,8 @@ import '../widgets/fade_in.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
-import 'whatsapp_campaigns_screen.dart' show StatusBadge, campaignStatus;
+import '../widgets/wa_ui.dart';
+import 'whatsapp_campaigns_screen.dart' show campaignStatus;
 
 // One colour per meaning, used the same way in the funnel, the chart and its
 // legend. Every colour is also written out as text, so none carries meaning

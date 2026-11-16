@@ -15,6 +15,7 @@ import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
 import '../widgets/wa_tab_scope.dart';
+import '../widgets/wa_ui.dart';
 import 'whatsapp_bulk_create_screen.dart';
 import 'whatsapp_bulk_detail_screen.dart';
 import 'whatsapp_campaign_create_screen.dart';
@@ -397,14 +398,10 @@ class _CampaignTile extends StatelessWidget {
             ),
             if (c.status != 'draft' && c.total > 0) ...[
               const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: ratio,
-                  minHeight: 6,
-                  color: s.color,
-                  backgroundColor: const Color(0xFFEEF1F7),
-                ),
+              AppProgress(
+                value: ratio,
+                color: s.color,
+                label: '${c.done} of ${c.total} handled',
               ),
             ],
             const SizedBox(height: 10),
@@ -649,14 +646,10 @@ class _BulkTabState extends State<_BulkTab> with AutomaticKeepAliveClientMixin {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: ratio,
-                              minHeight: 6,
-                              color: failed > 0 && !b.processing ? warn : brand,
-                              backgroundColor: const Color(0xFFEEF1F7),
-                            ),
+                          AppProgress(
+                            value: ratio,
+                            color: failed > 0 && !b.processing ? warn : brand,
+                            label: '${b.done} of ${b.total} handled',
                           ),
                           const SizedBox(height: 10),
                           Wrap(
@@ -676,35 +669,6 @@ class _BulkTabState extends State<_BulkTab> with AutomaticKeepAliveClientMixin {
                 );
               },
             ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-/// Small coloured pill used for statuses in list rows and detail pages.
-class StatusBadge extends StatelessWidget {
-  const StatusBadge(this.text, this.color, {super.key});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: color,
-        ),
-      ),
     );
   }
 }

@@ -10,7 +10,7 @@ import '../widgets/date_format.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
 import 'whatsapp_bots_screen.dart' show workflowBadge;
-import 'whatsapp_campaigns_screen.dart' show StatusBadge;
+import '../widgets/wa_ui.dart';
 
 /// One automation: what starts it, whether it is on, and its run history.
 /// The flow itself is edited on the web; here it can be switched on or off.

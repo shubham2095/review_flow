@@ -9,7 +9,74 @@ import '../services/access_problem.dart';
 import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/sheet_notice.dart';
+import '../widgets/wa_template_preview.dart';
+import '../widgets/wa_ui.dart';
 import 'whatsapp_template_picker.dart';
+
+/// What was typed into the numbers box, understood.
+class BulkNumbers {
+  const BulkNumbers(this.valid, this.rejected, this.duplicates);
+
+  /// Digits only, 10 to 15 of them, each number once, in the order typed.
+  final List<String> valid;
+
+  /// Entries too short or too long to be a phone number.
+  final int rejected;
+
+  /// Entries that repeated a number already in the list.
+  final int duplicates;
+
+  /// Ten-digit numbers: most likely missing the country code.
+  int get tenDigit => valid.where((n) => n.length == 10).length;
+}
+
+final _numberSplit = RegExp(r'[\n,;]');
+
+String _digitsOf(String s) => s.replaceAll(RegExp(r'\D'), '');
+
+/// Reads numbers separated by new lines, commas or semicolons.
+BulkNumbers parseBulkNumbers(String text) {
+  final seen = <String>{};
+  final valid = <String>[];
+  var rejected = 0;
+  var duplicates = 0;
+  for (final raw in text.split(_numberSplit)) {
+    if (raw.trim().isEmpty) continue;
+    final digits = _digitsOf(raw);
+    if (digits.length < 10 || digits.length > 15) {
+      rejected++;
+    } else if (seen.add(digits)) {
+      valid.add(digits);
+    } else {
+      duplicates++;
+    }
+  }
+  return BulkNumbers(valid, rejected, duplicates);
+}
+
+/// Puts [code] in front of every entry that is exactly 10 digits. Everything
+/// else is kept as typed. Only runs when the person asks for it.
+String addCountryCode(String text, [String code = '91']) {
+  final out = <String>[];
+  for (final raw in text.split(_numberSplit)) {
+    final t = raw.trim();
+    if (t.isEmpty) continue;
+    final digits = _digitsOf(t);
+    out.add(digits.length == 10 ? '$code$digits' : t);
+  }
+  return out.join('\n');
+}
+
+/// Takes one number (every entry that has these digits) out of the typed text.
+String removeBulkNumber(String text, String number) {
+  final out = <String>[];
+  for (final raw in text.split(_numberSplit)) {
+    final t = raw.trim();
+    if (t.isEmpty) continue;
+    if (_digitsOf(t) != number) out.add(t);
+  }
+  return out.join('\n');
+}
 
 /// Sends one approved template to a typed or pasted list of numbers. Fills in
 /// the template's body fields and uploads its media header when it has one.
@@ -40,33 +107,53 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
     super.dispose();
   }
 
-  /// Numbers typed so far, digits only, duplicates removed, in order.
-  List<String> get _parsed {
-    final seen = <String>{};
-    final out = <String>[];
-    for (final raw in _numbers.text.split(RegExp(r'[\n,;]'))) {
-      final digits = raw.replaceAll(RegExp(r'\D'), '');
-      if (digits.length >= 10 && digits.length <= 15 && seen.add(digits)) {
-        out.add(digits);
-      }
-    }
-    return out;
-  }
-
-  /// Entries that were typed but are too short or too long to be a number.
-  int get _rejected {
-    var count = 0;
-    for (final raw in _numbers.text.split(RegExp(r'[\n,;]'))) {
-      final trimmed = raw.trim();
-      if (trimmed.isEmpty) continue;
-      final digits = trimmed.replaceAll(RegExp(r'\D'), '');
-      if (digits.length < 10 || digits.length > 15) count++;
-    }
-    return count;
-  }
+  BulkNumbers get _stats => parseBulkNumbers(_numbers.text);
+  List<String> get _parsed => _stats.valid;
+  int get _rejected => _stats.rejected;
 
   /// Ten-digit entries probably lack the country code.
-  int get _tenDigit => _parsed.where((n) => n.length == 10).length;
+  int get _tenDigit => _stats.tenDigit;
+
+  /// The review page is showing (the form is kept underneath, untouched).
+  bool _reviewing = false;
+
+  Future<void> _paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim() ?? '';
+    if (!mounted) return;
+    if (text.isEmpty) {
+      showToast(context, 'Nothing to paste. Copy some numbers first.');
+      return;
+    }
+    final existing = _numbers.text.trimRight();
+    setState(() {
+      _numbers.text = existing.isEmpty ? text : '$existing\n$text';
+    });
+  }
+
+  void _addCode() {
+    final n = _tenDigit;
+    setState(() => _numbers.text = addCountryCode(_numbers.text));
+    showToast(context, 'Added 91 to $n ${n == 1 ? 'number' : 'numbers'}.');
+  }
+
+  void _removeNumber(String number) {
+    setState(() => _numbers.text = removeBulkNumber(_numbers.text, number));
+  }
+
+  /// Checks the form, then shows the review page. Nothing is sent from here.
+  void _review() {
+    final problem = _validate();
+    if (problem != null) {
+      _error(problem);
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _notice = null;
+      _reviewing = true;
+    });
+  }
 
   TextEditingController _varFor(int n) =>
       _vars.putIfAbsent(n, TextEditingController.new);
@@ -289,11 +376,17 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
     final t = _template;
     final count = _parsed.length;
     final rejected = _rejected;
-    return Scaffold(
+    return PopScope(
+      // Back from the review page returns to the form, not out of the screen.
+      canPop: !_reviewing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_busy) setState(() => _reviewing = false);
+      },
+      child: Scaffold(
       backgroundColor: surface,
       appBar: AppBar(
         title: Text(
-          'New bulk send',
+          _reviewing ? 'Review bulk send' : 'New bulk send',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w800,
             color: ink,
@@ -303,7 +396,8 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
         surfaceTintColor: Colors.transparent,
         foregroundColor: ink,
       ),
-      body: ListView(
+      body: ContentWidth(
+        child: _reviewing ? _reviewView() : ListView(
         padding: EdgeInsets.fromLTRB(
           16,
           8,
@@ -468,28 +562,200 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
                 ),
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.content_paste_rounded, size: 16),
+                  label: const Text('Paste from clipboard'),
+                  onPressed: _busy ? null : _paste,
+                ),
+                if (_tenDigit > 0)
+                  ActionChip(
+                    avatar: const Icon(Icons.add_rounded, size: 16),
+                    label: Text(
+                      'Add 91 to $_tenDigit ${_tenDigit == 1 ? 'number' : 'numbers'}',
+                    ),
+                    tooltip: 'Put the India country code 91 in front of 10-digit numbers',
+                    onPressed: _busy ? null : _addCode,
+                  ),
+              ],
+            ),
+          ),
+          if (count > 0) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final n in _parsed.take(12))
+                  InputChip(
+                    label: Text(n),
+                    onDeleted: _busy ? null : () => _removeNumber(n),
+                    deleteButtonTooltipMessage: 'Remove $n',
+                  ),
+                if (count > 12)
+                  InfoChip('and ${count - 12} more', color: muted),
+              ],
+            ),
+          ],
           const SizedBox(height: 22),
           SheetNotice(_notice),
           FilledButton.icon(
-            onPressed: _busy || _uploading ? null : _send,
-            icon: _busy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.send_rounded, size: 18),
+            onPressed: _busy || _uploading ? null : _review,
+            icon: const Icon(Icons.fact_check_outlined, size: 18),
             label: Text(
               count == 0
-                  ? 'Send'
-                  : 'Send to $count ${count == 1 ? 'number' : 'numbers'}',
+                  ? 'Review'
+                  : 'Review $count ${count == 1 ? 'number' : 'numbers'}',
             ),
           ),
         ],
       ),
+      ),
+      ),
+    );
+  }
+
+  /// The last look before sending: the message as the customer will see it,
+  /// who it goes to, and anything worth a second thought.
+  Widget _reviewView() {
+    final t = _template!;
+    final stats = _stats;
+    final count = stats.valid.length;
+    final sample = stats.valid.take(5).toList();
+    final fieldValues = {
+      for (final n in t.bodyVariables) n: _varFor(n).text.trim(),
+    };
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _label('This is what they will get'),
+        WaTemplatePreview(
+          body: t.body,
+          headerFormat: t.headerFormat,
+          headerText: t.headerText,
+          footer: t.footer,
+          buttons: t.buttons,
+          examples: fieldValues,
+        ),
+        if (t.hasMediaHeader && _mediaName.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+            child: Text(
+              'Header file: $_mediaName',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+            ),
+          ),
+        _label('Who gets it'),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: cardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(
+                  '$count ${count == 1 ? 'number' : 'numbers'}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final n in sample) InfoChip(n),
+                  if (count > sample.length)
+                    InfoChip('and ${count - sample.length} more', color: muted),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Numbers on your blocked list are skipped automatically.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  color: muted,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final w in [
+          if (_tenDigit > 0)
+            '$_tenDigit ${_tenDigit == 1 ? 'number has' : 'numbers have'} only '
+                '10 digits. Without the country code (91) WhatsApp cannot '
+                'deliver them. Go back and tap "Add 91" if they are Indian numbers.',
+          if (stats.rejected > 0)
+            '${stats.rejected} ${stats.rejected == 1 ? 'entry was' : 'entries were'} '
+                'skipped because ${stats.rejected == 1 ? 'it is' : 'they are'} '
+                'too short or too long.',
+          if (stats.duplicates > 0)
+            '${stats.duplicates} repeated ${stats.duplicates == 1 ? 'number was' : 'numbers were'} '
+                'removed, so nobody gets the message twice.',
+        ])
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const ExcludeSemantics(
+                  child: Icon(Icons.info_outline_rounded, size: 18, color: warn),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    w,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12.5,
+                      color: ink,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 18),
+        SheetNotice(_notice),
+        FilledButton.icon(
+          onPressed: _busy ? null : _send,
+          icon: _busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.send_rounded, size: 18),
+          label: Text('Send to $count ${count == 1 ? 'number' : 'numbers'}'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: _busy ? null : () => setState(() => _reviewing = false),
+          child: const Text('Back to edit'),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Text(
+            'You will be asked to confirm once more. Messages cannot be recalled once sent.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+          ),
+        ),
+      ],
     );
   }
 }

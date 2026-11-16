@@ -407,3 +407,146 @@ class StatTile extends StatelessWidget {
     );
   }
 }
+
+/// A thin progress bar that reads out as text ("120 of 300 handled") instead of
+/// a bare percentage.
+class AppProgress extends StatelessWidget {
+  const AppProgress({
+    super.key,
+    required this.value,
+    required this.label,
+    this.color = brand,
+    this.height = 6,
+  });
+
+  /// 0 to 1.
+  final double value;
+
+  /// What a screen reader says, for example "120 of 300 handled".
+  final String label;
+  final Color color;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      excludeSemantics: true,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(height),
+        child: LinearProgressIndicator(
+          value: value.clamp(0.0, 1.0),
+          minHeight: height,
+          color: color,
+          backgroundColor: track,
+        ),
+      ),
+    );
+  }
+}
+
+/// One slice of a [StackedBar].
+class BarSegment {
+  const BarSegment(this.label, this.value, this.color);
+
+  final String label;
+  final int value;
+  final Color color;
+}
+
+/// A single bar made of coloured slices (for example read, delivered, sent,
+/// failed) out of [total], with whatever is left shown as "waiting". A legend
+/// under it names every slice with its number, so colour is never the only cue.
+class StackedBar extends StatelessWidget {
+  const StackedBar({
+    super.key,
+    required this.total,
+    required this.segments,
+    this.height = 12,
+    this.restLabel = 'Waiting',
+  });
+
+  final int total;
+  final List<BarSegment> segments;
+  final double height;
+
+  /// Name of the unfilled part (total minus the slices).
+  final String restLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = segments.where((s) => s.value > 0).toList();
+    final sum = shown.fold<int>(0, (a, s) => a + s.value);
+    // The unfilled part. If the slices add up to more than the total (counts
+    // that overlap), the bar simply shows their proportions.
+    final rest = total > sum ? total - sum : 0;
+    final spoken = [
+      for (final s in shown) '${s.label} ${s.value}',
+      if (rest > 0) '$restLabel $rest',
+    ].join(', ');
+
+    return Semantics(
+      label: spoken.isEmpty ? 'Nothing yet' : '$spoken, out of $total',
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(height),
+            child: SizedBox(
+              height: height,
+              child: shown.isEmpty && rest == 0
+                  ? const ColoredBox(color: track)
+                  : Row(
+                      children: [
+                        for (final s in shown)
+                          Expanded(
+                            flex: s.value,
+                            child: ColoredBox(color: s.color),
+                          ),
+                        if (rest > 0)
+                          Expanded(flex: rest, child: const ColoredBox(color: track)),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              for (final s in shown) _LegendItem(s.color, '${s.label} ${s.value}'),
+              if (rest > 0) _LegendItem(muted, '$restLabel $rest'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem(this.color, this.text);
+
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: inkSoft),
+        ),
+      ],
+    );
+  }
+}
