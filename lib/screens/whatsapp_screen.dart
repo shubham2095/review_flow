@@ -16,7 +16,8 @@ import 'whatsapp_campaign_detail_screen.dart';
 import 'whatsapp_chat_screen.dart';
 import 'whatsapp_connect_sheet.dart';
 import 'whatsapp_contact_sheet.dart';
-import 'whatsapp_inbox_screen.dart' show WhatsAppInboxScreen, shortWhen;
+import 'whatsapp_inbox_screen.dart'
+    show InboxFilter, WhatsAppInboxScreen, shortWhen;
 import 'whatsapp_number_sheet.dart';
 
 /// WhatsApp home: how the number is doing, today's numbers, quick actions,
@@ -25,8 +26,9 @@ class WhatsAppScreen extends StatefulWidget {
   const WhatsAppScreen({super.key, this.onOpenInbox});
 
   /// Inside the WhatsApp tabs: opening the Inbox switches to the Inbox tab
-  /// instead of opening a second Inbox on top. Null: it opens full-screen.
-  final VoidCallback? onOpenInbox;
+  /// (on the given filter) instead of opening a second Inbox on top. Null: it
+  /// opens full-screen.
+  final ValueChanged<InboxFilter>? onOpenInbox;
 
   @override
   State<WhatsAppScreen> createState() => _WhatsAppScreenState();
@@ -139,14 +141,16 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     if (mounted) _load();
   }
 
-  Future<void> _openInbox() async {
+  Future<void> _openInbox([InboxFilter filter = InboxFilter.all]) async {
     final switchTab = widget.onOpenInbox;
     if (switchTab != null) {
-      switchTab();
+      switchTab(filter);
       return;
     }
     await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const WhatsAppInboxScreen()),
+      MaterialPageRoute(
+        builder: (_) => WhatsAppInboxScreen(initialFilter: filter),
+      ),
     );
     if (mounted) _load();
   }
@@ -255,7 +259,7 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                   label: 'Open chats',
                   value: d.conversations.open,
                   icon: Icons.forum_rounded,
-                  onTap: _openInbox,
+                  onTap: () => _openInbox(InboxFilter.open),
                 ),
               ),
               const SizedBox(width: 12),
@@ -265,7 +269,7 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                   value: d.conversations.unread,
                   icon: Icons.mark_chat_unread_rounded,
                   highlight: d.conversations.unread > 0,
-                  onTap: _openInbox,
+                  onTap: () => _openInbox(InboxFilter.unread),
                 ),
               ),
             ],
@@ -330,7 +334,7 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         SectionTitle(
           'Recent chats',
           trailing: TextButton(
-            onPressed: _openInbox,
+            onPressed: () => _openInbox(),
             child: const Text('See all'),
           ),
         ),

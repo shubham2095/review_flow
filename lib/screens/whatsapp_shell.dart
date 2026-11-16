@@ -39,6 +39,14 @@ class WhatsAppShellState extends State<WhatsAppShell>
   DateTime? _lastUnreadAt;
   bool _fetchingUnread = false;
 
+  /// How Home asks the Inbox tab to open on a filter (Unread, Open, All).
+  final _inboxFilter = ValueNotifier<InboxFilter?>(null);
+
+  void _openInbox(InboxFilter filter) {
+    _inboxFilter.value = filter;
+    _select(_inboxTab);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +59,7 @@ class WhatsAppShellState extends State<WhatsAppShell>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _inboxFilter.dispose();
     super.dispose();
   }
 
@@ -109,6 +118,7 @@ class WhatsAppShellState extends State<WhatsAppShell>
       case _inboxTab:
         return WhatsAppInboxScreen(
           embedded: true,
+          filterRequest: _inboxFilter,
           onUnreadMayHaveChanged: () => _refreshUnread(force: true),
         );
       case _contactsTab:
@@ -118,7 +128,7 @@ class WhatsAppShellState extends State<WhatsAppShell>
       case _moreTab:
         return WhatsAppMoreScreen(onOpenHome: () => _select(_homeTab));
       default:
-        return WhatsAppScreen(onOpenInbox: () => _select(_inboxTab));
+        return WhatsAppScreen(onOpenInbox: _openInbox);
     }
   }
 
