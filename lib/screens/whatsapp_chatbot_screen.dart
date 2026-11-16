@@ -62,9 +62,7 @@ class _WhatsAppChatbotScreenState extends State<WhatsAppChatbotScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   Future<void> _toggle(WaChatbot b) async {
@@ -202,9 +200,12 @@ class _WhatsAppChatbotScreenState extends State<WhatsAppChatbotScreen> {
                         ),
                       ),
                     ),
-                    Switch(
-                      value: b.isActive,
-                      onChanged: _busy ? null : (_) => _toggle(b),
+                    Semantics(
+                      label: 'Chatbot ${b.name}',
+                      child: Switch(
+                        value: b.isActive,
+                        onChanged: _busy ? null : (_) => _toggle(b),
+                      ),
                     ),
                   ],
                 ),
@@ -255,28 +256,15 @@ class _WhatsAppChatbotScreenState extends State<WhatsAppChatbotScreen> {
               ],
             ),
           ),
-          Padding(
+          SectionTitle(
+            'Keyword rules (${b.rules.length})',
             padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Keyword rules (${b.rules.length})',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                      color: ink,
-                    ),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _sheet(_RuleSheet(chatbotId: b.id)),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add rule'),
-                ),
-              ],
+            trailing: TextButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () => _sheet(_RuleSheet(chatbotId: b.id)),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add rule'),
             ),
           ),
           if (b.rules.isEmpty)
@@ -309,51 +297,48 @@ class _WhatsAppChatbotScreenState extends State<WhatsAppChatbotScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    '"${r.keyword}"',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontWeight: FontWeight.w800,
-                                      color: ink,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                StatusBadge(
-                                  _matchLabels[r.matchType] ?? r.matchType,
-                                  muted,
-                                ),
-                              ],
+                            Text(
+                              ruleSentence(r),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13.5,
+                                color: r.isActive ? ink : muted,
+                                height: 1.3,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              r.responseType == 'template'
-                                  ? 'Sends template ${r.templateName}'
-                                  : r.responseText,
+                              ruleReplyLine(r),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12.5,
-                                color: const Color(0xFF4A5468),
+                                color: inkSoft,
                                 height: 1.35,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      Switch(
-                        value: r.isActive,
-                        onChanged: _busy ? null : (v) => _toggleRule(b, r, v),
+                      Semantics(
+                        label: 'Rule "${r.keyword}"',
+                        child: Switch(
+                          value: r.isActive,
+                          onChanged: _busy ? null : (v) => _toggleRule(b, r, v),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
+          const SectionTitle(
+            'Try a message',
+            padding: EdgeInsets.fromLTRB(4, 14, 4, 10),
+          ),
+          _RuleTester(bot: b),
           const SizedBox(height: 20),
           TextButton.icon(
             onPressed: _busy ? null : () => _delete(b),
@@ -452,30 +437,147 @@ class _Line extends StatelessWidget {
   }
 }
 
-InputDecoration _fieldDec(String label, {String? hint, String? helper}) =>
-    InputDecoration(
-      labelText: label,
-      hintText: hint,
-      helperText: helper,
-      helperMaxLines: 3,
-      filled: true,
-      fillColor: surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+/// A rule read as a sentence: "When a message contains "price"".
+String ruleSentence(WaChatRule r) {
+  final k = '"${r.keyword}"';
+  return switch (r.matchType) {
+    'exact' => 'When a message is exactly $k',
+    'starts_with' => 'When a message starts with $k',
+    'regex' => 'When a message matches the pattern $k',
+    _ => 'When a message contains $k',
+  };
+}
+
+/// What the rule sends back, as one line.
+String ruleReplyLine(WaChatRule r) => r.responseType == 'template'
+    ? 'Sends the template ${r.templateName}'
+    : 'Replies: ${r.responseText}';
+
+/// Does [message] match the rule? An approximation of the server for the
+/// "Try a message" box: it ignores upper and lower case.
+bool ruleMatches(WaChatRule r, String message) {
+  final text = message.trim().toLowerCase();
+  final key = r.keyword.trim().toLowerCase();
+  if (text.isEmpty || key.isEmpty) return false;
+  switch (r.matchType) {
+    case 'exact':
+      return text == key;
+    case 'starts_with':
+      return text.startsWith(key);
+    case 'regex':
+      try {
+        return RegExp(
+          r.keyword.trim(),
+          caseSensitive: false,
+        ).hasMatch(message.trim());
+      } catch (_) {
+        return false;
+      }
+    default:
+      return text.contains(key);
+  }
+}
+
+/// The first active rule that matches, checking lower "order" numbers first.
+WaChatRule? firstMatchingRule(List<WaChatRule> rules, String message) {
+  final indexed = [
+    for (var i = 0; i < rules.length; i++)
+      if (rules[i].isActive) (i, rules[i]),
+  ];
+  indexed.sort((a, b) {
+    final byPriority = a.$2.priority.compareTo(b.$2.priority);
+    return byPriority != 0 ? byPriority : a.$1.compareTo(b.$1);
+  });
+  for (final e in indexed) {
+    if (ruleMatches(e.$2, message)) return e.$2;
+  }
+  return null;
+}
+
+/// Type a customer message and see which rule would answer it. Nothing is
+/// sent anywhere: it only runs on this phone.
+class _RuleTester extends StatefulWidget {
+  const _RuleTester({required this.bot});
+
+  final WaChatbot bot;
+
+  @override
+  State<_RuleTester> createState() => _RuleTesterState();
+}
+
+class _RuleTesterState extends State<_RuleTester> {
+  final _c = TextEditingController();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  String _result() {
+    final b = widget.bot;
+    final text = _c.text.trim();
+    if (text.isEmpty) return '';
+    final rule = firstMatchingRule(b.rules, text);
+    final lead = b.isActive
+        ? ''
+        : 'The chatbot is off, so it would not reply. ';
+    if (rule != null) {
+      return '$lead${ruleSentence(rule)}. ${ruleReplyLine(rule)}';
+    }
+    if (b.aiEnabled) return '${lead}No rule matches. AI replies are on.';
+    if (b.fallback.isNotEmpty) {
+      return '${lead}No rule matches. The "When nothing matches" reply is '
+          'used: ${b.fallback}';
+    }
+    return '${lead}No rule matches and no fallback reply is set.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final result = _result();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _c,
+            onChanged: (_) => setState(() {}),
+            decoration: waInputDecoration(
+              'A customer writes',
+              hint: 'What is the price?',
+              helper: 'Only checks your rules on this phone. Nothing is sent.',
+            ),
+          ),
+          if (result.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  result,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    color: inkSoft,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Approximate: the server decides the real reply.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+            ),
+          ),
+        ],
       ),
     );
-
-Widget _grabber() => Center(
-  child: Container(
-    width: 40,
-    height: 4,
-    decoration: BoxDecoration(
-      color: muted.withValues(alpha: 0.3),
-      borderRadius: BorderRadius.circular(4),
-    ),
-  ),
-);
+  }
+}
 
 class _ChatbotSettingsSheet extends StatefulWidget {
   const _ChatbotSettingsSheet({required this.bot});
@@ -542,110 +644,93 @@ class _ChatbotSettingsSheetState extends State<_ChatbotSettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            20 + MediaQuery.viewInsetsOf(context).bottom,
+    return AppSheet(
+      title: 'Chatbot settings',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _name,
+            enabled: !_busy,
+            decoration: waInputDecoration('Name'),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _grabber(),
-              const SizedBox(height: 14),
-              Text(
-                'Chatbot settings',
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  color: ink,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _name,
-                enabled: !_busy,
-                decoration: _fieldDec('Name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _welcome,
-                enabled: !_busy,
-                minLines: 2,
-                maxLines: 5,
-                decoration: _fieldDec('Welcome message'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _fallback,
-                enabled: !_busy,
-                minLines: 2,
-                maxLines: 5,
-                decoration: _fieldDec('When nothing matches'),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('AI replies'),
-                subtitle: const Text(
-                  'Let AI answer messages that no rule matches',
-                ),
-                value: _aiOn,
-                onChanged: _busy ? null : (v) => setState(() => _aiOn = v),
-              ),
-              if (_aiOn)
-                TextField(
-                  controller: _ai,
-                  enabled: !_busy,
-                  minLines: 3,
-                  maxLines: 8,
-                  maxLength: 8000,
-                  decoration: _fieldDec(
-                    'Instructions for the AI',
-                    hint:
-                        'We sell sarees. Be friendly and short. Prices start at ₹999.',
-                  ),
-                ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Follow-up'),
-                subtitle: const Text('Nudge customers who stop replying'),
-                value: _followOn,
-                onChanged: _busy ? null : (v) => setState(() => _followOn = v),
-              ),
-              if (_followOn)
-                TextField(
-                  controller: _follow,
-                  enabled: !_busy,
-                  minLines: 2,
-                  maxLines: 5,
-                  maxLength: 1000,
-                  decoration: _fieldDec('Follow-up message'),
-                ),
-              const SizedBox(height: 12),
-              SheetNotice(_notice),
-              FilledButton(
-                onPressed: _busy ? null : _save,
-                child: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Save settings'),
-              ),
-            ],
+          const SizedBox(height: 12),
+          TextField(
+            controller: _welcome,
+            enabled: !_busy,
+            minLines: 2,
+            maxLines: 5,
+            decoration: waInputDecoration(
+              'Welcome message',
+              helper: 'Sent when a customer writes for the first time.',
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _fallback,
+            enabled: !_busy,
+            minLines: 2,
+            maxLines: 5,
+            decoration: waInputDecoration(
+              'When nothing matches',
+              helper: 'Sent when no keyword rule fits the message.',
+            ),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('AI replies'),
+            subtitle: const Text('Let AI answer messages that no rule matches'),
+            value: _aiOn,
+            onChanged: _busy ? null : (v) => setState(() => _aiOn = v),
+          ),
+          if (_aiOn)
+            TextField(
+              controller: _ai,
+              enabled: !_busy,
+              minLines: 3,
+              maxLines: 8,
+              maxLength: 8000,
+              decoration: waInputDecoration(
+                'Instructions for the AI',
+                hint:
+                    'We sell sarees. Be friendly and short. Prices start at ₹999.',
+              ),
+            ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Follow-up'),
+            subtitle: const Text('Nudge customers who stop replying'),
+            value: _followOn,
+            onChanged: _busy ? null : (v) => setState(() => _followOn = v),
+          ),
+          if (_followOn)
+            TextField(
+              controller: _follow,
+              enabled: !_busy,
+              minLines: 2,
+              maxLines: 5,
+              maxLength: 1000,
+              decoration: waInputDecoration('Follow-up message'),
+            ),
+          const SizedBox(height: 12),
+          SheetNotice(_notice),
+          FilledButton(
+            onPressed: _busy ? null : _save,
+            child: _busy
+                ? Semantics(
+                    label: 'Saving',
+                    child: const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : const Text('Save settings'),
+          ),
+        ],
       ),
     );
   }
@@ -802,114 +887,93 @@ class _RuleSheetState extends State<_RuleSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            12,
-            20,
-            20 + MediaQuery.viewInsetsOf(context).bottom,
+    return AppSheet(
+      title: _isNew ? 'Add a rule' : 'Edit rule',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _keyword,
+            enabled: !_busy,
+            decoration: waInputDecoration('Keyword', hint: 'price'),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _grabber(),
-              const SizedBox(height: 14),
-              Text(
-                _isNew ? 'Add a rule' : 'Edit rule',
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  color: ink,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _keyword,
-                enabled: !_busy,
-                decoration: _fieldDec('Keyword', hint: 'price'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _match,
-                isExpanded: true,
-                decoration: _fieldDec('A message matches when it'),
-                items: [
-                  for (final e in _matchLabels.entries)
-                    DropdownMenuItem(value: e.key, child: Text(e.value)),
-                ],
-                onChanged: _busy ? null : (v) => setState(() => _match = v!),
-              ),
-              const SizedBox(height: 14),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'text', label: Text('Text reply')),
-                  ButtonSegment(value: 'template', label: Text('Template')),
-                ],
-                selected: {_type},
-                onSelectionChanged: _busy
-                    ? null
-                    : (s) => setState(() => _type = s.first),
-              ),
-              const SizedBox(height: 12),
-              if (_type == 'text')
-                TextField(
-                  controller: _text,
-                  enabled: !_busy,
-                  minLines: 3,
-                  maxLines: 8,
-                  decoration: _fieldDec('Reply'),
-                )
-              else
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _pickTemplate,
-                  icon: const Icon(Icons.description_outlined, size: 18),
-                  label: Text(
-                    _template.isEmpty ? 'Choose a template' : _template,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _priority,
-                enabled: !_busy,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: _fieldDec(
-                  'Order',
-                  helper: 'Lower numbers are checked first.',
-                ),
-              ),
-              const SizedBox(height: 14),
-              SheetNotice(_notice),
-              FilledButton(
-                onPressed: _busy ? null : _save,
-                child: _busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(_isNew ? 'Add rule' : 'Save rule'),
-              ),
-              if (!_isNew)
-                TextButton.icon(
-                  onPressed: _busy ? null : _delete,
-                  style: TextButton.styleFrom(foregroundColor: bad),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  label: const Text('Delete rule'),
-                ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _match,
+            isExpanded: true,
+            decoration: waInputDecoration('A message matches when it'),
+            items: [
+              for (final e in _matchLabels.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
             ],
+            onChanged: _busy ? null : (v) => setState(() => _match = v!),
           ),
-        ),
+          const SizedBox(height: 14),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'text', label: Text('Text reply')),
+              ButtonSegment(value: 'template', label: Text('Template')),
+            ],
+            selected: {_type},
+            onSelectionChanged: _busy
+                ? null
+                : (s) => setState(() => _type = s.first),
+          ),
+          const SizedBox(height: 12),
+          if (_type == 'text')
+            TextField(
+              controller: _text,
+              enabled: !_busy,
+              minLines: 3,
+              maxLines: 8,
+              decoration: waInputDecoration('Reply'),
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _pickTemplate,
+              icon: const Icon(Icons.description_outlined, size: 18),
+              label: Text(
+                _template.isEmpty ? 'Choose a template' : _template,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _priority,
+            enabled: !_busy,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: waInputDecoration(
+              'Order',
+              helper: 'Lower numbers are checked first.',
+            ),
+          ),
+          const SizedBox(height: 14),
+          SheetNotice(_notice),
+          FilledButton(
+            onPressed: _busy ? null : _save,
+            child: _busy
+                ? Semantics(
+                    label: 'Saving',
+                    child: const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : Text(_isNew ? 'Add rule' : 'Save rule'),
+          ),
+          if (!_isNew)
+            TextButton.icon(
+              onPressed: _busy ? null : _delete,
+              style: TextButton.styleFrom(foregroundColor: bad),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Delete rule'),
+            ),
+        ],
       ),
     );
   }

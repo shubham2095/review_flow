@@ -95,9 +95,7 @@ class _WhatsAppWorkflowScreenState extends State<WhatsAppWorkflowScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   Future<bool> _confirm(
@@ -187,175 +185,45 @@ class _WhatsAppWorkflowScreenState extends State<WhatsAppWorkflowScreen> {
   }
 
   Widget _body(WaWorkflow w) {
+    // Rows: the summary card, the "Run history" title, an empty note when it
+    // has not run, then one row per run (built lazily as they scroll into
+    // view), then a spinner while the next page loads.
+    final lead = _runs.isEmpty ? 3 : 2;
     return RefreshIndicator(
       color: brand,
       onRefresh: _load,
-      child: ListView(
+      child: ListView.builder(
         controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: cardDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        w.name,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                          color: ink,
-                        ),
-                      ),
-                    ),
-                    workflowBadge(w.status),
-                  ],
-                ),
-                if (w.description.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    w.description,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
-                      color: muted,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Text(
-                  'Starts when',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: muted,
-                  ),
-                ),
-                Text(
-                  w.triggerLabel,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  [
-                    '${w.nodesCount} steps',
-                    'ran ${w.executionsCount} ${w.executionsCount == 1 ? 'time' : 'times'}',
-                    if (w.activatedAt != null)
-                      'on since ${fmtDate(w.activatedAt!)}',
-                  ].join(' · '),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    color: muted,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: brand.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.desktop_windows_outlined,
-                        size: 16,
-                        color: brand,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'The steps of an automation are edited on the Eydia website.',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            color: ink,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
-            child: Text(
+        itemCount: lead + _runs.length + (_loadingMore ? 1 : 0),
+        itemBuilder: (_, i) {
+          if (i == 0) return _summary(w);
+          if (i == 1) {
+            return SectionTitle(
               'Run history',
-              style: GoogleFonts.plusJakartaSans(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: ink,
-              ),
-            ),
-          ),
-          if (_runs.isEmpty)
-            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
+              trailing: w.executionsCount > 0
+                  ? InfoChip(
+                      '${w.executionsCount} '
+                      '${w.executionsCount == 1 ? 'run' : 'runs'}',
+                    )
+                  : null,
+            );
+          }
+          if (_runs.isEmpty && i == 2) {
+            return Padding(
               padding: const EdgeInsets.all(20),
               child: Text(
                 'It has not run yet.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(color: muted),
               ),
-            ),
-          for (final r in _runs)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: cardDecoration(),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          r.who,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: ink,
-                          ),
-                        ),
-                        if (r.startedAt != null)
-                          Text(
-                            fmtDateTime(r.startedAt!),
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11.5,
-                              color: muted,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  StatusBadge(
-                    r.status.isEmpty
-                        ? '—'
-                        : r.status[0].toUpperCase() +
-                              r.status.substring(1).replaceAll('_', ' '),
-                    switch (r.status) {
-                      'completed' => good,
-                      'failed' => bad,
-                      'running' || 'waiting' => brand,
-                      _ => muted,
-                    },
-                  ),
-                ],
-              ),
-            ),
-          if (_loadingMore)
-            const Padding(
+            );
+          }
+          final k = i - lead;
+          if (k >= _runs.length) {
+            return const Padding(
               padding: EdgeInsets.all(16),
               child: Center(
                 child: SizedBox(
@@ -364,8 +232,161 @@ class _WhatsAppWorkflowScreenState extends State<WhatsAppWorkflowScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
+            );
+          }
+          return _runRow(_runs[k]);
+        },
+      ),
+    );
+  }
+
+  Widget _summary(WaWorkflow w) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  w.name,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: ink,
+                  ),
+                ),
+              ),
+              workflowBadge(w.status),
+            ],
+          ),
+          if (w.description.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              w.description,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                color: muted,
+                height: 1.4,
+              ),
             ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            'Starts when',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: muted,
+            ),
+          ),
+          Text(
+            w.triggerLabel,
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              color: ink,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            [
+              '${w.nodesCount} steps',
+              'ran ${w.executionsCount} ${w.executionsCount == 1 ? 'time' : 'times'}',
+              if (w.activatedAt != null) 'on since ${fmtDate(w.activatedAt!)}',
+            ].join(' · '),
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: brand.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const ExcludeSemantics(
+                  child: Icon(
+                    Icons.desktop_windows_outlined,
+                    size: 16,
+                    color: brand,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'The steps of an automation are edited on the Eydia website.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _runRow(WaExecution r) {
+    final label = executionStatusLabel(r.status);
+    final color = switch (r.status) {
+      'completed' => good,
+      'failed' => bad,
+      'running' || 'waiting' => brand,
+      _ => muted,
+    };
+    final when = r.startedAt == null ? '' : fmtDateTime(r.startedAt!);
+    return Semantics(
+      container: true,
+      label: [r.who, label, when].where((s) => s.isNotEmpty).join(', '),
+      child: ExcludeSemantics(
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: cardDecoration(),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.who,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: ink,
+                      ),
+                    ),
+                    if (when.isNotEmpty)
+                      Text(
+                        when,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: muted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              StatusBadge(label, color),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -465,3 +486,8 @@ class _WhatsAppWorkflowScreenState extends State<WhatsAppWorkflowScreen> {
     );
   }
 }
+
+/// "waiting_reply" becomes "Waiting reply"; empty stays a dash.
+String executionStatusLabel(String status) => status.isEmpty
+    ? '—'
+    : status[0].toUpperCase() + status.substring(1).replaceAll('_', ' ');

@@ -175,9 +175,7 @@ class _BotsTabState extends State<_BotsTab> with AutomaticKeepAliveClientMixin {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showToast(context, text);
   }
 
   Future<void> create() async {
@@ -290,61 +288,69 @@ class _BotsTabState extends State<_BotsTab> with AutomaticKeepAliveClientMixin {
                 final b = _items[idx];
                 return FadeIn(
                   delay: idx < 8 ? idx * 30 : 0,
-                  child: Pressable(
-                    onTap: () => _open(b),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(14),
-                      decoration: cardDecoration(),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: (b.isActive ? good : muted).withValues(
-                                alpha: 0.12,
+                  child: Semantics(
+                    button: true,
+                    label:
+                        'Chatbot ${b.name}, ${b.isActive ? 'on' : 'off'}, '
+                        '${b.rulesCount} ${b.rulesCount == 1 ? 'rule' : 'rules'}',
+                    excludeSemantics: true,
+                    child: Pressable(
+                      onTap: () => _open(b),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: cardDecoration(),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: (b.isActive ? good : muted).withValues(
+                                  alpha: 0.12,
+                                ),
+                                borderRadius: BorderRadius.circular(13),
                               ),
-                              borderRadius: BorderRadius.circular(13),
+                              child: Icon(
+                                Icons.smart_toy_rounded,
+                                color: b.isActive ? good : muted,
+                              ),
                             ),
-                            child: Icon(
-                              Icons.smart_toy_rounded,
-                              color: b.isActive ? good : muted,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  b.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontWeight: FontWeight.w800,
-                                    color: ink,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    b.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontWeight: FontWeight.w800,
+                                      color: ink,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  [
-                                    '${b.rulesCount} ${b.rulesCount == 1 ? 'rule' : 'rules'}',
-                                    if (b.aiEnabled) 'AI replies',
-                                    if (b.numberLabel.isNotEmpty) b.numberLabel,
-                                  ].join(' · '),
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 11.5,
-                                    color: muted,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    [
+                                      '${b.rulesCount} ${b.rulesCount == 1 ? 'rule' : 'rules'}',
+                                      if (b.aiEnabled) 'AI replies',
+                                      if (b.numberLabel.isNotEmpty)
+                                        b.numberLabel,
+                                    ].join(' · '),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11.5,
+                                      color: muted,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          b.isActive
-                              ? const StatusBadge('On', good)
-                              : const StatusBadge('Off', muted),
-                        ],
+                            b.isActive
+                                ? const StatusBadge('On', good)
+                                : const StatusBadge('Off', muted),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -451,17 +457,6 @@ class _NewChatbotSheetState extends State<_NewChatbotSheet> {
     super.dispose();
   }
 
-  InputDecoration _dec(String label, {String? hint}) => InputDecoration(
-    labelText: label,
-    hintText: hint,
-    filled: true,
-    fillColor: surface,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide.none,
-    ),
-  );
-
   Future<void> _create() async {
     if (_name.text.trim().isEmpty) {
       HapticFeedback.lightImpact();
@@ -532,7 +527,7 @@ class _NewChatbotSheetState extends State<_NewChatbotSheet> {
               controller: _name,
               enabled: !_busy,
               textCapitalization: TextCapitalization.sentences,
-              decoration: _dec('Name', hint: 'Shop assistant'),
+              decoration: waInputDecoration('Name', hint: 'Shop assistant'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -540,7 +535,7 @@ class _NewChatbotSheetState extends State<_NewChatbotSheet> {
               enabled: !_busy,
               minLines: 2,
               maxLines: 5,
-              decoration: _dec(
+              decoration: waInputDecoration(
                 'Welcome message (optional)',
                 hint: 'Hi! How can we help?',
               ),
@@ -551,7 +546,7 @@ class _NewChatbotSheetState extends State<_NewChatbotSheet> {
               enabled: !_busy,
               minLines: 2,
               maxLines: 5,
-              decoration: _dec(
+              decoration: waInputDecoration(
                 'When nothing matches (optional)',
                 hint: 'Thanks, a team member will reply soon.',
               ),
@@ -769,7 +764,7 @@ class _WorkflowsTabState extends State<_WorkflowsTab>
                             'When: ${w.triggerLabel}',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 12,
-                              color: const Color(0xFF4A5468),
+                              color: inkSoft,
                             ),
                           ),
                           const SizedBox(height: 4),
