@@ -10,7 +10,7 @@ import 'pressable.dart';
 // that uses it is accessible by default.
 
 /// Small coloured pill for a status ("Approved", "Sending", "Draft").
-/// Read aloud as "Status: <text>", so the colour is never the only signal.
+/// Read aloud as "Status: Approved" (the text), so colour is never the only signal.
 class StatusBadge extends StatelessWidget {
   const StatusBadge(this.text, this.color, {super.key, this.icon});
 
@@ -353,7 +353,7 @@ class ContentWidth extends StatelessWidget {
 }
 
 /// A number with a label ("Unread 5"). With [onTap] it is a button, announced
-/// as "<label>: <value>" and activated by a double tap.
+/// as "Unread: 5" (label, then value) and activated by a double tap.
 class StatTile extends StatelessWidget {
   const StatTile({
     super.key,

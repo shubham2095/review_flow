@@ -22,7 +22,12 @@ enum _Filter { all, hot, blocked, optedOut }
 /// Contacts: search, quick filters (all, hot, blocked, opted out), add, and a
 /// detail sheet to edit, block or delete. Blocked numbers have their own page.
 class WhatsAppContactsScreen extends StatefulWidget {
-  const WhatsAppContactsScreen({super.key});
+  const WhatsAppContactsScreen({super.key, this.embedded = false});
+
+  /// Inside the WhatsApp tabs: no AppBar (the shell has the top bar) and no
+  /// second offline banner. The title and the "Blocked numbers" button move
+  /// into a slim header at the top of the page.
+  final bool embedded;
 
   @override
   State<WhatsAppContactsScreen> createState() => _WhatsAppContactsScreenState();
@@ -222,27 +227,30 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
       _Filter.blocked: 'Blocked',
       _Filter.optedOut: 'Opted out',
     };
+    final title = _loading || _error != null ? 'Contacts' : 'Contacts ($_total)';
     return Scaffold(
       backgroundColor: surface,
-      appBar: AppBar(
-        title: Text(
-          _loading || _error != null ? 'Contacts' : 'Contacts ($_total)',
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w800,
-            color: ink,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: ink,
-        actions: [
-          IconButton(
-            tooltip: 'Blocked numbers',
-            icon: const Icon(Icons.block_rounded),
-            onPressed: _openBlocked,
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: ink,
+              actions: [
+                IconButton(
+                  tooltip: 'Blocked numbers',
+                  icon: const Icon(Icons.block_rounded),
+                  onPressed: _openBlocked,
+                ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openSheet(null),
         icon: const Icon(Icons.person_add_alt_1_rounded),
@@ -250,7 +258,33 @@ class _WhatsAppContactsScreenState extends State<WhatsAppContactsScreen> {
       ),
       body: Column(
         children: [
-          const OfflineBanner(),
+          if (!widget.embedded) const OfflineBanner(),
+          if (widget.embedded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        title,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                          color: ink,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Blocked numbers',
+                    icon: const Icon(Icons.block_rounded),
+                    onPressed: _openBlocked,
+                  ),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: TextField(

@@ -422,7 +422,7 @@ class _WhatsAppWorkflowScreenState extends State<WhatsAppWorkflowScreen> {
     final error = _error;
     Widget body;
     if (_loading) {
-      body = const SkeletonList(count: 3, itemHeight: 70, headerHeight: 190);
+      body = const SkeletonList(count: 3, itemHeight: 82, headerHeight: 190);
     } else if (error != null && w == null) {
       final access = accessProblem(error);
       body = Center(

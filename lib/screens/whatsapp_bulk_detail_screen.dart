@@ -268,7 +268,7 @@ class _WhatsAppBulkDetailScreenState extends State<WhatsAppBulkDetailScreen> {
     final error = _error;
     Widget body;
     if (_loading) {
-      body = const SkeletonList(count: 4, itemHeight: 70, headerHeight: 130);
+      body = const SkeletonList(count: 4, itemHeight: 82, headerHeight: 130);
     } else if (error != null && s == null) {
       final access = accessProblem(error);
       body = Center(

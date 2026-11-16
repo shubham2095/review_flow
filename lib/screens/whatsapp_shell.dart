@@ -5,12 +5,13 @@ import '../services/whatsapp_service.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/wa_tab_scope.dart';
+import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_screen.dart';
 
-/// The WhatsApp area with a bottom bar: Home and Inbox (with the unread count).
-/// More tabs are added one at a time; until then everything else is reached
-/// from the tiles on Home, exactly as before.
+/// The WhatsApp area with a bottom bar: Home, Inbox (with the unread count) and
+/// Contacts. More tabs are added one at a time; until then everything else is
+/// reached from the tiles on Home, exactly as before.
 class WhatsAppShell extends StatefulWidget {
   const WhatsAppShell({super.key});
 
@@ -22,6 +23,8 @@ class WhatsAppShellState extends State<WhatsAppShell>
     with WidgetsBindingObserver {
   static const _homeTab = 0;
   static const _inboxTab = 1;
+  static const _contactsTab = 2;
+  static const _tabCount = 3;
 
   int _index = _homeTab;
 
@@ -104,6 +107,8 @@ class WhatsAppShellState extends State<WhatsAppShell>
           embedded: true,
           onUnreadMayHaveChanged: () => _refreshUnread(force: true),
         );
+      case _contactsTab:
+        return const WhatsAppContactsScreen(embedded: true);
       default:
         return WhatsAppScreen(onOpenInbox: () => _select(_inboxTab));
     }
@@ -120,7 +125,7 @@ class WhatsAppShellState extends State<WhatsAppShell>
       body: FadeIndexedStack(
         index: _index,
         children: [
-          for (var i = 0; i < 2; i++)
+          for (var i = 0; i < _tabCount; i++)
             _visited.contains(i)
                 ? WaTabScope(active: _index == i, child: _tab(i))
                 : const SizedBox.shrink(),
@@ -161,6 +166,12 @@ class WhatsAppShellState extends State<WhatsAppShell>
                   ),
                   label: 'Inbox',
                   tooltip: inboxLabel,
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.contacts_outlined),
+                  selectedIcon: Icon(Icons.contacts_rounded),
+                  label: 'Contacts',
+                  tooltip: 'Contacts',
                 ),
               ],
             ),

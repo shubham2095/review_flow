@@ -15,7 +15,6 @@ import 'whatsapp_analytics_screen.dart';
 import 'whatsapp_bots_screen.dart';
 import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_connect_sheet.dart';
-import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_templates_screen.dart';
 import 'whatsapp_number_sheet.dart';
@@ -87,10 +86,6 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     _snack(message);
     _load();
   }
-
-  Future<void> _openContacts() => Navigator.of(context).push<void>(
-    MaterialPageRoute(builder: (_) => const WhatsAppContactsScreen()),
-  );
 
   Future<void> _openTemplates() => Navigator.of(context).push<void>(
     MaterialPageRoute(builder: (_) => const WhatsAppTemplatesScreen()),
@@ -277,12 +272,6 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         text: 'Read your customer chats',
         badge: d.conversations.unread,
         onTap: _openInbox,
-      ),
-      _LinkTile(
-        icon: Icons.contacts_rounded,
-        title: 'Contacts',
-        text: 'Tags, hot leads and blocked numbers',
-        onTap: _openContacts,
       ),
       _LinkTile(
         icon: Icons.description_rounded,

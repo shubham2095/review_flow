@@ -84,6 +84,8 @@ final Map<String, Widget Function()> _cases = {
       const WhatsAppInboxScreen(embedded: true),
   'WhatsAppChatScreen': () => WhatsAppChatScreen(conversation: _conversation),
   'WhatsAppContactsScreen': () => const WhatsAppContactsScreen(),
+  'WhatsAppContactsScreen (embedded)': () =>
+      const WhatsAppContactsScreen(embedded: true),
   'WhatsAppBlacklistScreen': () => const WhatsAppBlacklistScreen(),
   'WhatsAppTemplatesScreen': () => const WhatsAppTemplatesScreen(),
   'WhatsAppTemplateCreateScreen': () => const WhatsAppTemplateCreateScreen(),
