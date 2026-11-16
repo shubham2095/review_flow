@@ -15,6 +15,7 @@ import 'package:review_flow/screens/whatsapp_connect_sheet.dart';
 import 'package:review_flow/screens/whatsapp_contact_sheet.dart';
 import 'package:review_flow/screens/whatsapp_contacts_screen.dart';
 import 'package:review_flow/screens/whatsapp_inbox_screen.dart';
+import 'package:review_flow/screens/whatsapp_more_screen.dart';
 import 'package:review_flow/screens/whatsapp_number_sheet.dart';
 import 'package:review_flow/screens/whatsapp_screen.dart';
 import 'package:review_flow/screens/whatsapp_shell.dart';
@@ -78,7 +79,8 @@ final _template = WaTemplate.fromJson({
 
 final Map<String, Widget Function()> _cases = {
   'WhatsAppScreen (home)': () => const WhatsAppScreen(),
-  'WhatsAppShell (Home + Inbox tabs)': () => const WhatsAppShell(),
+  'WhatsAppShell (all tabs)': () => const WhatsAppShell(),
+  'WhatsAppMoreScreen': () => WhatsAppMoreScreen(onOpenHome: () {}),
   'WhatsAppInboxScreen': () => const WhatsAppInboxScreen(),
   'WhatsAppInboxScreen (embedded)': () =>
       const WhatsAppInboxScreen(embedded: true),

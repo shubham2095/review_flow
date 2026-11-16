@@ -11,11 +11,8 @@ import '../widgets/fade_in.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
-import 'whatsapp_analytics_screen.dart';
-import 'whatsapp_bots_screen.dart';
 import 'whatsapp_connect_sheet.dart';
 import 'whatsapp_inbox_screen.dart';
-import 'whatsapp_templates_screen.dart';
 import 'whatsapp_number_sheet.dart';
 
 /// WhatsApp home: connected numbers and today's numbers. Later phases add the
@@ -85,18 +82,6 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     _snack(message);
     _load();
   }
-
-  Future<void> _openTemplates() => Navigator.of(context).push<void>(
-    MaterialPageRoute(builder: (_) => const WhatsAppTemplatesScreen()),
-  );
-
-  Future<void> _openBots() => Navigator.of(
-    context,
-  ).push<void>(MaterialPageRoute(builder: (_) => const WhatsAppBotsScreen()));
-
-  Future<void> _openAnalytics() => Navigator.of(context).push<void>(
-    MaterialPageRoute(builder: (_) => const WhatsAppAnalyticsScreen()),
-  );
 
   Future<void> _openInbox() async {
     final switchTab = widget.onOpenInbox;
@@ -267,24 +252,6 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
         text: 'Read your customer chats',
         badge: d.conversations.unread,
         onTap: _openInbox,
-      ),
-      _LinkTile(
-        icon: Icons.description_rounded,
-        title: 'Templates',
-        text: 'Message templates and their approval status',
-        onTap: _openTemplates,
-      ),
-      _LinkTile(
-        icon: Icons.smart_toy_rounded,
-        title: 'Chatbots and automations',
-        text: 'Auto replies and follow-ups',
-        onTap: _openBots,
-      ),
-      _LinkTile(
-        icon: Icons.insights_rounded,
-        title: 'Analytics',
-        text: 'Message funnel and campaign results',
-        onTap: _openAnalytics,
       ),
     ];
   }

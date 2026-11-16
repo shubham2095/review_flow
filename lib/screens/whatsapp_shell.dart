@@ -8,11 +8,12 @@ import '../widgets/wa_tab_scope.dart';
 import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
+import 'whatsapp_more_screen.dart';
 import 'whatsapp_screen.dart';
 
 /// The WhatsApp area with a bottom bar: Home, Inbox (with the unread count),
-/// Contacts and Campaigns. The rest (Templates, Chatbots, Analytics) is reached
-/// from the tiles on Home until the More tab is added.
+/// Contacts, Campaigns and More (Templates, Chatbots and automations,
+/// Analytics, Numbers, Blocked numbers).
 class WhatsAppShell extends StatefulWidget {
   const WhatsAppShell({super.key});
 
@@ -26,7 +27,8 @@ class WhatsAppShellState extends State<WhatsAppShell>
   static const _inboxTab = 1;
   static const _contactsTab = 2;
   static const _campaignsTab = 3;
-  static const _tabCount = 4;
+  static const _moreTab = 4;
+  static const _tabCount = 5;
 
   int _index = _homeTab;
 
@@ -113,6 +115,8 @@ class WhatsAppShellState extends State<WhatsAppShell>
         return const WhatsAppContactsScreen(embedded: true);
       case _campaignsTab:
         return const WhatsAppCampaignsScreen(embedded: true);
+      case _moreTab:
+        return WhatsAppMoreScreen(onOpenHome: () => _select(_homeTab));
       default:
         return WhatsAppScreen(onOpenInbox: () => _select(_inboxTab));
     }
@@ -182,6 +186,12 @@ class WhatsAppShellState extends State<WhatsAppShell>
                   selectedIcon: Icon(Icons.campaign_rounded),
                   label: 'Campaigns',
                   tooltip: 'Campaigns',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.more_horiz_rounded),
+                  selectedIcon: Icon(Icons.more_horiz_rounded),
+                  label: 'More',
+                  tooltip: 'More',
                 ),
               ],
             ),
