@@ -9,8 +9,22 @@ import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/royal_backdrop.dart';
+import '../widgets/wa_ui.dart';
 import 'billing_screen.dart';
 import 'profile_screen.dart';
+
+/// "Good morning", "Good afternoon" or "Good evening" for an hour of the day.
+String hubGreeting(int hour) {
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/// What each product covers, as short words on its box.
+const hubHighlights = <Product, List<String>>{
+  Product.gbp: ['Reviews', 'Posts', 'Photos', 'Insights'],
+  Product.whatsapp: ['Chats', 'Contacts', 'Campaigns', 'Chatbots'],
+};
 
 /// The first screen after sign-in: one box per product. A box the plan
 /// includes opens that product; any other box explains that a plan with it is
@@ -113,7 +127,26 @@ class _ProductHubState extends State<ProductHub> with WidgetsBindingObserver {
     );
   }
 
+  /// Asks first, like the side drawer does: it is one tap away from the boxes.
   Future<void> _signOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text('Your session will end on this phone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
     await AuthService.logout();
     if (mounted) widget.onSignedOut();
   }
@@ -127,14 +160,7 @@ class _ProductHubState extends State<ProductHub> with WidgetsBindingObserver {
       return;
     }
     _lastBack = now;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Press back again to exit'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+    showToast(context, 'Press back again to exit');
   }
 
   @override
@@ -153,114 +179,183 @@ class _ProductHubState extends State<ProductHub> with WidgetsBindingObserver {
                 final name = user?.name.trim() ?? '';
                 final first = name.isEmpty ? '' : name.split(' ').first;
                 final hasPlan = user?.hasPlan ?? false;
+                final plan = user?.planName?.trim() ?? '';
+                final greeting = hubGreeting(DateTime.now().hour);
                 return RefreshIndicator(
                   color: brand,
                   onRefresh: _refresh,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-                    children: [
-                      FadeIn(
-                        child: Center(
-                          child: Container(
-                            width: 72,
-                            height: 72,
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: royalGold.withValues(alpha: 0.6),
-                                width: 1.2,
-                              ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.asset(
-                                'assets/images/eydia_logo.png',
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      FadeIn(
-                        delay: 60,
-                        child: Column(
-                          children: [
-                            Text(
-                              first.isEmpty ? 'Welcome to Eydia' : 'Welcome, $first',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              hasPlan
-                                  ? 'Choose where you want to work'
-                                  : 'Your workspace is not active yet',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 14,
-                                color: royalGold,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      for (var i = 0; i < Product.values.length; i++)
+                  child: ContentWidth(
+                    maxWidth: 560,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
+                      children: [
                         FadeIn(
-                          delay: 120 + i * 80,
-                          child: _ProductCard(
-                            product: Product.values[i],
-                            unlocked: Product.values[i].unlockedFor(user),
-                            hasPlan: hasPlan,
-                            onTap: () => _tap(Product.values[i]),
+                          child: Center(
+                            child: Container(
+                              width: 72,
+                              height: 72,
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: royalGold.withValues(alpha: 0.6),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.asset(
+                                  'assets/images/eydia_logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      const SizedBox(height: 10),
-                      FadeIn(
-                        delay: 320,
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 4,
-                          children: [
-                            _FooterButton(
-                              Icons.person_rounded,
-                              'My profile',
-                              () => _openPage(
-                                'My Profile',
-                                ProfileScreen(onSignedOut: widget.onSignedOut),
+                        const SizedBox(height: 18),
+                        FadeIn(
+                          delay: 60,
+                          child: Column(
+                            children: [
+                              Semantics(
+                                header: true,
+                                child: Text(
+                                  first.isEmpty
+                                      ? 'Welcome to Eydia'
+                                      : '$greeting, $first',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
-                            ),
-                            _FooterButton(
-                              Icons.workspace_premium_rounded,
-                              'Plan and credits',
-                              () => _openPage(
-                                'Plan and credits',
-                                const BillingScreen(),
+                              const SizedBox(height: 6),
+                              Text(
+                                hasPlan
+                                    ? 'Choose where you want to work'
+                                    : 'Your workspace is not active yet',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  color: royalGold,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                            _FooterButton(
-                              Icons.logout_rounded,
-                              'Sign out',
-                              _signOut,
-                            ),
-                          ],
+                              if (hasPlan && plan.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                _PlanPill(plan),
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        for (var i = 0; i < Product.values.length; i++)
+                          FadeIn(
+                            delay: 120 + i * 80,
+                            child: _ProductCard(
+                              product: Product.values[i],
+                              unlocked: Product.values[i].unlockedFor(user),
+                              hasPlan: hasPlan,
+                              onTap: () => _tap(Product.values[i]),
+                            ),
+                          ),
+                        const SizedBox(height: 6),
+                        FadeIn(
+                          delay: 320,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _FooterTile(
+                                  Icons.person_rounded,
+                                  'My profile',
+                                  () => _openPage(
+                                    'My Profile',
+                                    ProfileScreen(
+                                      onSignedOut: widget.onSignedOut,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _FooterTile(
+                                  Icons.workspace_premium_rounded,
+                                  'Plan and credits',
+                                  () => _openPage(
+                                    'Plan and credits',
+                                    const BillingScreen(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _FooterTile(
+                                  Icons.logout_rounded,
+                                  'Sign out',
+                                  _signOut,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The plan name on the dark background, so it is clear what the boxes
+/// below are unlocked by.
+class _PlanPill extends StatelessWidget {
+  const _PlanPill(this.plan);
+
+  final String plan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Your plan: $plan',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: royalGold.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.workspace_premium_rounded,
+              size: 14,
+              color: royalGold,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                plan,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -282,115 +377,119 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final highlights = hubHighlights[product] ?? const <String>[];
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Semantics(
         button: true,
         label: unlocked
-            ? 'Open ${product.title}'
-            : '${product.title}, not in your plan',
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          elevation: 0,
-          child: InkWell(
+            ? 'Open ${product.title}. ${product.subtitle}'
+            : '${product.title}, ${hasPlan ? 'not in your plan' : 'plan needed'}',
+        excludeSemantics: true,
+        // The white fill and the shadow sit on the outer box; the ripple is
+        // drawn on a transparent Material above it. (A shadow behind a box
+        // with no fill shows through it as grey.)
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(26),
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    blurRadius: 30,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: unlocked
-                          ? const LinearGradient(
-                              colors: [royalIndigo, royalViolet],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: unlocked ? null : muted.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(18),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(26),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(26),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: unlocked
+                            ? const LinearGradient(
+                                colors: [royalIndigo, royalViolet],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: unlocked ? null : muted.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        product.icon,
+                        size: 28,
+                        color: unlocked ? Colors.white : muted,
+                      ),
                     ),
-                    child: Icon(
-                      product.icon,
-                      size: 28,
-                      color: unlocked ? Colors.white : muted,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.title,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
-                            color: unlocked ? ink : const Color(0xFF4A5468),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          product.subtitle,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12.5,
-                            height: 1.35,
-                            color: muted,
-                          ),
-                        ),
-                        if (!unlocked) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product.title,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                              height: 1.2,
+                              color: unlocked ? ink : inkSoft,
                             ),
-                            decoration: BoxDecoration(
-                              color: warn.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(8),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            product.subtitle,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              height: 1.35,
+                              color: muted,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          ),
+                          if (highlights.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
                               children: [
-                                const Icon(Icons.lock_rounded, size: 12, color: warn),
-                                const SizedBox(width: 4),
-                                Text(
-                                  hasPlan ? 'Not in your plan' : 'Plan needed',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: warn,
-                                  ),
-                                ),
+                                for (final h in highlights)
+                                  InfoChip(h, color: unlocked ? brand : muted),
                               ],
                             ),
-                          ),
+                          ],
+                          if (!unlocked) ...[
+                            const SizedBox(height: 10),
+                            StatusBadge(
+                              hasPlan ? 'Not in your plan' : 'Plan needed',
+                              warn,
+                              icon: Icons.lock_rounded,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  Icon(
-                    unlocked
-                        ? Icons.arrow_forward_ios_rounded
-                        : Icons.lock_outline_rounded,
-                    size: unlocked ? 16 : 20,
-                    color: unlocked ? brand : muted,
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: Icon(
+                        unlocked
+                            ? Icons.arrow_forward_ios_rounded
+                            : Icons.lock_outline_rounded,
+                        size: unlocked ? 16 : 20,
+                        color: unlocked ? brand : muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -400,8 +499,9 @@ class _ProductCard extends StatelessWidget {
   }
 }
 
-class _FooterButton extends StatelessWidget {
-  const _FooterButton(this.icon, this.label, this.onTap);
+/// One of the three small actions under the boxes: an icon over a short label.
+class _FooterTile extends StatelessWidget {
+  const _FooterTile(this.icon, this.label, this.onTap);
 
   final IconData icon;
   final String label;
@@ -409,15 +509,41 @@ class _FooterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 16, color: Colors.white70),
-      label: Text(
-        label,
-        style: GoogleFonts.plusJakartaSans(
-          color: Colors.white70,
-          fontWeight: FontWeight.w700,
-          fontSize: 12.5,
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 76),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 22, color: Colors.white),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11.5,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

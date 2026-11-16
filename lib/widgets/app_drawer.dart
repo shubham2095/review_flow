@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../screens/pages.dart';
+import '../screens/wa_destinations.dart';
 import '../services/products.dart';
 import '../theme/brand.dart';
 import 'user_avatar.dart';
@@ -17,6 +19,9 @@ class AppDrawer extends StatelessWidget {
     required this.onLogout,
     required this.product,
     required this.onHub,
+    this.waCurrent,
+    this.waUnread,
+    this.onWhatsApp,
   });
 
   /// The product that is open: only its pages are listed.
@@ -29,6 +34,43 @@ class AppDrawer extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onLogout;
+
+  /// WhatsApp only: the open place and the unread count, and how to open a
+  /// place. Without them the WhatsApp section simply lists the places.
+  final ValueListenable<WaDestination>? waCurrent;
+  final ValueListenable<int>? waUnread;
+  final ValueChanged<WaDestination>? onWhatsApp;
+
+  /// The WhatsApp places, grouped like the GBP pages are.
+  List<Widget> _whatsAppItems() {
+    return [
+      for (final (title, places) in waDrawerGroups) ...[
+        _SectionLabel(title),
+        for (final d in places)
+          ValueListenableBuilder<WaDestination>(
+            valueListenable: waCurrent ?? ValueNotifier(WaDestination.home),
+            builder: (context, current, _) => ValueListenableBuilder<int>(
+              valueListenable: waUnread ?? ValueNotifier(0),
+              builder: (context, unread, _) => _NavItem(
+                icon: d.icon,
+                label: d.label,
+                subtitle: d.subtitle,
+                // Numbers shares the Home tab, so only Home is highlighted.
+                selected:
+                    selectedIndex == kPageWhatsApp &&
+                    current == d &&
+                    d != WaDestination.numbers,
+                badge: d == WaDestination.inbox ? unread : 0,
+                onTap: () {
+                  onSelect(kPageWhatsApp);
+                  onWhatsApp?.call(d);
+                },
+              ),
+            ),
+          ),
+      ],
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,16 +154,8 @@ class AppDrawer extends StatelessWidget {
             onTap: () => onSelect(kPageAutomation),
           ),
           ],
-          if (product == Product.whatsapp) ...[
-          _SectionLabel('WHATSAPP'),
-          _NavItem(
-            icon: Icons.chat_rounded,
-            label: 'WhatsApp',
-            subtitle: 'Numbers, chats and messages',
-            selected: selectedIndex == kPageWhatsApp,
-            onTap: () => onSelect(kPageWhatsApp),
-          ),
-          ],
+          if (product == Product.whatsapp)
+            ..._whatsAppItems(),
           _SectionLabel('ACCOUNT'),
           _NavItem(
             icon: Icons.workspace_premium_rounded,
@@ -303,8 +337,11 @@ class _NavItem extends StatelessWidget {
     this.subtitle,
     this.selected = false,
     this.danger = false,
+    this.badge = 0,
   });
 
+  /// A count shown at the end of the row (unread chats). Hidden at 0.
+  final int badge;
   final IconData icon;
   final String label;
   final String? subtitle;
@@ -370,7 +407,33 @@ class _NavItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (selected)
+                if (badge > 0)
+                  Semantics(
+                    label: '$badge unread',
+                    child: ExcludeSemantics(
+                      child: Container(
+                        constraints: const BoxConstraints(minWidth: 22),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: royalIndigo,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Text(
+                          badge > 99 ? '99+' : '$badge',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (selected)
                   Container(
                     width: 6,
                     height: 6,

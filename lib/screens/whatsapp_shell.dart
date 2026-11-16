@@ -6,17 +6,29 @@ import '../theme/brand.dart';
 import '../widgets/text_scale.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/wa_tab_scope.dart';
+import 'wa_destinations.dart';
+import 'whatsapp_analytics_screen.dart';
+import 'whatsapp_blacklist_screen.dart';
+import 'whatsapp_bots_screen.dart';
 import 'whatsapp_campaigns_screen.dart';
 import 'whatsapp_contacts_screen.dart';
 import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_more_screen.dart';
 import 'whatsapp_screen.dart';
+import 'whatsapp_templates_screen.dart';
 
 /// The WhatsApp area with a bottom bar: Home, Inbox (with the unread count),
 /// Contacts, Campaigns and More (Templates, Chatbots and automations,
 /// Analytics, Numbers, Blocked numbers).
 class WhatsAppShell extends StatefulWidget {
-  const WhatsAppShell({super.key});
+  const WhatsAppShell({super.key, this.current, this.unread});
+
+  /// Kept up to date with the open tab, so the side drawer and the top bar of
+  /// the home shell can show where the person is.
+  final ValueNotifier<WaDestination>? current;
+
+  /// Kept up to date with the unread chat count, for the drawer's Inbox row.
+  final ValueNotifier<int>? unread;
 
   @override
   State<WhatsAppShell> createState() => WhatsAppShellState();
@@ -85,7 +97,46 @@ class WhatsAppShellState extends State<WhatsAppShell>
       _index = i;
       _visited.add(i);
     });
+    widget.current?.value = _destinationOf(i);
     _refreshUnread();
+  }
+
+  static WaDestination _destinationOf(int tab) => switch (tab) {
+    _inboxTab => WaDestination.inbox,
+    _contactsTab => WaDestination.contacts,
+    _campaignsTab => WaDestination.campaigns,
+    _moreTab => WaDestination.more,
+    _ => WaDestination.home,
+  };
+
+  void _push(Widget page) {
+    Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => page));
+  }
+
+  /// Opens a place from the side drawer: a tab switches in place, the others
+  /// open full-screen with a back arrow, exactly as they do from the More tab.
+  void open(WaDestination d) {
+    switch (d) {
+      case WaDestination.home:
+      case WaDestination.numbers:
+        _select(_homeTab);
+      case WaDestination.inbox:
+        _select(_inboxTab);
+      case WaDestination.contacts:
+        _select(_contactsTab);
+      case WaDestination.campaigns:
+        _select(_campaignsTab);
+      case WaDestination.more:
+        _select(_moreTab);
+      case WaDestination.templates:
+        _push(const WhatsAppTemplatesScreen());
+      case WaDestination.bots:
+        _push(const WhatsAppBotsScreen());
+      case WaDestination.analytics:
+        _push(const WhatsAppAnalyticsScreen());
+      case WaDestination.blocked:
+        _push(const WhatsAppBlacklistScreen());
+    }
   }
 
   /// The unread count comes from the existing overview call (no new API). It is
@@ -106,6 +157,7 @@ class WhatsAppShellState extends State<WhatsAppShell>
       if (!mounted) return;
       _lastUnreadAt = DateTime.now();
       final unread = overview.conversations.unread;
+      widget.unread?.value = unread;
       if (unread != _unread) setState(() => _unread = unread);
     } catch (_) {
       // No access or no connection: the badge just stays as it was.

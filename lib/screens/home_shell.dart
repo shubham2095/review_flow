@@ -24,6 +24,7 @@ import 'posts_photos_screen.dart';
 import 'profile_screen.dart';
 import 'reviews_screen.dart';
 import '../models/whatsapp_models.dart';
+import 'wa_destinations.dart';
 import 'whatsapp_chat_screen.dart';
 import 'whatsapp_inbox_screen.dart';
 import 'whatsapp_shell.dart';
@@ -66,6 +67,7 @@ class _HomeShellState extends State<HomeShell> {
     LocationStore.refresh().catchError((_) {});
     ApiService.reconnected.addListener(_onReconnected);
     PushService.target.addListener(_onPush);
+    _waCurrent.addListener(_onWaPlace);
     // A notification that opened this product: go to its page.
     WidgetsBinding.instance.addPostFrameCallback((_) => _onPush());
   }
@@ -74,6 +76,10 @@ class _HomeShellState extends State<HomeShell> {
   void dispose() {
     ApiService.reconnected.removeListener(_onReconnected);
     PushService.target.removeListener(_onPush);
+    _waCurrent
+      ..removeListener(_onWaPlace)
+      ..dispose();
+    _waUnread.dispose();
     super.dispose();
   }
 
@@ -131,6 +137,15 @@ class _HomeShellState extends State<HomeShell> {
   final _dashboardKey = GlobalKey<DashboardScreenState>();
   final _whatsAppKey = GlobalKey<WhatsAppShellState>();
 
+  /// Where the person is inside WhatsApp, and the unread count: the drawer
+  /// highlights the place and the top bar names it.
+  final _waCurrent = ValueNotifier<WaDestination>(WaDestination.home);
+  final _waUnread = ValueNotifier<int>(0);
+
+  void _onWaPlace() {
+    if (mounted) setState(() {});
+  }
+
   void _select(int i) {
     setState(() {
       _index = i;
@@ -166,7 +181,11 @@ class _HomeShellState extends State<HomeShell> {
     () => const AutomationScreen(),
     () => const BillingScreen(),
     () => ProfileScreen(onSignedOut: widget.onSignedOut),
-    () => WhatsAppShell(key: _whatsAppKey),
+    () => WhatsAppShell(
+      key: _whatsAppKey,
+      current: _waCurrent,
+      unread: _waUnread,
+    ),
   ];
 
   static const _titles = [
@@ -227,7 +246,9 @@ class _HomeShellState extends State<HomeShell> {
           key: _scaffoldKey,
           backgroundColor: surface,
           appBar: AppTopBar(
-            title: _titles[_index],
+            title: _index == kPageWhatsApp
+                ? _waCurrent.value.title
+                : _titles[_index],
             initial: initial,
             onAvatarTap: () => _scaffoldKey.currentState?.openDrawer(),
           ),
@@ -239,6 +260,20 @@ class _HomeShellState extends State<HomeShell> {
             onLogout: _confirmLogout,
             product: widget.product,
             onHub: widget.onHub,
+            waCurrent: _waCurrent,
+            waUnread: _waUnread,
+            onWhatsApp: (d) {
+              // The shell exists once WhatsApp has been shown; right after
+              // switching to it, wait one frame for it to be built.
+              final state = _whatsAppKey.currentState;
+              if (state != null) {
+                state.open(d);
+              } else {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _whatsAppKey.currentState?.open(d),
+                );
+              }
+            },
           ),
           body: Column(
             children: [
