@@ -14,6 +14,7 @@ import '../widgets/offline_banner.dart';
 import '../widgets/pressable.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/wa_tab_scope.dart';
 import 'whatsapp_chat_screen.dart';
 
 /// "Today 3:05 PM", "Yesterday", "12 Nov": the short time shown in lists.
@@ -37,7 +38,18 @@ String shortWhen(DateTime? d) {
 /// Conversation list: search, "open only" filter, unread and hot badges, and
 /// whether the 24-hour reply window is open. Refreshes itself while visible.
 class WhatsAppInboxScreen extends StatefulWidget {
-  const WhatsAppInboxScreen({super.key});
+  const WhatsAppInboxScreen({
+    super.key,
+    this.embedded = false,
+    this.onUnreadMayHaveChanged,
+  });
+
+  /// Inside the WhatsApp tabs: no AppBar of its own (the shell has the top
+  /// bar) and no second offline banner.
+  final bool embedded;
+
+  /// Called after a chat is closed, so the shell can refresh its unread badge.
+  final VoidCallback? onUnreadMayHaveChanged;
 
   @override
   State<WhatsAppInboxScreen> createState() => _WhatsAppInboxScreenState();
@@ -57,8 +69,21 @@ class _WhatsAppInboxScreenState extends State<WhatsAppInboxScreen>
   bool _loadingMore = false;
   bool _openOnly = false;
   bool _foreground = true;
+
+  /// False while this screen is a tab the person has switched away from: it
+  /// then does not poll, and catches up when the tab is shown again.
+  bool _active = true;
   Object? _error;
   int _generation = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nowActive = WaTabScope.isActive(context);
+    final becameVisible = nowActive && !_active;
+    _active = nowActive;
+    if (becameVisible) _silentRefresh();
+  }
 
   @override
   void initState() {
@@ -122,7 +147,9 @@ class _WhatsAppInboxScreenState extends State<WhatsAppInboxScreen>
   /// Keeps the first page fresh without a spinner or a scroll jump. Pages the
   /// person already scrolled to are left alone.
   Future<void> _silentRefresh() async {
-    if (!mounted || !_foreground || _loading || _loadingMore) return;
+    if (!mounted || !_active || !_foreground || _loading || _loadingMore) {
+      return;
+    }
     final gen = _generation;
     try {
       final res = await _fetch(1);
@@ -179,6 +206,7 @@ class _WhatsAppInboxScreenState extends State<WhatsAppInboxScreen>
     if (mounted) {
       setState(() {});
       _silentRefresh();
+      widget.onUnreadMayHaveChanged?.call();
     }
   }
 
@@ -256,21 +284,23 @@ class _WhatsAppInboxScreenState extends State<WhatsAppInboxScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: surface,
-      appBar: AppBar(
-        title: Text(
-          'Inbox',
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w800,
-            color: ink,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: ink,
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: Text(
+                'Inbox',
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
+              ),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: ink,
+            ),
       body: Column(
         children: [
-          const OfflineBanner(),
+          if (!widget.embedded) const OfflineBanner(),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(

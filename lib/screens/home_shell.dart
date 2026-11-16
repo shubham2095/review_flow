@@ -26,7 +26,7 @@ import 'reviews_screen.dart';
 import '../models/whatsapp_models.dart';
 import 'whatsapp_chat_screen.dart';
 import 'whatsapp_inbox_screen.dart';
-import 'whatsapp_screen.dart';
+import 'whatsapp_shell.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({
@@ -129,6 +129,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   final _dashboardKey = GlobalKey<DashboardScreenState>();
+  final _whatsAppKey = GlobalKey<WhatsAppShellState>();
 
   void _select(int i) {
     setState(() {
@@ -143,6 +144,11 @@ class _HomeShellState extends State<HomeShell> {
   /// to the product boxes. (Sheets, dialogs and the drawer close first, they are
   /// handled before this runs.)
   void _onBack() {
+    // In WhatsApp, Back first goes from another tab (Inbox) to its Home tab.
+    if (_index == kPageWhatsApp &&
+        (_whatsAppKey.currentState?.goBackWithinShell() ?? false)) {
+      return;
+    }
     if (_index != _start) {
       _select(_start);
       return;
@@ -160,7 +166,7 @@ class _HomeShellState extends State<HomeShell> {
     () => const AutomationScreen(),
     () => const BillingScreen(),
     () => ProfileScreen(onSignedOut: widget.onSignedOut),
-    () => const WhatsAppScreen(),
+    () => WhatsAppShell(key: _whatsAppKey),
   ];
 
   static const _titles = [

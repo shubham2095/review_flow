@@ -23,7 +23,11 @@ import 'whatsapp_number_sheet.dart';
 /// WhatsApp home: connected numbers and today's numbers. Later phases add the
 /// inbox, contacts, templates and campaigns beneath this summary.
 class WhatsAppScreen extends StatefulWidget {
-  const WhatsAppScreen({super.key});
+  const WhatsAppScreen({super.key, this.onOpenInbox});
+
+  /// Inside the WhatsApp tabs: the Inbox tile switches to the Inbox tab instead
+  /// of opening a second Inbox on top. Null: it opens full-screen as before.
+  final VoidCallback? onOpenInbox;
 
   @override
   State<WhatsAppScreen> createState() => _WhatsAppScreenState();
@@ -105,6 +109,11 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
   );
 
   Future<void> _openInbox() async {
+    final switchTab = widget.onOpenInbox;
+    if (switchTab != null) {
+      switchTab();
+      return;
+    }
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => const WhatsAppInboxScreen()),
     );
