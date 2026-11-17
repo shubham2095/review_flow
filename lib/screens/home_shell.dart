@@ -48,6 +48,10 @@ class HomeShell extends StatefulWidget {
   /// Back to the product boxes.
   final VoidCallback onHub;
 
+  /// The top bar title of every page, by page index. Public for the test that
+  /// checks it stays in step with the page constants.
+  static List<String> get pageTitles => _HomeShellState._titles;
+
   @override
   State<HomeShell> createState() => _HomeShellState();
 }
