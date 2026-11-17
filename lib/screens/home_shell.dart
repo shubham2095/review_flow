@@ -22,6 +22,7 @@ import 'insights_screen.dart';
 import 'pages.dart';
 import 'posts_photos_screen.dart';
 import 'profile_screen.dart';
+import 'team_screen.dart';
 import 'reviews_screen.dart';
 import '../models/whatsapp_models.dart';
 import 'wa_destinations.dart';
@@ -186,6 +187,7 @@ class _HomeShellState extends State<HomeShell> {
       current: _waCurrent,
       unread: _waUnread,
     ),
+    () => const TeamScreen(),
   ];
 
   static const _titles = [
@@ -199,6 +201,7 @@ class _HomeShellState extends State<HomeShell> {
     'Plans & billing',
     'My Profile',
     'WhatsApp',
+    'Team',
   ];
 
   Future<void> _confirmLogout() async {

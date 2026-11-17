@@ -166,6 +166,14 @@ class AppDrawer extends StatelessWidget {
           if (product == Product.whatsapp)
             ..._whatsAppItems(),
           _SectionLabel('ACCOUNT'),
+          if (navAllowed(_user, NavRules.team))
+            _NavItem(
+              icon: Icons.groups_rounded,
+              label: 'Team',
+              subtitle: 'Agents and what they can use',
+              selected: selectedIndex == kPageTeam,
+              onTap: () => onSelect(kPageTeam),
+            ),
           if (navAllowed(_user, NavRules.billing))
             _NavItem(
               icon: Icons.workspace_premium_rounded,

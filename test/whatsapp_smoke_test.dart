@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:review_flow/models/agents_models.dart';
+import 'package:review_flow/models/team_models.dart';
 import 'package:review_flow/models/whatsapp_models.dart';
+import 'package:review_flow/screens/team_member_sheet.dart';
+import 'package:review_flow/screens/team_screen.dart';
 import 'package:review_flow/screens/agents_screen.dart';
 import 'package:review_flow/screens/assign_agent_sheet.dart';
 import 'package:review_flow/screens/whatsapp_analytics_screen.dart';
@@ -118,6 +121,18 @@ final Map<String, Widget Function()> _cases = {
   'WhatsAppContactInfoSheet': () =>
       WhatsAppContactInfoSheet(conversation: _conversation),
   'WhatsAppTemplatePicker': () => const WhatsAppTemplatePicker(),
+  'TeamScreen': () => const TeamScreen(),
+  'TeamMemberSheet (new)': () =>
+      const TeamMemberSheet(features: _teamFeatures),
+  'TeamMemberSheet (edit)': () => const TeamMemberSheet(
+    features: _teamFeatures,
+    member: TeamMember(
+      id: 'u1',
+      name: 'Asha Rao',
+      email: 'asha@example.com',
+      features: ['inbox'],
+    ),
+  ),
   'AgentsScreen': () => const AgentsScreen(),
   'AgentDetailScreen': () => const AgentDetailScreen(
     agent: WaAgent(id: 'a1', name: 'Asha Rao', email: 'asha@example.com'),
@@ -125,6 +140,11 @@ final Map<String, Widget Function()> _cases = {
   'AssignAgentSheet': () =>
       const AssignAgentSheet(conversationId: 'c1', currentAgent: 'Asha Rao'),
 };
+
+const _teamFeatures = [
+  TeamFeature(key: 'inbox', label: 'Inbox (chats)'),
+  TeamFeature(key: 'contacts', label: 'Contacts'),
+];
 
 void main() {
   for (final entry in _cases.entries) {

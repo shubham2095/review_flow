@@ -9,6 +9,7 @@ const kPageAutomation = 6;
 const kPageBilling = 7;
 const kPageAccount = 8;
 const kPageWhatsApp = 9;
+const kPageTeam = 10;
 
 /// The page a suggested action is about, judged from the module and button the
 /// server named. Null when nothing fits (the action then does not navigate).

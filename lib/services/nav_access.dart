@@ -44,4 +44,7 @@ class NavRules {
 
   /// "Plans & billing" in the account section.
   static const billing = NavRule(perm: 'billing.view');
+
+  /// "Team": who can sign in and what they can use.
+  static const team = NavRule(perm: 'team.view');
 }
