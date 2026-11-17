@@ -13,6 +13,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/offline_banner.dart';
+import 'ai_studio_screen.dart';
 import 'ai_tools_screen.dart';
 import 'automation_screen.dart';
 import 'billing_screen.dart';
@@ -190,6 +191,7 @@ class _HomeShellState extends State<HomeShell> {
     ),
     () => const TeamScreen(),
     () => const SeoScreen(),
+    () => const AiStudioScreen(),
   ];
 
   static const _titles = [
@@ -205,6 +207,7 @@ class _HomeShellState extends State<HomeShell> {
     'WhatsApp',
     'Team',
     'SEO',
+    'AI Studio',
   ];
 
   Future<void> _confirmLogout() async {

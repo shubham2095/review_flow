@@ -170,6 +170,13 @@ class AppDrawer extends StatelessWidget {
               selected: selectedIndex == kPageSeo,
               onTap: () => onSelect(kPageSeo),
             ),
+          _NavItem(
+            icon: Icons.image_rounded,
+            label: 'AI Studio',
+            subtitle: 'Make images with AI',
+            selected: selectedIndex == kPageAiStudio,
+            onTap: () => onSelect(kPageAiStudio),
+          ),
           ],
           if (product == Product.whatsapp)
             ..._whatsAppItems(),

@@ -28,6 +28,9 @@ class OfflineCache {
   /// lets the app open offline (the server still enforces the plan).
   static bool _cacheable(String path) {
     if (path.startsWith('/admin')) return false;
+    // AI Studio answers carry every picture inside the JSON (megabytes):
+    // saving them would only fill the phone.
+    if (path.startsWith('/ai-media')) return false;
     if (path.startsWith('/auth') && !path.startsWith('/auth/me')) return false;
     return true;
   }

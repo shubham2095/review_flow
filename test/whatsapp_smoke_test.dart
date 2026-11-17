@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:review_flow/models/agents_models.dart';
+import 'package:review_flow/models/ai_media_models.dart';
 import 'package:review_flow/models/seo_models.dart';
+import 'package:review_flow/screens/ai_studio_screen.dart';
 import 'package:review_flow/models/team_models.dart';
 import 'package:review_flow/screens/seo_screen.dart';
 import 'package:review_flow/screens/seo_sheets.dart';
@@ -124,6 +126,18 @@ final Map<String, Widget Function()> _cases = {
   'WhatsAppContactInfoSheet': () =>
       WhatsAppContactInfoSheet(conversation: _conversation),
   'WhatsAppTemplatePicker': () => const WhatsAppTemplatePicker(),
+  'AiStudioScreen': () => const AiStudioScreen(),
+  'AiMediaViewer (picture)': () => const AiMediaViewer(
+    media: AiMedia(
+      id: 'm1',
+      prompt: 'A festive Diwali offer banner',
+      imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      source: 'ai',
+    ),
+  ),
+  'AiMediaViewer (no picture)': () => const AiMediaViewer(
+    media: AiMedia(id: 'm2', prompt: 'A banner', source: 'fallback'),
+  ),
   'SeoScreen': () => const SeoScreen(),
   'SeoKeywordSheet': () => const SeoKeywordSheet(
     places: [SeoPlace(id: 'l1', name: 'Main shop'), SeoPlace(id: 'l2', name: 'Second shop')],
