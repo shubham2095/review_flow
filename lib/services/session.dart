@@ -20,12 +20,16 @@ class AppUser {
     this.subscriptionStatus,
     this.planFeatures,
     this.periodEnd,
+    this.permissions,
+    this.roles = const [],
   });
 
   factory AppUser.fromJson(Map<String, dynamic> j) {
     final sub = j['subscription'];
     final tenant = j['tenant'];
     final features = j['plan_features'];
+    final perms = j['permissions'];
+    final roles = j['roles'];
     return AppUser(
       id: (j['id'] ?? '').toString(),
       name: (j['name'] ?? '').toString(),
@@ -44,6 +48,10 @@ class AppUser {
       planFeatures: features is List
           ? features.map((e) => e.toString()).toList()
           : null,
+      permissions: perms is List
+          ? perms.map((e) => e.toString()).toList()
+          : null,
+      roles: roles is List ? roles.map((e) => e.toString()).toList() : const [],
     );
   }
 
@@ -60,6 +68,14 @@ class AppUser {
   final String? subscriptionStatus;
   final List<String>? planFeatures;
   final String? periodEnd;
+
+  /// What this person may do inside their business, as the server lists it
+  /// (for example `conversations.view`). Null when the server did not send the
+  /// list: the app then hides nothing and the server decides.
+  final List<String>? permissions;
+
+  /// Role names such as `owner`, `admin` or `agent`.
+  final List<String> roles;
 
   /// Mirrors the backend rule: only an active or trialing subscription unlocks
   /// the workspace. Super admins are never gated.

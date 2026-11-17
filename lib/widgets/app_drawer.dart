@@ -5,7 +5,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../screens/pages.dart';
 import '../screens/wa_destinations.dart';
+import '../services/nav_access.dart';
 import '../services/products.dart';
+import '../services/session.dart';
 import '../theme/brand.dart';
 import 'user_avatar.dart';
 
@@ -22,7 +24,13 @@ class AppDrawer extends StatelessWidget {
     this.waCurrent,
     this.waUnread,
     this.onWhatsApp,
+    this.user,
   });
+
+  /// Whose menu this is. Defaults to the signed-in person; tests pass one.
+  final AppUser? user;
+
+  AppUser? get _user => user ?? Session.current;
 
   /// The product that is open: only its pages are listed.
   final Product product;
@@ -44,9 +52,10 @@ class AppDrawer extends StatelessWidget {
   /// The WhatsApp places, grouped like the GBP pages are.
   List<Widget> _whatsAppItems() {
     return [
-      for (final (title, places) in waDrawerGroups) ...[
+      for (final (title, all) in waDrawerGroups)
+        if (all.any((d) => d.allows(_user))) ...[
         _SectionLabel(title),
-        for (final d in places)
+        for (final d in all.where((d) => d.allows(_user)))
           ValueListenableBuilder<WaDestination>(
             valueListenable: waCurrent ?? ValueNotifier(WaDestination.home),
             builder: (context, current, _) => ValueListenableBuilder<int>(
@@ -157,13 +166,14 @@ class AppDrawer extends StatelessWidget {
           if (product == Product.whatsapp)
             ..._whatsAppItems(),
           _SectionLabel('ACCOUNT'),
-          _NavItem(
-            icon: Icons.workspace_premium_rounded,
-            label: 'Plans & billing',
-            subtitle: 'Your plan, credits and payments',
-            selected: selectedIndex == kPageBilling,
-            onTap: () => onSelect(kPageBilling),
-          ),
+          if (navAllowed(_user, NavRules.billing))
+            _NavItem(
+              icon: Icons.workspace_premium_rounded,
+              label: 'Plans & billing',
+              subtitle: 'Your plan, credits and payments',
+              selected: selectedIndex == kPageBilling,
+              onTap: () => onSelect(kPageBilling),
+            ),
           _NavItem(
             icon: Icons.person_rounded,
             label: 'My Profile',

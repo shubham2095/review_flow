@@ -5,6 +5,7 @@ import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/pressable.dart';
 import '../widgets/wa_ui.dart';
+import 'wa_destinations.dart';
 import 'whatsapp_analytics_screen.dart';
 import 'whatsapp_blacklist_screen.dart';
 import 'whatsapp_bots_screen.dart';
@@ -19,67 +20,76 @@ class WhatsAppMoreScreen extends StatelessWidget {
   final VoidCallback onOpenHome;
 
   void _open(BuildContext context, Widget page) {
-    Navigator.of(
-      context,
-    ).push<void>(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => page));
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    // Only what this person may use: the same rules as the side drawer.
+    final rows = <(String, WaDestination, VoidCallback)>[
+      (
+        'Messaging',
+        WaDestination.templates,
+        () => _open(context, const WhatsAppTemplatesScreen()),
+      ),
+      (
+        'Messaging',
+        WaDestination.bots,
+        () => _open(context, const WhatsAppBotsScreen()),
+      ),
+      (
+        'Results',
+        WaDestination.analytics,
+        () => _open(context, const WhatsAppAnalyticsScreen()),
+      ),
+      ('Setup', WaDestination.numbers, onOpenHome),
+      (
+        'Setup',
+        WaDestination.blocked,
+        () => _open(context, const WhatsAppBlacklistScreen()),
+      ),
+    ].where((r) => r.$2.allows()).toList();
+
+    final children = <Widget>[];
+    String? section;
+    for (var i = 0; i < rows.length; i++) {
+      final (title, place, onTap) = rows[i];
+      if (title != section) {
+        section = title;
+        children.add(SectionTitle(title));
+      }
+      children.add(
+        FadeIn(
+          delay: i * 40,
+          child: _MoreRow(
+            icon: place.icon,
+            title: place.label,
+            text: place.subtitle,
+            onTap: onTap,
+          ),
+        ),
+      );
+    }
+    if (rows.isEmpty) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Nothing else is available for your account.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(color: muted),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: surface,
       body: ContentWidth(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          children: [
-            const SectionTitle('Messaging'),
-            FadeIn(
-              child: _MoreRow(
-                icon: Icons.description_rounded,
-                title: 'Templates',
-                text: 'Message templates and their approval status',
-                onTap: () => _open(context, const WhatsAppTemplatesScreen()),
-              ),
-            ),
-            FadeIn(
-              delay: 40,
-              child: _MoreRow(
-                icon: Icons.smart_toy_rounded,
-                title: 'Chatbots and automations',
-                text: 'Auto replies and follow-ups',
-                onTap: () => _open(context, const WhatsAppBotsScreen()),
-              ),
-            ),
-            const SectionTitle('Results'),
-            FadeIn(
-              delay: 80,
-              child: _MoreRow(
-                icon: Icons.insights_rounded,
-                title: 'Analytics',
-                text: 'Message funnel and campaign results',
-                onTap: () => _open(context, const WhatsAppAnalyticsScreen()),
-              ),
-            ),
-            const SectionTitle('Setup'),
-            FadeIn(
-              delay: 120,
-              child: _MoreRow(
-                icon: Icons.phone_android_rounded,
-                title: 'Numbers',
-                text: 'Connect, refresh and manage your WhatsApp numbers',
-                onTap: onOpenHome,
-              ),
-            ),
-            FadeIn(
-              delay: 160,
-              child: _MoreRow(
-                icon: Icons.block_rounded,
-                title: 'Blocked numbers',
-                text: 'Numbers that never get your messages',
-                onTap: () => _open(context, const WhatsAppBlacklistScreen()),
-              ),
-            ),
-          ],
+          children: children,
         ),
       ),
     );

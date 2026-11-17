@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:review_flow/screens/product_hub.dart';
 import 'package:review_flow/screens/wa_destinations.dart';
 import 'package:review_flow/services/products.dart';
+import 'package:review_flow/services/session.dart';
 import 'package:review_flow/widgets/app_drawer.dart';
 
 import 'test_helpers.dart';
@@ -82,6 +83,8 @@ void main() {
               waCurrent: current,
               waUnread: unread,
               onWhatsApp: onWhatsApp,
+              // A person whose server sent no permission list: nothing is hidden.
+              user: AppUser(id: '1', name: 'Jay', email: 'jay@example.com'),
             ),
             body: const SizedBox(),
           ),
