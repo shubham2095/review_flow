@@ -380,7 +380,7 @@ class WaTemplate {
   /// The body fields in order: [1, 2, ...] for {{1}}, {{2}}.
   List<int> get bodyVariables =>
       (RegExp(
-          r'{{s*(d+)s*}}',
+          r'\{\{\s*(\d+)\s*\}\}',
         ).allMatches(body).map((m) => int.parse(m.group(1)!)).toSet().toList()
         ..sort());
 

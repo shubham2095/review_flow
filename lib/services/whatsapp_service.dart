@@ -468,7 +468,7 @@ class WhatsAppService {
   // ---- Bulk send ----
 
   static Future<WaBulkPage> bulkSends({int page = 1}) async {
-    final res = await _api.get('/bulk-sends?page=$page&per_page=20');
+    final res = await _api.get('/whatsapp/bulk-sends?page=$page&per_page=20');
     final meta = asMap(res['meta']);
     final cur = asInt(meta['current_page']);
     final last = asInt(meta['last_page']);
@@ -480,7 +480,7 @@ class WhatsAppService {
   }
 
   static Future<WaBulkSend> bulkSend(String id) async => WaBulkSend.fromJson(
-    asMap((await _api.get('/bulk-sends/$id'))['bulk_send']),
+    asMap((await _api.get('/whatsapp/bulk-sends/$id'))['bulk_send']),
   );
 
   /// Uploads a header image, video or PDF (16 MB at most). Returns a media id.
@@ -489,7 +489,7 @@ class WhatsAppService {
     String filename,
   ) async {
     final res = await _api.upload(
-      '/bulk-send/upload-header',
+      '/whatsapp/bulk-send/upload-header',
       field: 'file',
       bytes: bytes,
       filename: filename,
@@ -507,7 +507,7 @@ class WhatsAppService {
     String headerMediaUrl = '',
   }) async {
     final res = await _api.post(
-      '/bulk-send',
+      '/whatsapp/bulk-send',
       body: {
         'numbers': numbers,
         'template': template.name,
@@ -522,7 +522,7 @@ class WhatsAppService {
   }
 
   static Future<WaBulkSend> retryBulk(String id) async => WaBulkSend.fromJson(
-    asMap((await _api.post('/bulk-sends/$id/retry'))['bulk_send']),
+    asMap((await _api.post('/whatsapp/bulk-sends/$id/retry'))['bulk_send']),
   );
 
   // ---- Chatbots ----

@@ -255,7 +255,13 @@ class _WhatsAppTemplatesScreenState extends State<WhatsAppTemplatesScreen> {
                   title: filtering ? 'No templates found' : 'No templates yet',
                   text: filtering
                       ? 'Try a different search or filter.'
-                      : 'Create a template, or tap the sync button to pull in the ones you already have on Meta.',
+                      : 'Create a template, or sync to pull in the ones you already have on Meta.',
+                  // Right where the person is looking: the sync button in the
+                  // top bar is easy to miss.
+                  actionLabel: filtering
+                      ? null
+                      : (_syncing ? 'Syncing…' : 'Sync from Meta'),
+                  onAction: filtering || _syncing ? null : _sync,
                 ),
               ],
             )

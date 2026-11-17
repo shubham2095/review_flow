@@ -472,11 +472,13 @@ class _WhatsAppBulkCreateScreenState extends State<WhatsAppBulkCreateScreen> {
                       ),
                     ),
                     if (t != null && t.bodyVariables.isNotEmpty) ...[
-                      _label('Fill in the fields'),
+                      _label('Template variables'),
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8, left: 4),
                         child: Text(
-                          'Everyone gets the same values.',
+                          'This template has ${t.bodyVariables.length} '
+                          '${t.bodyVariables.length == 1 ? 'variable' : 'variables'}. '
+                          'The same values are sent to every number.',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11.5,
                             color: muted,
