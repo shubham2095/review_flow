@@ -10,6 +10,7 @@ import 'admin_companies_screen.dart';
 import 'admin_packs_screen.dart';
 import 'admin_payments_screen.dart';
 import 'admin_plans_screen.dart';
+import 'admin_pricing_screen.dart';
 import 'admin_settings_screen.dart';
 import 'admin_support_screen.dart';
 
@@ -31,6 +32,11 @@ class _AdminShellState extends State<AdminShell> {
   static const _items = [
     ('Companies', 'Tenants, plans, credits and users', Icons.business_rounded),
     ('Plans', 'Pricing, limits and features', Icons.workspace_premium_rounded),
+    (
+      'Pricing & coupons',
+      'Discount codes, cycle discounts and launch offer',
+      Icons.local_offer_rounded,
+    ),
     ('Credit packs', 'AI credit packs for sale', Icons.bolt_rounded),
     ('Payments', 'Every plan invoice', Icons.payments_rounded),
     ('Support', 'Tickets from all companies', Icons.support_agent_rounded),
@@ -100,10 +106,12 @@ class _AdminShellState extends State<AdminShell> {
       case 1:
         return const AdminPlansScreen();
       case 2:
-        return const AdminPacksScreen();
+        return const AdminPricingScreen();
       case 3:
-        return const AdminPaymentsScreen();
+        return const AdminPacksScreen();
       case 4:
+        return const AdminPaymentsScreen();
+      case 5:
         return const AdminSupportScreen();
       default:
         return const AdminSettingsScreen();

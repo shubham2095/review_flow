@@ -1,5 +1,6 @@
 import '../models/account_models.dart';
 import '../models/admin_models.dart';
+import '../models/admin_pricing_models.dart';
 import '../models/gbp_models.dart';
 import 'api_service.dart';
 
@@ -99,6 +100,36 @@ class AdminService {
   }
 
   // ---- Credit packs ----
+
+  // ---- Coupons and pricing offers ----
+
+  static Future<List<AdminCoupon>> coupons() async {
+    final res = await _api.get('/admin/coupons');
+    return asMaps(res['coupons']).map(AdminCoupon.fromJson).toList();
+  }
+
+  /// Creates a coupon, or saves one when [id] is given.
+  static Future<void> saveCoupon(String? id, Map<String, dynamic> body) async {
+    if (id == null) {
+      await _api.post('/admin/coupons', body: body);
+    } else {
+      await _api.put('/admin/coupons/$id', body: body);
+    }
+  }
+
+  static Future<void> deleteCoupon(String id) async {
+    await _api.delete('/admin/coupons/$id');
+  }
+
+  static Future<BillingSettings> billingSettings() async => BillingSettings.fromJson(
+    asMap((await _api.get('/admin/billing-settings'))['settings']),
+  );
+
+  static Future<BillingSettings> saveBillingSettings(
+    Map<String, dynamic> body,
+  ) async => BillingSettings.fromJson(
+    asMap((await _api.put('/admin/billing-settings', body: body))['settings']),
+  );
 
   static Future<List<AdminCreditPack>> packs() async {
     final res = await _api.get('/admin/credit-packs');
