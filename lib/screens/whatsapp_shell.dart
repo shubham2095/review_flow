@@ -6,6 +6,7 @@ import '../theme/brand.dart';
 import '../widgets/text_scale.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/wa_tab_scope.dart';
+import 'agents_screen.dart';
 import 'wa_destinations.dart';
 import 'whatsapp_analytics_screen.dart';
 import 'whatsapp_blacklist_screen.dart';
@@ -132,6 +133,8 @@ class WhatsAppShellState extends State<WhatsAppShell>
         _push(const WhatsAppTemplatesScreen());
       case WaDestination.bots:
         _push(const WhatsAppBotsScreen());
+      case WaDestination.agents:
+        _push(const AgentsScreen());
       case WaDestination.analytics:
         _push(const WhatsAppAnalyticsScreen());
       case WaDestination.blocked:

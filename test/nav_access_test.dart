@@ -119,6 +119,7 @@ void main() {
           'workflows.view',
           'analytics.view',
           'whatsapp.view',
+          'agents.view',
         ],
         features: ['chatbot', 'automations', 'reports'],
       );

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:review_flow/models/agents_models.dart';
 import 'package:review_flow/models/whatsapp_models.dart';
+import 'package:review_flow/screens/agents_screen.dart';
+import 'package:review_flow/screens/assign_agent_sheet.dart';
 import 'package:review_flow/screens/whatsapp_analytics_screen.dart';
 import 'package:review_flow/screens/whatsapp_blacklist_screen.dart';
 import 'package:review_flow/screens/whatsapp_bots_screen.dart';
@@ -115,6 +118,12 @@ final Map<String, Widget Function()> _cases = {
   'WhatsAppContactInfoSheet': () =>
       WhatsAppContactInfoSheet(conversation: _conversation),
   'WhatsAppTemplatePicker': () => const WhatsAppTemplatePicker(),
+  'AgentsScreen': () => const AgentsScreen(),
+  'AgentDetailScreen': () => const AgentDetailScreen(
+    agent: WaAgent(id: 'a1', name: 'Asha Rao', email: 'asha@example.com'),
+  ),
+  'AssignAgentSheet': () =>
+      const AssignAgentSheet(conversationId: 'c1', currentAgent: 'Asha Rao'),
 };
 
 void main() {

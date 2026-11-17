@@ -5,6 +5,7 @@ import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/pressable.dart';
 import '../widgets/wa_ui.dart';
+import 'agents_screen.dart';
 import 'wa_destinations.dart';
 import 'whatsapp_analytics_screen.dart';
 import 'whatsapp_blacklist_screen.dart';
@@ -37,6 +38,11 @@ class WhatsAppMoreScreen extends StatelessWidget {
         'Messaging',
         WaDestination.bots,
         () => _open(context, const WhatsAppBotsScreen()),
+      ),
+      (
+        'People',
+        WaDestination.agents,
+        () => _open(context, const AgentsScreen()),
       ),
       (
         'Results',

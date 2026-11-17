@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/agents_models.dart';
 import '../models/whatsapp_models.dart';
 import '../theme/brand.dart';
 import '../widgets/date_format.dart';
 import '../widgets/wa_ui.dart';
+import 'assign_agent_sheet.dart';
 
 /// Read-only card for the person in a chat: name, number (copy or call), hot
 /// lead reason and where the 24-hour reply window stands. Editing contacts
@@ -25,6 +27,24 @@ class WhatsAppContactInfoSheet extends StatelessWidget {
       ok = false;
     }
     if (!ok && context.mounted) showToast(context, 'Could not start a call.');
+  }
+
+  /// Opens the picker; a change closes this card and tells the chat, so the
+  /// chat can show the new name.
+  Future<void> _assign(BuildContext context) async {
+    final result = await showModalBottomSheet<AssignResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => AssignAgentSheet(
+        conversationId: conversation.id,
+        currentAgent: conversation.agentName,
+      ),
+    );
+    if (result != null && context.mounted) Navigator.of(context).pop(result);
   }
 
   @override
@@ -114,6 +134,31 @@ class WhatsAppContactInfoSheet extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: muted),
             ),
           ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const ExcludeSemantics(
+                child: Icon(Icons.headset_mic_rounded, size: 18, color: brand),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  c.agentName.isEmpty
+                      ? 'Not assigned to anyone'
+                      : 'Assigned to ${c.agentName}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ink,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _assign(context),
+                child: Text(c.agentName.isEmpty ? 'Assign' : 'Change'),
+              ),
+            ],
+          ),
           if (contact.phone.isNotEmpty) ...[
             const SizedBox(height: 16),
             Row(

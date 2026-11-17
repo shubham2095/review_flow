@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/agents_models.dart';
 import '../models/whatsapp_models.dart';
 import '../services/access_problem.dart';
 import '../services/api_service.dart';
@@ -616,16 +617,38 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
     }
   }
 
-  void _showContactInfo() {
-    showModalBottomSheet<void>(
+  /// Set when the chat is given to someone from the contact card, so the card
+  /// shows the new name without reloading the inbox.
+  String? _agentOverride;
+
+  Future<void> _showContactInfo() async {
+    final c = _c;
+    final shown = _agentOverride == null
+        ? c
+        : WaConversation(
+            id: c.id,
+            status: c.status,
+            unread: c.unread,
+            contact: c.contact,
+            preview: c.preview,
+            windowOpen: c.windowOpen,
+            lastMessageAt: c.lastMessageAt,
+            windowExpiresAt: c.windowExpiresAt,
+            numberLabel: c.numberLabel,
+            agentName: _agentOverride!,
+          );
+    final result = await showModalBottomSheet<AssignResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => WhatsAppContactInfoSheet(conversation: _c),
+      builder: (_) => WhatsAppContactInfoSheet(conversation: shown),
     );
+    if (result == null || !mounted) return;
+    setState(() => _agentOverride = result.agentName);
+    _snack(result.message);
   }
 
   Widget _composer() {

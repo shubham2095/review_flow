@@ -51,6 +51,13 @@ enum WaDestination {
       NavRule(perm: 'workflows.view', feature: 'automations'),
     ],
   ),
+  agents(
+    title: 'Agents',
+    label: 'Agents',
+    subtitle: 'Team workload and chat assignment',
+    icon: Icons.headset_mic_rounded,
+    access: [NavRule(perm: 'agents.view')],
+  ),
   analytics(
     title: 'Analytics',
     label: 'Analytics',
@@ -124,6 +131,7 @@ const waDrawerGroups = <(String, List<WaDestination>)>[
     ],
   ),
   ('MESSAGING', [WaDestination.templates, WaDestination.bots]),
+  ('PEOPLE', [WaDestination.agents]),
   ('RESULTS', [WaDestination.analytics]),
   ('SETUP', [WaDestination.numbers, WaDestination.blocked]),
 ];
