@@ -89,10 +89,95 @@ class InvoicingService {
     return InvoiceCustomer.fromJson(asMap(res['customer']));
   }
 
+  /// Saves a customer. The server replaces every field, so all of them are
+  /// sent (an empty one clears it).
+  static Future<void> updateCustomer(
+    String id, {
+    required String name,
+    String phone = '',
+    String email = '',
+    String gstin = '',
+    String billingAddress = '',
+  }) async {
+    await _api.put(
+      '/invoicing/customers/$id',
+      body: {
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'gstin': gstin,
+        'billing_address': billingAddress,
+      },
+    );
+  }
+
+  static Future<String> deleteCustomer(String id) async => _message(
+    await _api.delete('/invoicing/customers/$id'),
+    'Customer deleted.',
+  );
+
   static Future<List<InvoiceServiceItem>> services() async {
     final res = await _api.get('/invoicing/services');
     return asMaps(res['services']).map(InvoiceServiceItem.fromJson).toList();
   }
+
+  static Future<void> addService({
+    required String name,
+    required double price,
+    required double gstPercent,
+    String? categoryId,
+  }) async {
+    await _api.post(
+      '/invoicing/services',
+      body: {
+        'name': name,
+        'price': price,
+        'gst_percent': gstPercent,
+        'category_id': ?categoryId,
+      },
+    );
+  }
+
+  /// Saves a service. The server clears the category when none is sent, so
+  /// pass the current one again to keep it.
+  static Future<void> updateService(
+    String id, {
+    required String name,
+    required double price,
+    required double gstPercent,
+    String? categoryId,
+    required bool active,
+  }) async {
+    await _api.put(
+      '/invoicing/services/$id',
+      body: {
+        'name': name,
+        'price': price,
+        'gst_percent': gstPercent,
+        'category_id': ?categoryId,
+        'status': active ? 'ACTIVE' : 'INACTIVE',
+      },
+    );
+  }
+
+  static Future<String> deleteService(String id) async => _message(
+    await _api.delete('/invoicing/services/$id'),
+    'Service deleted.',
+  );
+
+  static Future<List<InvoiceCategory>> categories() async {
+    final res = await _api.get('/invoicing/categories');
+    return asMaps(res['categories']).map(InvoiceCategory.fromJson).toList();
+  }
+
+  static Future<void> addCategory(String name) async {
+    await _api.post('/invoicing/categories', body: {'name': name});
+  }
+
+  static Future<String> deleteCategory(String id) async => _message(
+    await _api.delete('/invoicing/categories/$id'),
+    'Category deleted.',
+  );
 
   /// The business details: GST default, currency and invoice prefix.
   static Future<InvoiceProfile> profile() async => InvoiceProfile.fromJson(

@@ -113,7 +113,7 @@ class _InvoiceCreateScreenState extends State<InvoiceCreateScreen> {
   );
 
   Future<void> _newCustomer() async {
-    final c = await _sheet<InvoiceCustomer>(const CustomerQuickSheet());
+    final c = await _sheet<InvoiceCustomer>(const CustomerSheet());
     if (c == null || !mounted) return;
     setState(() {
       _customers = [..._customers, c];

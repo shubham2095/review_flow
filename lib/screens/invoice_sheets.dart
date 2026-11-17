@@ -190,21 +190,26 @@ String? customerProblem({required String name, required String email}) {
   return null;
 }
 
-/// Adds a customer without leaving the invoice form. Pops with the new
-/// [InvoiceCustomer].
-class CustomerQuickSheet extends StatefulWidget {
-  const CustomerQuickSheet({super.key});
+/// Adds or edits a customer (also used from the invoice form without leaving
+/// it). Pops with the saved [InvoiceCustomer].
+class CustomerSheet extends StatefulWidget {
+  const CustomerSheet({super.key, this.customer});
+
+  /// Null to add a new customer.
+  final InvoiceCustomer? customer;
 
   @override
-  State<CustomerQuickSheet> createState() => _CustomerQuickSheetState();
+  State<CustomerSheet> createState() => _CustomerSheetState();
 }
 
-class _CustomerQuickSheetState extends State<CustomerQuickSheet> {
-  final _name = TextEditingController();
-  final _phone = TextEditingController();
-  final _email = TextEditingController();
-  final _gstin = TextEditingController();
-  final _address = TextEditingController();
+class _CustomerSheetState extends State<CustomerSheet> {
+  late final _name = TextEditingController(text: widget.customer?.name ?? '');
+  late final _phone = TextEditingController(text: widget.customer?.phone ?? '');
+  late final _email = TextEditingController(text: widget.customer?.email ?? '');
+  late final _gstin = TextEditingController(text: widget.customer?.gstin ?? '');
+  late final _address = TextEditingController(
+    text: widget.customer?.billingAddress ?? '',
+  );
   bool _busy = false;
   String? _notice;
 
@@ -230,14 +235,36 @@ class _CustomerQuickSheetState extends State<CustomerQuickSheet> {
       _notice = null;
     });
     try {
-      final c = await InvoicingService.addCustomer(
-        name: _name.text.trim(),
-        phone: _phone.text.trim(),
-        email: _email.text.trim(),
-        gstin: _gstin.text.trim(),
-        billingAddress: _address.text.trim(),
-      );
-      if (mounted) Navigator.of(context).pop(c);
+      final existing = widget.customer;
+      final InvoiceCustomer saved;
+      if (existing == null) {
+        saved = await InvoicingService.addCustomer(
+          name: _name.text.trim(),
+          phone: _phone.text.trim(),
+          email: _email.text.trim(),
+          gstin: _gstin.text.trim(),
+          billingAddress: _address.text.trim(),
+        );
+      } else {
+        await InvoicingService.updateCustomer(
+          existing.id,
+          name: _name.text.trim(),
+          phone: _phone.text.trim(),
+          email: _email.text.trim(),
+          gstin: _gstin.text.trim(),
+          billingAddress: _address.text.trim(),
+        );
+        saved = InvoiceCustomer(
+          id: existing.id,
+          name: _name.text.trim(),
+          phone: _phone.text.trim(),
+          email: _email.text.trim(),
+          gstin: _gstin.text.trim(),
+          billingAddress: _address.text.trim(),
+          invoicesCount: existing.invoicesCount,
+        );
+      }
+      if (mounted) Navigator.of(context).pop(saved);
     } catch (e) {
       if (!mounted) return;
       HapticFeedback.lightImpact();
@@ -251,7 +278,7 @@ class _CustomerQuickSheetState extends State<CustomerQuickSheet> {
   @override
   Widget build(BuildContext context) {
     return AppSheet(
-      title: 'New customer',
+      title: widget.customer == null ? 'New customer' : 'Edit customer',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -309,7 +336,9 @@ class _CustomerQuickSheetState extends State<CustomerQuickSheet> {
                       ),
                     ),
                   )
-                : const Text('Add customer'),
+                : Text(
+                    widget.customer == null ? 'Add customer' : 'Save changes',
+                  ),
           ),
         ],
       ),

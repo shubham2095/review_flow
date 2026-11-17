@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/invoicing_models.dart';
@@ -13,8 +14,10 @@ import '../widgets/invoice_format.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/state_view.dart';
+import '../widgets/tab_label.dart';
 import '../widgets/text_scale.dart';
 import '../widgets/wa_ui.dart';
+import 'invoice_catalog.dart';
 import 'invoice_create_screen.dart';
 import 'invoice_detail_screen.dart';
 
@@ -26,14 +29,14 @@ List<InvoiceRow> filterInvoices(List<InvoiceRow> rows, String? status) =>
 
 /// Invoicing: the money owed and received, and every invoice with a search
 /// and a status filter. A page of the home shell (no app bar of its own).
-class InvoicingScreen extends StatefulWidget {
-  const InvoicingScreen({super.key});
+class InvoicesTab extends StatefulWidget {
+  const InvoicesTab({super.key});
 
   @override
-  State<InvoicingScreen> createState() => _InvoicingScreenState();
+  State<InvoicesTab> createState() => _InvoicesTabState();
 }
 
-class _InvoicingScreenState extends State<InvoicingScreen> {
+class _InvoicesTabState extends State<InvoicesTab> {
   final _search = TextEditingController();
   Timer? _debounce;
   InvoiceList? _data;
@@ -371,13 +374,65 @@ class _InvoicingScreenState extends State<InvoicingScreen> {
   }
 
   @override
+  Widget build(BuildContext context) => _body();
+}
+
+/// Invoicing: invoices, and the catalog they are made from (customers,
+/// services, categories). A page of the home shell (no app bar of its own).
+class InvoicingScreen extends StatefulWidget {
+  const InvoicingScreen({super.key});
+
+  @override
+  State<InvoicingScreen> createState() => _InvoicingScreenState();
+}
+
+class _InvoicingScreenState extends State<InvoicingScreen> {
+  int _tab = 0;
+
+  // A tab is built the first time it is shown and then kept, so its search and
+  // scroll position survive switching.
+  final Set<int> _visited = {0};
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: surface,
       body: Column(
         children: [
           const OfflineBanner(),
-          Expanded(child: _body()),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<int>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 0, label: TabLabel('Invoices')),
+                  ButtonSegment(value: 1, label: TabLabel('Catalog')),
+                ],
+                selected: {_tab},
+                onSelectionChanged: (v) {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _tab = v.first;
+                    _visited.add(_tab);
+                  });
+                },
+              ),
+            ),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              children: [
+                const InvoicesTab(),
+                if (_visited.contains(1))
+                  const InvoiceCatalogTab()
+                else
+                  const SizedBox.shrink(),
+              ],
+            ),
+          ),
         ],
       ),
     );

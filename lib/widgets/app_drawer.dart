@@ -193,7 +193,7 @@ class AppDrawer extends StatelessWidget {
             _NavItem(
               icon: Icons.receipt_long_rounded,
               label: 'Invoicing',
-              subtitle: 'Invoices and payments',
+              subtitle: 'Invoices, customers and services',
               selected: selectedIndex == kPageInvoicing,
               onTap: () => onSelect(kPageInvoicing),
             ),

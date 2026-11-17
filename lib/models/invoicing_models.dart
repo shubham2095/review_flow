@@ -252,6 +252,7 @@ class InvoiceServiceItem {
     required this.price,
     required this.gstPercent,
     this.category = '',
+    this.categoryId = '',
     this.active = true,
   });
 
@@ -262,6 +263,7 @@ class InvoiceServiceItem {
         price: asDouble(j['price']),
         gstPercent: asDouble(j['gst_percent']),
         category: asStr(j['category']),
+        categoryId: asStr(j['category_id']),
         active: asStr(j['status']).toUpperCase() != 'INACTIVE',
       );
 
@@ -270,7 +272,27 @@ class InvoiceServiceItem {
   final double price;
   final double gstPercent;
   final String category;
+  final String categoryId;
   final bool active;
+}
+
+/// A group of services: GET /invoicing/categories.
+class InvoiceCategory {
+  const InvoiceCategory({
+    required this.id,
+    required this.name,
+    this.servicesCount = 0,
+  });
+
+  factory InvoiceCategory.fromJson(Map<String, dynamic> j) => InvoiceCategory(
+    id: asStr(j['id']),
+    name: asStr(j['name']),
+    servicesCount: asInt(j['services_count']),
+  );
+
+  final String id;
+  final String name;
+  final int servicesCount;
 }
 
 /// A line being typed on a new invoice (before the server prices it).

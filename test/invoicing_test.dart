@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:review_flow/models/invoicing_models.dart';
+import 'package:review_flow/screens/invoice_catalog.dart';
+import 'package:review_flow/screens/invoice_catalog_sheets.dart';
 import 'package:review_flow/screens/invoice_sheets.dart';
 import 'package:review_flow/screens/invoicing_screen.dart';
 import 'package:review_flow/services/invoicing_service.dart';
@@ -263,6 +265,63 @@ void main() {
       ];
       expect(filterInvoices(rows, null), hasLength(2));
       expect(filterInvoices(rows, 'PAID').single.id, '1');
+    });
+  });
+
+  group('catalog', () {
+    test('serviceProblem', () {
+      expect(serviceProblem(name: ' ', price: 5, gstPercent: 18), isNotNull);
+      expect(
+        serviceProblem(name: 'a', price: null, gstPercent: 18),
+        contains('price'),
+      );
+      expect(
+        serviceProblem(name: 'a', price: -1, gstPercent: 18),
+        contains('price'),
+      );
+      expect(
+        serviceProblem(name: 'a', price: 5, gstPercent: 101),
+        contains('GST'),
+      );
+      expect(serviceProblem(name: 'a', price: 0, gstPercent: 0), isNull);
+    });
+
+    test('serviceSummary reads price and GST', () {
+      const s = InvoiceServiceItem(
+        id: 's1',
+        name: 'Logo',
+        price: 500,
+        gstPercent: 18,
+      );
+      expect(serviceSummary(s, 'INR'), '₹500.00 + 18% GST');
+    });
+
+    test('services and categories read their ids and state', () {
+      final s = InvoiceServiceItem.fromJson({
+        'id': 's1',
+        'name': 'Logo',
+        'price': 500,
+        'gst_percent': 18,
+        'status': 'INACTIVE',
+        'category': 'Design',
+        'category_id': 'g1',
+      });
+      expect(s.active, isFalse);
+      expect(s.categoryId, 'g1');
+      final c = InvoiceCategory.fromJson({
+        'id': 'g1',
+        'name': 'Design',
+        'services_count': 3,
+      });
+      expect(c.servicesCount, 3);
+      final cust = InvoiceCustomer.fromJson({
+        'id': 'c1',
+        'name': 'Asha',
+        'email': null,
+        'invoices_count': 2,
+      });
+      expect(cust.email, '');
+      expect(cust.invoicesCount, 2);
     });
   });
 

@@ -4,6 +4,8 @@ import 'package:review_flow/models/agents_models.dart';
 import 'package:review_flow/models/ai_media_models.dart';
 import 'package:review_flow/models/invoicing_models.dart';
 import 'package:review_flow/models/seo_models.dart';
+import 'package:review_flow/screens/invoice_catalog.dart';
+import 'package:review_flow/screens/invoice_catalog_sheets.dart';
 import 'package:review_flow/screens/invoice_create_screen.dart';
 import 'package:review_flow/screens/invoice_detail_screen.dart';
 import 'package:review_flow/screens/invoice_sheets.dart';
@@ -160,7 +162,31 @@ final Map<String, Widget Function()> _cases = {
       gstPercent: 5,
     ),
   ),
-  'CustomerQuickSheet': () => const CustomerQuickSheet(),
+  'CustomerSheet (new)': () => const CustomerSheet(),
+  'CustomerSheet (edit)': () => const CustomerSheet(
+    customer: InvoiceCustomer(
+      id: 'c1',
+      name: 'Asha Rao',
+      email: 'asha@example.com',
+      gstin: '27ABCDE1234F1Z5',
+    ),
+  ),
+  'InvoiceCatalogTab': () => const InvoiceCatalogTab(),
+  'ServiceSheet (new)': () => const ServiceSheet(
+    categories: [InvoiceCategory(id: 'g1', name: 'Design')],
+  ),
+  'ServiceSheet (edit)': () => const ServiceSheet(
+    categories: [InvoiceCategory(id: 'g1', name: 'Design')],
+    service: InvoiceServiceItem(
+      id: 's1',
+      name: 'Logo design',
+      price: 500,
+      gstPercent: 18,
+      categoryId: 'g1',
+      category: 'Design',
+    ),
+  ),
+  'CategorySheet': () => const CategorySheet(),
   'SeoScreen': () => const SeoScreen(),
   'SeoKeywordSheet': () => const SeoKeywordSheet(
     places: [SeoPlace(id: 'l1', name: 'Main shop'), SeoPlace(id: 'l2', name: 'Second shop')],
