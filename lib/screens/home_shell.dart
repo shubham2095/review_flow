@@ -24,6 +24,7 @@ import 'posts_photos_screen.dart';
 import 'profile_screen.dart';
 import 'team_screen.dart';
 import 'reviews_screen.dart';
+import 'seo_screen.dart';
 import '../models/whatsapp_models.dart';
 import 'wa_destinations.dart';
 import 'whatsapp_chat_screen.dart';
@@ -188,6 +189,7 @@ class _HomeShellState extends State<HomeShell> {
       unread: _waUnread,
     ),
     () => const TeamScreen(),
+    () => const SeoScreen(),
   ];
 
   static const _titles = [
@@ -202,6 +204,7 @@ class _HomeShellState extends State<HomeShell> {
     'My Profile',
     'WhatsApp',
     'Team',
+    'SEO',
   ];
 
   Future<void> _confirmLogout() async {

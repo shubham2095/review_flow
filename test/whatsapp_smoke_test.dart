@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:review_flow/models/agents_models.dart';
+import 'package:review_flow/models/seo_models.dart';
 import 'package:review_flow/models/team_models.dart';
+import 'package:review_flow/screens/seo_screen.dart';
+import 'package:review_flow/screens/seo_sheets.dart';
 import 'package:review_flow/models/whatsapp_models.dart';
 import 'package:review_flow/screens/team_member_sheet.dart';
 import 'package:review_flow/screens/team_screen.dart';
@@ -121,6 +124,38 @@ final Map<String, Widget Function()> _cases = {
   'WhatsAppContactInfoSheet': () =>
       WhatsAppContactInfoSheet(conversation: _conversation),
   'WhatsAppTemplatePicker': () => const WhatsAppTemplatePicker(),
+  'SeoScreen': () => const SeoScreen(),
+  'SeoKeywordSheet': () => const SeoKeywordSheet(
+    places: [SeoPlace(id: 'l1', name: 'Main shop'), SeoPlace(id: 'l2', name: 'Second shop')],
+    initialKeyword: 'bakery in pune',
+    initialCity: 'Pune',
+  ),
+  'SeoCompetitorSheet': () => const SeoCompetitorSheet(),
+  'SeoHistorySheet': () => const SeoHistorySheet(
+    keyword: SeoKeyword(id: 'k1', keyword: 'bakery in pune'),
+  ),
+  'SeoRankResultSheet': () => const SeoRankResultSheet(
+    keyword: SeoKeyword(id: 'k1', keyword: 'bakery in pune'),
+    result: SeoRankResult(
+      source: 'ai',
+      rank: 'Top 3',
+      summary: 'You show well.',
+      tips: ['Post weekly', 'Reply to reviews'],
+    ),
+  ),
+  'SeoAnalysisSheet': () => const SeoAnalysisSheet(
+    competitor: SeoCompetitor(id: 'c1', name: 'Rival Bakery'),
+    analysis: SeoAnalysis(
+      source: 'ai',
+      summary: 'You lead on reviews.',
+      strengths: ['4.6 stars'],
+      gaps: ['Fewer posts'],
+      actions: ['Post weekly'],
+      myName: 'Main shop',
+      myAverage: 4.6,
+      myReviews: 120,
+    ),
+  ),
   'TeamScreen': () => const TeamScreen(),
   'TeamMemberSheet (new)': () =>
       const TeamMemberSheet(features: _teamFeatures),

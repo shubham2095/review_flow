@@ -162,6 +162,14 @@ class AppDrawer extends StatelessWidget {
             selected: selectedIndex == kPageAutomation,
             onTap: () => onSelect(kPageAutomation),
           ),
+          if (navAllowed(_user, NavRules.seo))
+            _NavItem(
+              icon: Icons.search_rounded,
+              label: 'SEO',
+              subtitle: 'Keywords, rank checks and competitors',
+              selected: selectedIndex == kPageSeo,
+              onTap: () => onSelect(kPageSeo),
+            ),
           ],
           if (product == Product.whatsapp)
             ..._whatsAppItems(),

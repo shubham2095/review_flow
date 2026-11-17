@@ -47,4 +47,7 @@ class NavRules {
 
   /// "Team": who can sign in and what they can use.
   static const team = NavRule(perm: 'team.view');
+
+  /// "SEO": a plan feature, no separate permission (as on the web).
+  static const seo = NavRule(feature: 'seo');
 }
