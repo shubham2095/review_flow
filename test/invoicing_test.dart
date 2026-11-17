@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:review_flow/models/invoicing_models.dart';
 import 'package:review_flow/screens/invoice_catalog.dart';
 import 'package:review_flow/screens/invoice_catalog_sheets.dart';
+import 'package:review_flow/screens/invoice_expenses.dart';
 import 'package:review_flow/screens/invoice_sheets.dart';
 import 'package:review_flow/screens/invoicing_screen.dart';
 import 'package:review_flow/services/invoicing_service.dart';
@@ -322,6 +323,62 @@ void main() {
       });
       expect(cust.email, '');
       expect(cust.invoicesCount, 2);
+    });
+  });
+
+  group('expenses', () {
+    test('expenseProblem', () {
+      expect(expenseProblem(description: ' ', amount: 5), isNotNull);
+      expect(expenseProblem(description: 'Rent', amount: null), isNotNull);
+      expect(expenseProblem(description: 'Rent', amount: -1), isNotNull);
+      expect(expenseProblem(description: 'Rent', amount: 0), isNull);
+    });
+
+    test('method labels', () {
+      expect(expenseMethodLabel('CASH'), 'Cash');
+      expect(expenseMethodLabel('BANK'), 'Bank transfer');
+      expect(expenseMethodLabel('upi'), 'UPI');
+      expect(expenseMethodLabel(''), 'Other');
+      expect(expenseMethodLabel('WALLET'), 'Wallet');
+      expect(expenseMethods, hasLength(5));
+    });
+
+    test('month helpers', () {
+      expect(monthLabel(DateTime(2026, 11, 17)), 'November 2026');
+      expect(shiftMonth(DateTime(2026, 1), -1), DateTime(2025, 12));
+      expect(shiftMonth(DateTime(2026, 12), 1), DateTime(2027, 1));
+      expect(sameMonth(DateTime(2026, 11, 1), DateTime(2026, 11, 30)), isTrue);
+      expect(sameMonth(DateTime(2026, 11, 1), DateTime(2025, 11, 1)), isFalse);
+      expect(monthKey(DateTime(2026, 3, 9)), '2026-03');
+    });
+
+    test('ExpenseList reads rows, stats and the total adds up', () {
+      final l = ExpenseList.fromJson({
+        'expenses': [
+          {
+            'id': 'e1',
+            'date': '2026-11-10',
+            'description': 'Office rent',
+            'category': 'Rent',
+            'method': 'BANK',
+            'amount': 15000.5,
+          },
+          {
+            'id': 'e2',
+            'date': '2026-11-12',
+            'description': 'Google Ads',
+            'category': null,
+            'method': 'CARD',
+            'amount': 2499.5,
+          },
+        ],
+        'stats': {'spent_this_month': 17500.0, 'count': 2},
+      });
+      expect(l.rows, hasLength(2));
+      expect(l.rows.last.category, '');
+      expect(l.spentThisMonth, 17500);
+      expect(expenseTotal(l.rows), 17500);
+      expect(expenseTotal(const []), 0);
     });
   });
 

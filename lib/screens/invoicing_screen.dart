@@ -19,6 +19,7 @@ import '../widgets/text_scale.dart';
 import '../widgets/wa_ui.dart';
 import 'invoice_catalog.dart';
 import 'invoice_create_screen.dart';
+import 'invoice_expenses.dart';
 import 'invoice_detail_screen.dart';
 
 /// The rows with this status, or all of them for `null`.
@@ -377,8 +378,8 @@ class _InvoicesTabState extends State<InvoicesTab> {
   Widget build(BuildContext context) => _body();
 }
 
-/// Invoicing: invoices, and the catalog they are made from (customers,
-/// services, categories). A page of the home shell (no app bar of its own).
+/// Invoicing: invoices, the catalog they are made from (customers, services,
+/// categories) and expenses. A page of the home shell (no app bar of its own).
 class InvoicingScreen extends StatefulWidget {
   const InvoicingScreen({super.key});
 
@@ -409,6 +410,7 @@ class _InvoicingScreenState extends State<InvoicingScreen> {
                 segments: const [
                   ButtonSegment(value: 0, label: TabLabel('Invoices')),
                   ButtonSegment(value: 1, label: TabLabel('Catalog')),
+                  ButtonSegment(value: 2, label: TabLabel('Expenses')),
                 ],
                 selected: {_tab},
                 onSelectionChanged: (v) {
@@ -428,6 +430,10 @@ class _InvoicingScreenState extends State<InvoicingScreen> {
                 const InvoicesTab(),
                 if (_visited.contains(1))
                   const InvoiceCatalogTab()
+                else
+                  const SizedBox.shrink(),
+                if (_visited.contains(2))
+                  const InvoiceExpensesTab()
                 else
                   const SizedBox.shrink(),
               ],

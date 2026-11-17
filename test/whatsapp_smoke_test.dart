@@ -7,6 +7,7 @@ import 'package:review_flow/models/seo_models.dart';
 import 'package:review_flow/screens/invoice_catalog.dart';
 import 'package:review_flow/screens/invoice_catalog_sheets.dart';
 import 'package:review_flow/screens/invoice_create_screen.dart';
+import 'package:review_flow/screens/invoice_expenses.dart';
 import 'package:review_flow/screens/invoice_detail_screen.dart';
 import 'package:review_flow/screens/invoice_sheets.dart';
 import 'package:review_flow/screens/invoicing_screen.dart';
@@ -172,6 +173,8 @@ final Map<String, Widget Function()> _cases = {
     ),
   ),
   'InvoiceCatalogTab': () => const InvoiceCatalogTab(),
+  'InvoiceExpensesTab': () => const InvoiceExpensesTab(),
+  'ExpenseSheet': () => const ExpenseSheet(categories: ['Rent', 'Ads']),
   'ServiceSheet (new)': () => const ServiceSheet(
     categories: [InvoiceCategory(id: 'g1', name: 'Design')],
   ),

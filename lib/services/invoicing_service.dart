@@ -179,6 +179,40 @@ class InvoicingService {
     'Category deleted.',
   );
 
+  // ---- Expenses ----
+
+  /// The expenses (newest first). [month] limits them to one month.
+  static Future<ExpenseList> expenses({DateTime? month}) async {
+    final path = month == null
+        ? '/invoicing/expenses'
+        : '/invoicing/expenses?month=${monthKey(month)}';
+    return ExpenseList.fromJson(await _api.get(path));
+  }
+
+  static Future<void> addExpense({
+    required DateTime date,
+    required String description,
+    String category = '',
+    required String method,
+    required double amount,
+  }) async {
+    await _api.post(
+      '/invoicing/expenses',
+      body: {
+        'date': apiDate(date),
+        'description': description,
+        if (category.isNotEmpty) 'category': category,
+        'method': method,
+        'amount': amount,
+      },
+    );
+  }
+
+  static Future<String> deleteExpense(String id) async => _message(
+    await _api.delete('/invoicing/expenses/$id'),
+    'Expense deleted.',
+  );
+
   /// The business details: GST default, currency and invoice prefix.
   static Future<InvoiceProfile> profile() async => InvoiceProfile.fromJson(
     asMap((await _api.get('/invoicing/profile'))['profile']),
@@ -189,6 +223,10 @@ class InvoicingService {
     return m.isEmpty ? fallback : m;
   }
 }
+
+/// A month as the server wants it: `2026-11`.
+String monthKey(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
 
 /// A date as the server wants it: `2026-11-17`.
 String apiDate(DateTime d) =>

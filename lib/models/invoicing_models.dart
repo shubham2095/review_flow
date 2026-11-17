@@ -344,3 +344,50 @@ class DraftLine {
     total: ((subtotal + gst) * 100).round() / 100,
   );
 }
+
+/// How an expense was paid, as the server writes it.
+const expenseMethods = ['CASH', 'BANK', 'UPI', 'CARD', 'OTHER'];
+
+/// One expense: GET /invoicing/expenses.
+class InvoiceExpenseRow {
+  const InvoiceExpenseRow({
+    required this.id,
+    required this.description,
+    required this.method,
+    required this.amount,
+    this.date,
+    this.category = '',
+  });
+
+  factory InvoiceExpenseRow.fromJson(Map<String, dynamic> j) =>
+      InvoiceExpenseRow(
+        id: asStr(j['id']),
+        description: asStr(j['description']),
+        method: asStr(j['method']),
+        amount: asDouble(j['amount']),
+        date: asDate(j['date']),
+        category: asStr(j['category']),
+      );
+
+  final String id;
+  final String description;
+  final String method;
+  final double amount;
+  final DateTime? date;
+  final String category;
+}
+
+/// GET /invoicing/expenses: the rows, and what was spent this calendar month.
+class ExpenseList {
+  const ExpenseList({required this.rows, this.spentThisMonth = 0});
+
+  factory ExpenseList.fromJson(Map<String, dynamic> j) => ExpenseList(
+    rows: asMaps(j['expenses']).map(InvoiceExpenseRow.fromJson).toList(),
+    spentThisMonth: asDouble(asMap(j['stats'])['spent_this_month']),
+  );
+
+  final List<InvoiceExpenseRow> rows;
+
+  /// Always the current calendar month, whatever month the list shows.
+  final double spentThisMonth;
+}
