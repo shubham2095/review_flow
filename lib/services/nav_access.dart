@@ -50,4 +50,7 @@ class NavRules {
 
   /// "SEO": a plan feature, no separate permission (as on the web).
   static const seo = NavRule(feature: 'seo');
+
+  /// "Invoicing": a plan feature, no separate permission (as on the web).
+  static const invoicing = NavRule(feature: 'invoicing');
 }

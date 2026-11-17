@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:review_flow/models/agents_models.dart';
 import 'package:review_flow/models/ai_media_models.dart';
+import 'package:review_flow/models/invoicing_models.dart';
 import 'package:review_flow/models/seo_models.dart';
+import 'package:review_flow/screens/invoice_create_screen.dart';
+import 'package:review_flow/screens/invoice_detail_screen.dart';
+import 'package:review_flow/screens/invoice_sheets.dart';
+import 'package:review_flow/screens/invoicing_screen.dart';
 import 'package:review_flow/screens/ai_studio_screen.dart';
 import 'package:review_flow/models/team_models.dart';
 import 'package:review_flow/screens/seo_screen.dart';
@@ -138,6 +143,24 @@ final Map<String, Widget Function()> _cases = {
   'AiMediaViewer (no picture)': () => const AiMediaViewer(
     media: AiMedia(id: 'm2', prompt: 'A banner', source: 'fallback'),
   ),
+  'InvoicingScreen': () => const InvoicingScreen(),
+  'InvoiceCreateScreen': () => const InvoiceCreateScreen(),
+  'InvoiceDetailScreen': () =>
+      const InvoiceDetailScreen(invoiceId: 'i1', number: 'INV-0001'),
+  'InvoiceLineSheet (new)': () => const InvoiceLineSheet(
+    services: [
+      InvoiceServiceItem(id: 's1', name: 'Logo design', price: 500, gstPercent: 18),
+    ],
+  ),
+  'InvoiceLineSheet (edit)': () => const InvoiceLineSheet(
+    initial: DraftLine(
+      description: 'Hosting',
+      quantity: 1,
+      unitPrice: 1000,
+      gstPercent: 5,
+    ),
+  ),
+  'CustomerQuickSheet': () => const CustomerQuickSheet(),
   'SeoScreen': () => const SeoScreen(),
   'SeoKeywordSheet': () => const SeoKeywordSheet(
     places: [SeoPlace(id: 'l1', name: 'Main shop'), SeoPlace(id: 'l2', name: 'Second shop')],

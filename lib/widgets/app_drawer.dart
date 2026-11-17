@@ -189,6 +189,14 @@ class AppDrawer extends StatelessWidget {
               selected: selectedIndex == kPageTeam,
               onTap: () => onSelect(kPageTeam),
             ),
+          if (navAllowed(_user, NavRules.invoicing))
+            _NavItem(
+              icon: Icons.receipt_long_rounded,
+              label: 'Invoicing',
+              subtitle: 'Invoices and payments',
+              selected: selectedIndex == kPageInvoicing,
+              onTap: () => onSelect(kPageInvoicing),
+            ),
           if (navAllowed(_user, NavRules.billing))
             _NavItem(
               icon: Icons.workspace_premium_rounded,

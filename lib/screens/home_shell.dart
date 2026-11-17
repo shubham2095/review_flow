@@ -20,6 +20,7 @@ import 'billing_screen.dart';
 import 'business_profile_screen.dart';
 import 'dashboard_screen.dart';
 import 'insights_screen.dart';
+import 'invoicing_screen.dart';
 import 'pages.dart';
 import 'posts_photos_screen.dart';
 import 'profile_screen.dart';
@@ -192,6 +193,7 @@ class _HomeShellState extends State<HomeShell> {
     () => const TeamScreen(),
     () => const SeoScreen(),
     () => const AiStudioScreen(),
+    () => const InvoicingScreen(),
   ];
 
   static const _titles = [
@@ -208,6 +210,7 @@ class _HomeShellState extends State<HomeShell> {
     'Team',
     'SEO',
     'AI Studio',
+    'Invoicing',
   ];
 
   Future<void> _confirmLogout() async {
