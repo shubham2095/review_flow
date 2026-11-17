@@ -149,10 +149,11 @@ class InvoiceDetail {
   bool get isPaid => status == 'PAID';
 }
 
-/// The business details printed on invoices (the parts the app needs).
+/// The business details printed on invoices: GET and PUT /invoicing/profile.
 class InvoiceProfile {
   const InvoiceProfile({
     this.companyName = '',
+    this.businessType = '',
     this.phone = '',
     this.email = '',
     this.gstin = '',
@@ -162,12 +163,16 @@ class InvoiceProfile {
     this.bankAccount = '',
     this.ifsc = '',
     this.invoicePrefix = 'INV',
+    this.nextNumber = 1,
     this.defaultGst = 18,
     this.currency = 'INR',
+    this.roundTotal = false,
+    this.logo = '',
   });
 
   factory InvoiceProfile.fromJson(Map<String, dynamic> j) => InvoiceProfile(
     companyName: asStr(j['company_name']),
+    businessType: asStr(j['business_type']),
     phone: asStr(j['phone']),
     email: asStr(j['email']),
     gstin: asStr(j['gstin']),
@@ -179,11 +184,17 @@ class InvoiceProfile {
     invoicePrefix: asStr(j['invoice_prefix']).isEmpty
         ? 'INV'
         : asStr(j['invoice_prefix']),
+    nextNumber: j['next_invoice_number'] == null
+        ? 1
+        : asInt(j['next_invoice_number']),
     defaultGst: j['default_gst'] == null ? 18 : asDouble(j['default_gst']),
     currency: asStr(j['currency']).isEmpty ? 'INR' : asStr(j['currency']),
+    roundTotal: j['round_total'] == true || j['round_total'] == 1,
+    logo: asStr(j['logo']),
   );
 
   final String companyName;
+  final String businessType;
   final String phone;
   final String email;
   final String gstin;
@@ -194,10 +205,42 @@ class InvoiceProfile {
   final String ifsc;
   final String invoicePrefix;
 
+  /// The number the next invoice will get (after the prefix).
+  final int nextNumber;
+
   /// The GST % used for a line that does not set its own.
   final double defaultGst;
   final String currency;
+
+  /// Whether invoice totals are rounded to a whole amount.
+  final bool roundTotal;
+
+  /// The logo as a `data:image` address, or empty. It is changed on the web.
+  final String logo;
+
+  /// What PUT /invoicing/profile takes. The logo is left out, so the saved one
+  /// stays as it is.
+  Map<String, dynamic> toJson() => {
+    'company_name': companyName,
+    'business_type': businessType,
+    'phone': phone,
+    'email': email,
+    'gstin': gstin,
+    'address': address,
+    'state': state,
+    'bank_name': bankName,
+    'bank_account': bankAccount,
+    'ifsc': ifsc,
+    'invoice_prefix': invoicePrefix,
+    'default_gst': defaultGst,
+    'currency': currency,
+    'round_total': roundTotal,
+  };
 }
+
+/// The number on the next invoice, such as `INV-0007`.
+String nextInvoiceNumber(String prefix, int next) =>
+    '$prefix-${next.toString().padLeft(4, '0')}';
 
 /// An invoice and the business profile it was read with.
 class InvoiceWithProfile {

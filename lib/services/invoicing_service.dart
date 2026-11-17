@@ -218,6 +218,14 @@ class InvoicingService {
     asMap((await _api.get('/invoicing/profile'))['profile']),
   );
 
+  /// Saves the business details and returns what the server now holds.
+  static Future<InvoiceProfile> saveProfile(InvoiceProfile p) async =>
+      InvoiceProfile.fromJson(
+        asMap(
+          (await _api.put('/invoicing/profile', body: p.toJson()))['profile'],
+        ),
+      );
+
   static String _message(Map<String, dynamic> res, String fallback) {
     final m = asStr(res['message']);
     return m.isEmpty ? fallback : m;

@@ -3,6 +3,7 @@ import 'package:review_flow/models/invoicing_models.dart';
 import 'package:review_flow/screens/invoice_catalog.dart';
 import 'package:review_flow/screens/invoice_catalog_sheets.dart';
 import 'package:review_flow/screens/invoice_expenses.dart';
+import 'package:review_flow/screens/invoice_profile_screen.dart';
 import 'package:review_flow/screens/invoice_sheets.dart';
 import 'package:review_flow/screens/invoicing_screen.dart';
 import 'package:review_flow/services/invoicing_service.dart';
@@ -323,6 +324,82 @@ void main() {
       });
       expect(cust.email, '');
       expect(cust.invoicesCount, 2);
+    });
+  });
+
+  group('business details', () {
+    test('invoiceProfileProblem', () {
+      expect(
+        invoiceProfileProblem(prefix: ' ', gstText: '18', email: ''),
+        contains('prefix'),
+      );
+      expect(
+        invoiceProfileProblem(prefix: 'ABCDEFGHIJK', gstText: '18', email: ''),
+        contains('10 characters'),
+      );
+      expect(
+        invoiceProfileProblem(prefix: 'INV', gstText: 'x', email: ''),
+        contains('GST'),
+      );
+      expect(
+        invoiceProfileProblem(prefix: 'INV', gstText: '101', email: ''),
+        contains('GST'),
+      );
+      expect(
+        invoiceProfileProblem(prefix: 'INV', gstText: '18', email: 'nope'),
+        contains('email'),
+      );
+      expect(
+        invoiceProfileProblem(prefix: 'INV', gstText: '5,5', email: 'a@b.co'),
+        isNull,
+      );
+      expect(
+        invoiceProfileProblem(prefix: 'INV', gstText: '0', email: ''),
+        isNull,
+      );
+    });
+
+    test('nextInvoiceNumber pads to four digits', () {
+      expect(nextInvoiceNumber('INV', 7), 'INV-0007');
+      expect(nextInvoiceNumber('PZ', 12345), 'PZ-12345');
+    });
+
+    test('the profile reads every field and saves all but the logo', () {
+      final p = InvoiceProfile.fromJson({
+        'company_name': 'Pizi India',
+        'business_type': 'Agency',
+        'phone': '98',
+        'email': 'a@b.co',
+        'gstin': '27ABCDE1234F1Z5',
+        'address': 'Pune',
+        'state': 'Maharashtra',
+        'bank_name': 'HDFC',
+        'bank_account': '123',
+        'ifsc': 'HDFC0001',
+        'invoice_prefix': 'PZ',
+        'next_invoice_number': 7,
+        'default_gst': '12.50',
+        'currency': 'USD',
+        'round_total': 1,
+        'logo': 'data:image/png;base64,AAAA',
+      });
+      expect(p.nextNumber, 7);
+      expect(p.defaultGst, 12.5);
+      expect(p.roundTotal, isTrue);
+      expect(p.logo, startsWith('data:image'));
+      final json = p.toJson();
+      expect(json.containsKey('logo'), isFalse);
+      expect(json['invoice_prefix'], 'PZ');
+      expect(json['default_gst'], 12.5);
+      expect(json['round_total'], isTrue);
+      expect(json['business_type'], 'Agency');
+    });
+
+    test('an empty profile uses the defaults', () {
+      final p = InvoiceProfile.fromJson({});
+      expect(p.nextNumber, 1);
+      expect(p.roundTotal, isFalse);
+      expect(p.logo, '');
     });
   });
 

@@ -20,6 +20,7 @@ import '../widgets/wa_ui.dart';
 import 'invoice_catalog.dart';
 import 'invoice_create_screen.dart';
 import 'invoice_expenses.dart';
+import 'invoice_profile_screen.dart';
 import 'invoice_detail_screen.dart';
 
 /// The rows with this status, or all of them for `null`.
@@ -394,6 +395,17 @@ class _InvoicingScreenState extends State<InvoicingScreen> {
   // scroll position survive switching.
   final Set<int> _visited = {0};
 
+  // Bumped after the business details change, so every tab starts again and
+  // picks up the new currency.
+  int _epoch = 0;
+
+  Future<void> _openProfile() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const InvoiceProfileScreen()),
+    );
+    if (saved == true && mounted) setState(() => _epoch++);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -402,38 +414,46 @@ class _InvoicingScreenState extends State<InvoicingScreen> {
         children: [
           const OfflineBanner(),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<int>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: 0, label: TabLabel('Invoices')),
-                  ButtonSegment(value: 1, label: TabLabel('Catalog')),
-                  ButtonSegment(value: 2, label: TabLabel('Expenses')),
-                ],
-                selected: {_tab},
-                onSelectionChanged: (v) {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _tab = v.first;
-                    _visited.add(_tab);
-                  });
-                },
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: 0, label: TabLabel('Invoices')),
+                      ButtonSegment(value: 1, label: TabLabel('Catalog')),
+                      ButtonSegment(value: 2, label: TabLabel('Expenses')),
+                    ],
+                    selected: {_tab},
+                    onSelectionChanged: (v) {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _tab = v.first;
+                        _visited.add(_tab);
+                      });
+                    },
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Business details',
+                  icon: const Icon(Icons.business_rounded),
+                  onPressed: _openProfile,
+                ),
+              ],
             ),
           ),
           Expanded(
             child: IndexedStack(
               index: _tab,
               children: [
-                const InvoicesTab(),
+                InvoicesTab(key: ValueKey('invoices$_epoch')),
                 if (_visited.contains(1))
-                  const InvoiceCatalogTab()
+                  InvoiceCatalogTab(key: ValueKey('catalog$_epoch'))
                 else
                   const SizedBox.shrink(),
                 if (_visited.contains(2))
-                  const InvoiceExpensesTab()
+                  InvoiceExpensesTab(key: ValueKey('expenses$_epoch'))
                 else
                   const SizedBox.shrink(),
               ],
