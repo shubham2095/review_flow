@@ -89,7 +89,10 @@ class _AutomationScreenState extends State<AutomationScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(content: Text(text), duration: const Duration(milliseconds: 2200)),
+        SnackBar(
+          content: Text(text),
+          duration: const Duration(milliseconds: 2200),
+        ),
       );
   }
 
@@ -170,22 +173,22 @@ class _AutomationScreenState extends State<AutomationScreen> {
       body: _loading && data == null
           ? const SkeletonList(count: 4, itemHeight: 110, headerHeight: 130)
           : _error != null && data == null
-              ? Center(
-                  child: StateView.error(
-                    title: 'Could not load automation',
-                    text: _error!,
-                    onRetry: _load,
-                  ),
-                )
-              : RefreshIndicator(
-                  color: brand,
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [if (data != null) ..._content(data)],
-                  ),
-                ),
+          ? Center(
+              child: StateView.error(
+                title: 'Could not load automation',
+                text: _error!,
+                onRetry: _load,
+              ),
+            )
+          : RefreshIndicator(
+              color: brand,
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [if (data != null) ..._content(data)],
+              ),
+            ),
     );
   }
 
@@ -316,7 +319,8 @@ class _AutomationScreenState extends State<AutomationScreen> {
       _SwitchCard(
         icon: Icons.qr_code_2_rounded,
         title: 'QR review assist',
-        text: 'Customers scan a QR code and AI helps them write a Google review.',
+        text:
+            'Customers scan a QR code and AI helps them write a Google review.',
         value: _flag('qr_review_assist', s.qrReviewAssist),
         busy: _busyKeys.contains('qr_review_assist'),
         onChanged: (v) => _toggle(
@@ -345,7 +349,10 @@ class _AutomationScreenState extends State<AutomationScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final t in {..._tones, if (s.replyTone.isNotEmpty) s.replyTone})
+                for (final t in {
+                  ..._tones,
+                  if (s.replyTone.isNotEmpty) s.replyTone,
+                })
                   ChoiceChip(
                     label: Text(t),
                     selected: tone == t,
@@ -458,30 +465,37 @@ class _SwitchCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: cardDecoration(),
-      child: SwitchListTile(
-        value: value,
-        onChanged: busy ? null : onChanged,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        secondary: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: (value ? brand : muted).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+      // The card paints a white background; this carries the tile's ripple.
+      child: Material(
+        type: MaterialType.transparency,
+        child: SwitchListTile(
+          value: value,
+          onChanged: busy ? null : onChanged,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
           ),
-          child: Icon(icon, color: value ? brand : muted, size: 20),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: ink,
+          secondary: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: (value ? brand : muted).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: value ? brand : muted, size: 20),
           ),
-        ),
-        subtitle: Text(
-          text,
-          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+          title: Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: ink,
+            ),
+          ),
+          subtitle: Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+          ),
         ),
       ),
     );
@@ -520,13 +534,19 @@ class _QrCardState extends State<_QrCard> {
         data: url,
         version: QrVersions.auto,
         gapless: true,
-        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: Colors.black,
+        ),
         dataModuleStyle: const QrDataModuleStyle(
           dataModuleShape: QrDataModuleShape.square,
           color: Colors.black,
         ),
       ).paint(canvas, const Size(size - 2 * margin, size - 2 * margin));
-      final image = await recorder.endRecording().toImage(size.toInt(), size.toInt());
+      final image = await recorder.endRecording().toImage(
+        size.toInt(),
+        size.toInt(),
+      );
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
       if (bytes == null) throw Exception('no image');
       final dir = await getTemporaryDirectory();
@@ -636,8 +656,12 @@ class _QrCardState extends State<_QrCard> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.image_rounded, size: 18),
-              label: Text(_preparing ? 'Preparing...' : 'Share QR as image to print'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              label: Text(
+                _preparing ? 'Preparing...' : 'Share QR as image to print',
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+              ),
             ),
           ],
         ],

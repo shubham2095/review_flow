@@ -56,7 +56,7 @@ class _AdminShellState extends State<AdminShell> {
       'Companies, plans and revenue at a glance',
       Icons.dashboard_rounded,
     ),
-    ('Companies','Tenants, plans, credits and users', Icons.business_rounded),
+    ('Companies', 'Tenants, plans, credits and users', Icons.business_rounded),
     ('Plans', 'Pricing, limits and features', Icons.workspace_premium_rounded),
     (
       'Pricing & coupons',
@@ -183,220 +183,241 @@ class _AdminShellState extends State<AdminShell> {
           if (!didPop) _onBack();
         },
         child: Scaffold(
-        key: _scaffoldKey,
-        drawerEdgeDragWidth: drawerSwipeWidth(context),
-        backgroundColor: surface,
-        appBar: AppBar(
-          backgroundColor: royalIndigo,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [royalNavy, royalIndigo, royalViolet],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          key: _scaffoldKey,
+          drawerEdgeDragWidth: drawerSwipeWidth(context),
+          backgroundColor: surface,
+          appBar: AppBar(
+            backgroundColor: royalIndigo,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [royalNavy, royalIndigo, royalViolet],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-            ),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                height: 1.2,
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      royalGold.withValues(alpha: 0),
-                      royalGold.withValues(alpha: 0.9),
-                      royalGold.withValues(alpha: 0),
-                    ],
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  height: 1.2,
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        royalGold.withValues(alpha: 0),
+                        royalGold.withValues(alpha: 0.9),
+                        royalGold.withValues(alpha: 0),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          leading: Builder(
-            builder: (ctx) => IconButton(
-              tooltip: 'Menu',
-              icon: const Icon(Icons.menu_rounded),
-              onPressed: () => Scaffold.of(ctx).openDrawer(),
-            ),
-          ),
-          title: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, anim) => FadeTransition(
-              opacity: anim,
-              child: SlideTransition(
-                position: Tween(
-                  begin: const Offset(0, 0.2),
-                  end: Offset.zero,
-                ).animate(anim),
-                child: child,
+            leading: Builder(
+              builder: (ctx) => IconButton(
+                tooltip: 'Menu',
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
               ),
             ),
-            child: Text(
-              _items[_section].$1,
-              key: ValueKey(_section),
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+            title: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: const Offset(0, 0.2),
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: Text(
+                _items[_section].$1,
+                key: ValueKey(_section),
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
+              ),
             ),
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Semantics(
-                button: true,
-                label: 'Open my profile',
-                child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _go(_profile),
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: royalGold, width: 1.3),
-                  ),
-                  child: CircleAvatar(
-                    radius: 15,
-                    backgroundColor: Colors.white.withValues(alpha: 0.18),
-                    child: Text(
-                      initial,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Semantics(
+                  button: true,
+                  label: 'Open my profile',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _go(_profile),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: royalGold, width: 1.3),
+                      ),
+                      child: CircleAvatar(
+                        radius: 15,
+                        backgroundColor: Colors.white.withValues(alpha: 0.18),
+                        child: Text(
+                          initial,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-              ),
-            ),
-          ],
-        ),
-        drawer: Drawer(
-          backgroundColor: Colors.white,
-          width: MediaQuery.sizeOf(context).width * 0.8,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              Container(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  MediaQuery.paddingOf(context).top + 20,
-                  20,
-                  22,
-                ),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [royalNavy, royalIndigo, royalViolet],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.only(bottomRight: Radius.circular(28)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: royalGold, width: 1.6),
-                          ),
-                          child: CircleAvatar(
-                            radius: 26,
-                            backgroundColor: Colors.white.withValues(alpha: 0.14),
-                            child: Text(
-                              initial,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
+            ],
+          ),
+          drawer: Drawer(
+            backgroundColor: Colors.white,
+            width: MediaQuery.sizeOf(context).width * 0.8,
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                // The header is the person: tapping it opens their profile.
+                Semantics(
+                  button: true,
+                  label: 'Open my profile',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _pick(_profile),
+                    child: Container(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        MediaQuery.paddingOf(context).top + 20,
+                        20,
+                        22,
+                      ),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [royalNavy, royalIndigo, royalViolet],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        borderRadius: BorderRadius.only(
+                          bottomRight: Radius.circular(28),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              Text(
-                                name.isEmpty ? 'Super admin' : name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: royalGold,
+                                    width: 1.6,
+                                  ),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.14,
+                                  ),
+                                  child: Text(
+                                    initial,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              Text(
-                                user?.email ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: Colors.white70,
-                                  fontSize: 12,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name.isEmpty ? 'Super admin' : name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: Colors.white,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      user?.email ?? '',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: royalGold.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: royalGold.withValues(alpha: 0.6)),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: royalGold.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: royalGold.withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Text(
+                              'SUPER ADMIN',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: royalGold,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        'SUPER ADMIN',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: royalGold,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              for (var i = 0; i < _items.length; i++)
+                const SizedBox(height: 12),
+                for (var i = 0; i < _items.length; i++)
+                  _NavItem(
+                    icon: _items[i].$3,
+                    label: _items[i].$1,
+                    subtitle: _items[i].$2,
+                    selected: _section == i,
+                    onTap: () => _pick(i),
+                  ),
+                const Divider(indent: 20, endIndent: 20, height: 28),
                 _NavItem(
-                  icon: _items[i].$3,
-                  label: _items[i].$1,
-                  subtitle: _items[i].$2,
-                  selected: _section == i,
-                  onTap: () => _pick(i),
+                  icon: Icons.logout_rounded,
+                  label: 'Logout',
+                  danger: true,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _logout();
+                  },
                 ),
-              const Divider(indent: 20, endIndent: 20, height: 28),
-              _NavItem(
-                icon: Icons.logout_rounded,
-                label: 'Logout',
-                danger: true,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _logout();
-                },
-              ),
+              ],
+            ),
+          ),
+          body: FadeIndexedStack(
+            index: _section,
+            children: [
+              for (var i = 0; i < _items.length; i++)
+                _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
             ],
           ),
-        ),
-        body: FadeIndexedStack(
-          index: _section,
-          children: [
-            for (var i = 0; i < _items.length; i++)
-              _visited.contains(i) ? _page(i) : const SizedBox.shrink(),
-          ],
-        ),
         ),
       ),
     );
@@ -426,7 +447,9 @@ class _NavItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Material(
-        color: selected ? royalIndigo.withValues(alpha: 0.07) : Colors.transparent,
+        color: selected
+            ? royalIndigo.withValues(alpha: 0.07)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -441,9 +464,13 @@ class _NavItem extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     gradient: selected && !danger
-                        ? const LinearGradient(colors: [royalIndigo, royalViolet])
+                        ? const LinearGradient(
+                            colors: [royalIndigo, royalViolet],
+                          )
                         : null,
-                    color: selected && !danger ? null : color.withValues(alpha: 0.10),
+                    color: selected && !danger
+                        ? null
+                        : color.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -468,7 +495,10 @@ class _NavItem extends StatelessWidget {
                       if (subtitle != null)
                         Text(
                           subtitle!,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: muted,
+                          ),
                         ),
                     ],
                   ),

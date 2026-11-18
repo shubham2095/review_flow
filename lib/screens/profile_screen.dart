@@ -368,15 +368,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _Group(children: [
-                    _Row(
+                  ProfileGroup(children: [
+                    ProfileRow(
                       icon: Icons.lock_reset_rounded,
                       label: 'Change password',
                       onTap: _changePassword,
                     ),
                     const _NotificationsRow(),
                     if (!widget.platformAdmin)
-                      _Row(
+                      ProfileRow(
                         icon: Icons.support_agent_rounded,
                         label: 'Help & support',
                         onTap: () => Navigator.of(context).push(
@@ -385,26 +385,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
-                    _Row(
+                    ProfileRow(
                       icon: Icons.privacy_tip_outlined,
                       label: 'Privacy policy',
                       onTap: () => openPublicPage('/privacy-policy'),
                     ),
-                    _Row(
+                    ProfileRow(
                       icon: Icons.description_outlined,
                       label: 'Terms and conditions',
                       onTap: () => openPublicPage('/terms-and-conditions'),
                     ),
                   ]),
                   const SizedBox(height: 16),
-                  _Group(children: [
-                    _Row(
+                  ProfileGroup(children: [
+                    ProfileRow(
                       icon: Icons.logout_rounded,
                       label: 'Log out',
                       onTap: _signOut,
                     ),
                     if (!widget.platformAdmin)
-                      _Row(
+                      ProfileRow(
                         icon: Icons.delete_forever_rounded,
                         label: 'Delete my account',
                         danger: true,
@@ -594,8 +594,8 @@ class _Pill extends StatelessWidget {
   }
 }
 
-class _Group extends StatelessWidget {
-  const _Group({required this.children});
+class ProfileGroup extends StatelessWidget {
+  const ProfileGroup({super.key, required this.children});
 
   final List<Widget> children;
 
@@ -604,13 +604,20 @@ class _Group extends StatelessWidget {
     return Container(
       decoration: cardDecoration(),
       clipBehavior: Clip.antiAlias,
-      child: Column(children: children),
+      // The white card hides the page's Material from the rows inside, so
+      // their touch ripple and tile colours would not show. This transparent
+      // Material sits above the card's paint and carries them.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(children: children),
+      ),
     );
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row({
+class ProfileRow extends StatelessWidget {
+  const ProfileRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,

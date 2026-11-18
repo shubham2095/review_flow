@@ -1051,74 +1051,79 @@ class _AdminBillingSettingsTabState extends State<AdminBillingSettingsTab> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: cardDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _offerLabel,
-                  enabled: !_saving,
-                  maxLength: 120,
-                  decoration: adminInput(
-                    'Offer text',
-                    hint: 'Diwali sale: extra 20% off',
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _offerLabel,
+                    enabled: !_saving,
+                    maxLength: 120,
+                    decoration: adminInput(
+                      'Offer text',
+                      hint: 'Diwali sale: extra 20% off',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Semantics(
-                  button: true,
-                  label:
-                      'Offer ends: ${_offerEnds == null ? 'not set' : fmtDateTime(_offerEnds!)}',
-                  excludeSemantics: true,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: _saving ? null : _pickEnd,
-                    child: InputDecorator(
-                      decoration: adminInput('Offer ends'),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _offerEnds == null
-                                  ? 'Not set'
-                                  : fmtDateTime(_offerEnds!),
-                              style: GoogleFonts.plusJakartaSans(
-                                color: _offerEnds == null ? muted : ink,
-                              ),
-                            ),
-                          ),
-                          if (_offerEnds != null)
-                            InkWell(
-                              onTap: () => setState(() => _offerEnds = null),
-                              child: const Padding(
-                                padding: EdgeInsets.all(4),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  size: 18,
-                                  color: muted,
+                  const SizedBox(height: 4),
+                  Semantics(
+                    button: true,
+                    label:
+                        'Offer ends: ${_offerEnds == null ? 'not set' : fmtDateTime(_offerEnds!)}',
+                    excludeSemantics: true,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: _saving ? null : _pickEnd,
+                      child: InputDecorator(
+                        decoration: adminInput('Offer ends'),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _offerEnds == null
+                                    ? 'Not set'
+                                    : fmtDateTime(_offerEnds!),
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: _offerEnds == null ? muted : ink,
                                 ),
                               ),
-                            )
-                          else
-                            const Icon(
-                              Icons.event_rounded,
-                              size: 18,
-                              color: muted,
                             ),
-                        ],
+                            if (_offerEnds != null)
+                              InkWell(
+                                onTap: () => setState(() => _offerEnds = null),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: muted,
+                                  ),
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.event_rounded,
+                                size: 18,
+                                color: muted,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Offer is on'),
-                  subtitle: const Text('Shows the banner on the pricing page'),
-                  value: _offerActive,
-                  onChanged: _saving
-                      ? null
-                      : (v) => setState(() => _offerActive = v),
-                ),
-              ],
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Offer is on'),
+                    subtitle: const Text(
+                      'Shows the banner on the pricing page',
+                    ),
+                    value: _offerActive,
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _offerActive = v),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),

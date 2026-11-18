@@ -82,8 +82,16 @@ class _InvoiceTabState extends State<_InvoiceTab> {
   bool _saving = false;
   String? _error;
 
-  List<TextEditingController> get _all =>
-      [_company, _address, _gstin, _email, _phone, _tax, _prefix, _gst];
+  List<TextEditingController> get _all => [
+    _company,
+    _address,
+    _gstin,
+    _email,
+    _phone,
+    _tax,
+    _prefix,
+    _gst,
+  ];
 
   @override
   void initState() {
@@ -141,9 +149,10 @@ class _InvoiceTabState extends State<_InvoiceTab> {
         ? "GST rate must be a number from 0 to 100."
         : null;
     final emailError =
-        email.isNotEmpty && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)
-            ? 'Enter a valid email address.'
-            : null;
+        email.isNotEmpty &&
+            !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)
+        ? 'Enter a valid email address.'
+        : null;
     if (gstError != null || emailError != null) {
       HapticFeedback.mediumImpact();
       setState(() {
@@ -180,8 +189,14 @@ class _InvoiceTabState extends State<_InvoiceTab> {
     }
   }
 
-  Widget _field(TextEditingController c, String label,
-      {TextInputType? type, int lines = 1, String? error, VoidCallback? onEdit}) {
+  Widget _field(
+    TextEditingController c,
+    String label, {
+    TextInputType? type,
+    int lines = 1,
+    String? error,
+    VoidCallback? onEdit,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
@@ -190,14 +205,18 @@ class _InvoiceTabState extends State<_InvoiceTab> {
         minLines: 1,
         maxLines: lines,
         onChanged: onEdit == null ? null : (_) => onEdit(),
-        decoration: adminInput(label).copyWith(fillColor: surface, errorText: error),
+        decoration: adminInput(
+          label,
+        ).copyWith(fillColor: surface, errorText: error),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const SkeletonList(count: 3, itemHeight: 120, headerHeight: 90);
+    if (_loading) {
+      return const SkeletonList(count: 3, itemHeight: 120, headerHeight: 90);
+    }
     if (_error != null) {
       return SingleChildScrollView(
         child: AdminMessage(
@@ -266,7 +285,10 @@ class _InvoiceTabState extends State<_InvoiceTab> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Save settings'),
               ),
@@ -353,7 +375,8 @@ class _AiTabState extends State<_AiTab> {
         'is_active': _active,
         'active_provider': _provider,
         'gemini_image_model': _imageModel.text.trim(),
-        for (final p in d.providers) '${p.key}_model': _models[p.key]!.text.trim(),
+        for (final p in d.providers)
+          '${p.key}_model': _models[p.key]!.text.trim(),
         for (final p in d.providers)
           if (_keys[p.key]!.text.trim().isNotEmpty)
             '${p.key}_api_key': _keys[p.key]!.text.trim(),
@@ -384,7 +407,10 @@ class _AiTabState extends State<_AiTab> {
           title: Text(r.ok ? 'Provider works' : 'Test failed'),
           content: Text(r.message),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
           ],
         ),
       );
@@ -411,7 +437,9 @@ class _AiTabState extends State<_AiTab> {
   @override
   Widget build(BuildContext context) {
     final d = _data;
-    if (_loading) return const SkeletonList(count: 3, itemHeight: 120, headerHeight: 90);
+    if (_loading) {
+      return const SkeletonList(count: 3, itemHeight: 120, headerHeight: 90);
+    }
     if (_error != null || d == null) {
       return SingleChildScrollView(
         child: AdminMessage(
@@ -432,46 +460,60 @@ class _AiTabState extends State<_AiTab> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: cardDecoration(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  'Use the provider chosen here',
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800),
-                ),
-                subtitle: const Text('Off means the server .env keys are used'),
-                value: _active,
-                onChanged: (v) => setState(() => _active = v),
-              ),
-              Text(
-                d.effectiveProvider == null
-                    ? 'Currently using: server .env keys'
-                    : 'Currently using: ${_name(d.effectiveProvider!)}',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                d.canGenerateImages
-                    ? 'Image generation is available.'
-                    : 'Image generation needs a Gemini or OpenAI key.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final p in d.providers)
-                    ChoiceChip(
-                      label: Text(_name(p.key)),
-                      selected: _provider == p.key,
-                      showCheckmark: false,
-                      onSelected: (_) => setState(() => _provider = p.key),
+          // The card paints a white background; this carries the switch's ripple.
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Use the provider chosen here',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
                     ),
-                ],
-              ),
-            ],
+                  ),
+                  subtitle: const Text(
+                    'Off means the server .env keys are used',
+                  ),
+                  value: _active,
+                  onChanged: (v) => setState(() => _active = v),
+                ),
+                Text(
+                  d.effectiveProvider == null
+                      ? 'Currently using: server .env keys'
+                      : 'Currently using: ${_name(d.effectiveProvider!)}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: muted,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  d.canGenerateImages
+                      ? 'Image generation is available.'
+                      : 'Image generation needs a Gemini or OpenAI key.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: muted,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final p in d.providers)
+                      ChoiceChip(
+                        label: Text(_name(p.key)),
+                        selected: _provider == p.key,
+                        showCheckmark: false,
+                        onSelected: (_) => setState(() => _provider = p.key),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -496,7 +538,9 @@ class _AiTabState extends State<_AiTab> {
                     ),
                     AdminBadge(
                       p.hasKey
-                          ? (p.keySource == 'env' ? 'Key from .env' : 'Key saved')
+                          ? (p.keySource == 'env'
+                                ? 'Key from .env'
+                                : 'Key saved')
                           : 'No key',
                       p.hasKey ? good : warn,
                     ),
@@ -507,14 +551,19 @@ class _AiTabState extends State<_AiTab> {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       'Ends with ${p.keyLast4}',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
                     ),
                   ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _models[p.key],
-                  decoration: adminInput('Model', hint: p.modelDefault)
-                      .copyWith(fillColor: surface),
+                  decoration: adminInput(
+                    'Model',
+                    hint: p.modelDefault,
+                  ).copyWith(fillColor: surface),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -522,21 +571,27 @@ class _AiTabState extends State<_AiTab> {
                   obscureText: true,
                   decoration: adminInput(
                     'API key',
-                    hint: p.hasKey ? 'Paste a new key to replace it' : 'Paste the key',
+                    hint: p.hasKey
+                        ? 'Paste a new key to replace it'
+                        : 'Paste the key',
                   ).copyWith(fillColor: surface),
                 ),
                 if (p.key == 'gemini') ...[
                   const SizedBox(height: 12),
                   TextField(
                     controller: _imageModel,
-                    decoration: adminInput('Image model').copyWith(fillColor: surface),
+                    decoration: adminInput(
+                      'Image model',
+                    ).copyWith(fillColor: surface),
                   ),
                 ],
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: (_testing != null || !p.hasKey) ? null : () => _test(p.key),
+                    onPressed: (_testing != null || !p.hasKey)
+                        ? null
+                        : () => _test(p.key),
                     icon: _testing == p.key
                         ? const SizedBox(
                             width: 14,
@@ -544,7 +599,9 @@ class _AiTabState extends State<_AiTab> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.bolt_rounded, size: 18),
-                    label: Text(p.hasKey ? 'Test this provider' : 'Save a key to test'),
+                    label: Text(
+                      p.hasKey ? 'Test this provider' : 'Save a key to test',
+                    ),
                   ),
                 ),
               ],
@@ -556,7 +613,10 @@ class _AiTabState extends State<_AiTab> {
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Text('Save AI settings'),
         ),
