@@ -36,6 +36,28 @@ Future<void> _pump(WidgetTester tester, {Product? product}) async {
 }
 
 void main() {
+  group('wording', () {
+    test('a product the plan lacks says "Unlock"', () {
+      final h = planGateHeadline(Product.gbp, true);
+      expect(h.title, 'Unlock Google Business');
+      expect(h.subtitle, contains('not included in your current plan'));
+    });
+
+    test('no plan at all says "Activate your workspace"', () {
+      final h = planGateHeadline(null, false);
+      expect(h.title, 'Activate your workspace');
+      // A product tapped by someone with no plan is the same page.
+      expect(planGateHeadline(Product.whatsapp, false).title, h.title);
+    });
+
+    test('three steps, named after the product when there is one', () {
+      final steps = planGateSteps(Product.whatsapp);
+      expect(steps, hasLength(3));
+      expect(steps[1].text, contains('WhatsApp'));
+      expect(planGateSteps(null)[1].text, contains('suits your business'));
+    });
+  });
+
   test('only iOS is kept from offering the purchase link', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     expect(planPurchaseLinkAllowed, isTrue);
@@ -52,7 +74,10 @@ void main() {
     try {
       await _pump(tester, product: Product.whatsapp);
 
-      expect(find.text('WhatsApp is not in your plan'), findsOneWidget);
+      expect(find.text('Unlock WhatsApp'), findsOneWidget);
+      expect(find.text('Your plan: GMB PLAN'), findsOneWidget);
+      expect(find.text('How to get it'), findsOneWidget);
+      expect(find.text('Choose a plan'), findsOneWidget);
       expect(find.text('Get a plan on the website'), findsOneWidget);
       expect(find.text('Check again'), findsOneWidget);
       expectNoRealErrors(tester);
@@ -66,7 +91,10 @@ void main() {
     try {
       await _pump(tester, product: Product.whatsapp);
 
+      expect(find.text('Unlock WhatsApp'), findsOneWidget);
+      expect(find.text('To switch it on'), findsOneWidget);
       expect(find.text('Get a plan on the website'), findsNothing);
+      expect(find.text('Choose a plan'), findsNothing);
       expect(find.text('Check again'), findsOneWidget);
       expectNoRealErrors(tester);
     } finally {

@@ -13,7 +13,9 @@ import 'package:review_flow/screens/admin_dashboard_screen.dart';
 import 'package:review_flow/screens/admin_payments_screen.dart';
 import 'package:review_flow/screens/admin_plans_screen.dart';
 import 'package:review_flow/screens/admin_support_screen.dart';
+import 'package:review_flow/screens/plan_gate_screen.dart';
 import 'package:review_flow/screens/profile_screen.dart';
+import 'package:review_flow/services/products.dart';
 import 'package:review_flow/screens/admin_pricing_screen.dart';
 import 'package:review_flow/screens/invoice_profile_screen.dart';
 import 'package:review_flow/screens/invoice_detail_screen.dart';
@@ -184,6 +186,14 @@ final Map<String, Widget Function()> _cases = {
   'InvoiceExpensesTab': () => const InvoiceExpensesTab(),
   'InvoiceProfileScreen': () => const InvoiceProfileScreen(),
   'AdminPricingScreen': () => const AdminPricingScreen(),
+  'PlanGateScreen (product)': () => PlanGateScreen(
+    product: Product.whatsapp,
+    onUnlocked: () {},
+    onSignedOut: () {},
+    onBack: () {},
+  ),
+  'PlanGateScreen (no plan)': () =>
+      PlanGateScreen(onUnlocked: () {}, onSignedOut: () {}),
   'AdminCompaniesScreen': () => const AdminCompaniesScreen(),
   'AdminPlansScreen': () => const AdminPlansScreen(),
   'AdminSupportScreen': () => const AdminSupportScreen(),
