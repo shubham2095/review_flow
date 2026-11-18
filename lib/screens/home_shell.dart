@@ -59,6 +59,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
   /// The page this product starts on.
   int get _start =>
       widget.product == Product.whatsapp ? kPageWhatsApp : kPageOverview;
@@ -73,7 +74,11 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     // Best effort: the switcher list for every module. A failure just means the
     // Overview fills it later.
-    LocationStore.refresh().catchError((_) {});
+    // Business locations are a Google Business Profile thing: WhatsApp does not
+    // need them, and asking for them there only adds a call that can fail.
+    if (widget.product == Product.gbp) {
+      LocationStore.refresh().catchError((_) {});
+    }
     ApiService.reconnected.addListener(_onReconnected);
     PushService.target.addListener(_onPush);
     _waCurrent.addListener(_onWaPlace);
@@ -271,6 +276,7 @@ class _HomeShellState extends State<HomeShell> {
             // The round letter is the person: it opens their profile. The three
             // lines (and a swipe from the left edge) open the side menu.
             onAvatarTap: () => _select(kPageAccount),
+            showLocationSwitcher: widget.product == Product.gbp,
           ),
           drawer: AppDrawer(
             name: name,
@@ -314,46 +320,46 @@ class _HomeShellState extends State<HomeShell> {
           bottomNavigationBar: widget.product != Product.gbp
               ? null
               : NavigationBar(
-            selectedIndex: bottomIndex,
-            onDestinationSelected: (i) {
-              HapticFeedback.selectionClick();
-              _select(i);
-            },
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.transparent,
-            elevation: 8,
-            shadowColor: royalNavy.withValues(alpha: 0.25),
-            indicatorColor: brand.withValues(alpha: 0.14),
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            height: 68,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: 'Overview',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.rate_review_outlined),
-                selectedIcon: Icon(Icons.rate_review),
-                label: 'Reviews',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.photo_library_outlined),
-                selectedIcon: Icon(Icons.photo_library),
-                label: 'Posts',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.insights_outlined),
-                selectedIcon: Icon(Icons.insights),
-                label: 'Insights',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.auto_awesome_outlined),
-                selectedIcon: Icon(Icons.auto_awesome),
-                label: 'AI Tools',
-              ),
-            ],
-          ),
+                  selectedIndex: bottomIndex,
+                  onDestinationSelected: (i) {
+                    HapticFeedback.selectionClick();
+                    _select(i);
+                  },
+                  backgroundColor: Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 8,
+                  shadowColor: royalNavy.withValues(alpha: 0.25),
+                  indicatorColor: brand.withValues(alpha: 0.14),
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  height: 68,
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      selectedIcon: Icon(Icons.dashboard),
+                      label: 'Overview',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.rate_review_outlined),
+                      selectedIcon: Icon(Icons.rate_review),
+                      label: 'Reviews',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.photo_library_outlined),
+                      selectedIcon: Icon(Icons.photo_library),
+                      label: 'Posts',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.insights_outlined),
+                      selectedIcon: Icon(Icons.insights),
+                      label: 'Insights',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.auto_awesome_outlined),
+                      selectedIcon: Icon(Icons.auto_awesome),
+                      label: 'AI Tools',
+                    ),
+                  ],
+                ),
         ),
       ),
     );

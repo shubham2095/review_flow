@@ -15,11 +15,15 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     required this.initial,
     required this.onAvatarTap,
+    this.showLocationSwitcher = true,
   });
 
   final String title;
   final String initial;
   final VoidCallback onAvatarTap;
+
+  /// The Google business location switcher. Off for WhatsApp.
+  final bool showLocationSwitcher;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 10);
@@ -82,7 +86,10 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(9),
-              child: Image.asset('assets/images/eydia_logo.png', fit: BoxFit.cover),
+              child: Image.asset(
+                'assets/images/eydia_logo.png',
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -100,7 +107,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
       actions: [
-        const LocationSwitcher(),
+        if (showLocationSwitcher) const LocationSwitcher(),
         // 34dp circle inside a 48dp touch area, named for screen readers.
         Semantics(
           button: true,

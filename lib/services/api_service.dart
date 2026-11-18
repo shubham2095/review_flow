@@ -54,6 +54,25 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Why a saved copy had to be shown instead of live data.
+enum SavedWhy {
+  /// The phone has no connection to the server.
+  offline,
+
+  /// The server did not answer in time.
+  slow,
+
+  /// The server answered with an error (5xx).
+  server,
+}
+
+/// The reason for [error], which must be an unreachable-server failure.
+SavedWhy savedWhy(ApiException error) {
+  if (error.isOffline) return SavedWhy.offline;
+  if (error.code == 'timeout') return SavedWhy.slow;
+  return SavedWhy.server;
+}
+
 /// Turns any low-level failure into a message that is safe to show to the user.
 /// Raw server or database errors never reach the screen.
 ApiException friendlyException(Object e) {
@@ -114,6 +133,12 @@ class ApiService {
   static final ValueNotifier<DateTime?> servingSavedData =
       ValueNotifier<DateTime?>(null);
 
+  /// Why the saved copy is being shown: no connection, a slow server, or a
+  /// server that answered with an error. Only meaningful while
+  /// [servingSavedData] is set.
+  static final ValueNotifier<SavedWhy> servingSavedWhy =
+      ValueNotifier<SavedWhy>(SavedWhy.offline);
+
   /// Ticks when the connection comes back after saved data was shown.
   static final ValueNotifier<int> reconnected = ValueNotifier<int>(0);
 
@@ -137,25 +162,52 @@ class ApiService {
   /// GET that remembers what it fetched. If the server cannot be reached later,
   /// the last saved copy is returned instead of an error (and
   /// [servingSavedData] tells the UI), so the app stays useful offline.
+  ///
+  /// A server error (5xx) is tried once more after a moment, because a busy or
+  /// restarting server often answers the second time. A timeout is not tried
+  /// again (it has already waited long enough), and nor is "no connection".
   Future<dynamic> _getPayload(String path) async {
-    try {
-      final res = await _authed(
-        (token) => http.get(_uri(path), headers: _headers(token)),
-      );
-      final payload = _unwrap(res);
-      _markOnline();
-      OfflineCache.write(path, payload);
-      return payload;
-    } on ApiException catch (e) {
-      if (e.isUnreachable) {
-        final saved = await OfflineCache.read(path);
-        if (saved != null) {
-          servingSavedData.value = saved.savedAt;
-          return saved.data;
-        }
+    ApiException? failure;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await _fetchAndKeep(path);
+      } on ApiException catch (e) {
+        failure = e;
+        final retryable =
+            attempt == 0 &&
+            e.isUnreachable &&
+            !e.isOffline &&
+            e.code != 'timeout';
+        if (!retryable) break;
+        await Future<void>.delayed(const Duration(milliseconds: 700));
       }
-      rethrow;
     }
+    final e = failure!;
+    if (e.isUnreachable) {
+      final saved = await OfflineCache.read(path);
+      if (saved != null) {
+        if (kDebugMode) {
+          debugPrint(
+            'Showing the saved copy of $path: '
+            'status ${e.statusCode ?? '-'}, ${e.code ?? 'no code'}, ${e.message}',
+          );
+        }
+        servingSavedWhy.value = savedWhy(e);
+        servingSavedData.value = saved.savedAt;
+        return saved.data;
+      }
+    }
+    throw e;
+  }
+
+  Future<dynamic> _fetchAndKeep(String path) async {
+    final res = await _authed(
+      (token) => http.get(_uri(path), headers: _headers(token)),
+    );
+    final payload = _unwrap(res);
+    _markOnline();
+    OfflineCache.write(path, payload);
+    return payload;
   }
 
   Future<Map<String, dynamic>> get(String path) async =>

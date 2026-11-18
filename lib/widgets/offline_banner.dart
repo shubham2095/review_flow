@@ -22,16 +22,20 @@ class OfflineBanner extends StatelessWidget {
         alignment: Alignment.topCenter,
         child: savedAt == null
             ? const SizedBox(width: double.infinity)
-            : _Bar(savedAt: savedAt),
+            : ValueListenableBuilder<SavedWhy>(
+                valueListenable: ApiService.servingSavedWhy,
+                builder: (context, why, _) => _Bar(savedAt: savedAt, why: why),
+              ),
       ),
     );
   }
 }
 
 class _Bar extends StatefulWidget {
-  const _Bar({required this.savedAt});
+  const _Bar({required this.savedAt, required this.why});
 
   final DateTime savedAt;
+  final SavedWhy why;
 
   @override
   State<_Bar> createState() => _BarState();
@@ -61,6 +65,11 @@ class _BarState extends State<_Bar> {
     if (mounted) setState(() => _checking = false);
   }
 
+  /// What the bar says, by why the saved copy is shown. "Offline" is only
+  /// said when the phone really has no connection: a server error or a slow
+  /// server is not the person's Wi-Fi.
+  String get _message => savedBarMessage(widget.why, _age);
+
   String get _age {
     final d = DateTime.now().difference(widget.savedAt);
     if (d.inMinutes < 1) return 'just now';
@@ -87,7 +96,7 @@ class _BarState extends State<_Bar> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                "You're offline. Showing data saved $_age.",
+                _message,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -122,3 +131,11 @@ class _BarState extends State<_Bar> {
     );
   }
 }
+
+/// The line on the bar: [age] is "just now", "4 min ago" and so on.
+String savedBarMessage(SavedWhy why, String age) => switch (why) {
+  SavedWhy.offline => "You're offline. Showing data saved $age.",
+  SavedWhy.slow => 'The connection is slow. Showing data saved $age.',
+  SavedWhy.server =>
+    'Eydia is not responding right now. Showing data saved $age.',
+};
