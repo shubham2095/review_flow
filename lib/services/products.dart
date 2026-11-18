@@ -52,19 +52,21 @@ enum Product {
   final IconData icon;
   final List<(IconData, String)> benefits;
 
-  /// Whether this person's plan opens the product.
-  ///
-  /// No active plan: locked. A plan whose feature list does not mention any
-  /// dashboard at all (older plans, or no feature list) opens everything, the
-  /// way the app behaved before products existed. Super admins are not gated.
+  /// Whether this person's plan opens the product. The same rule as the web
+  /// app (`hasFeature`) and the server (`feature:dash_...`), so the three never
+  /// disagree:
+  /// - a super admin is not gated;
+  /// - no active plan: locked;
+  /// - a plan with no feature list at all: everything is open;
+  /// - otherwise the plan's feature list must contain this product's key.
+  ///   A plan that lists some features but not `dash_whatsapp` does NOT open
+  ///   WhatsApp, even if it lists no dashboard at all.
   bool unlockedFor(AppUser? user) {
     if (user == null) return false;
     if (user.isSuperAdmin) return true;
     if (!user.hasPlan) return false;
     final features = user.planFeatures;
     if (features == null) return true;
-    const dashboards = {'dash_gbp', 'dash_whatsapp', 'dash_leads'};
-    if (!features.any(dashboards.contains)) return true;
     return features.contains(key);
   }
 }

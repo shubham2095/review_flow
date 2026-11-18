@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/platform_rules.dart';
 import '../services/products.dart';
 import '../services/session.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/royal_backdrop.dart';
@@ -40,6 +41,7 @@ class PlanGateScreen extends StatefulWidget {
 class _PlanGateScreenState extends State<PlanGateScreen>
     with WidgetsBindingObserver {
   bool _checking = false;
+  bool _opening = false;
 
   @override
   void initState() {
@@ -63,7 +65,6 @@ class _PlanGateScreenState extends State<PlanGateScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-
   Future<void> _check({bool silent = false}) async {
     if (_checking) return;
     setState(() => _checking = true);
@@ -86,6 +87,21 @@ class _PlanGateScreenState extends State<PlanGateScreen>
       if (!silent) _snack(friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  /// Opens the website (signed in) on the billing page, where a plan is
+  /// bought. When the person comes back, the page checks the plan again by
+  /// itself and opens what the new plan includes.
+  Future<void> _openWeb() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      await openInWeb(next: '/billing');
+    } catch (e) {
+      _snack(friendlyException(e).message);
+    } finally {
+      if (mounted) setState(() => _opening = false);
     }
   }
 
@@ -158,7 +174,9 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                     child: Column(
                       children: [
                         Text(
-                          first.isEmpty ? 'Welcome to Eydia' : 'Welcome, $first',
+                          first.isEmpty
+                              ? 'Welcome to Eydia'
+                              : 'Welcome, $first',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 26,
@@ -201,7 +219,9 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            p == null ? 'What switches on' : 'What ${p.short} gives you',
+                            p == null
+                                ? 'What switches on'
+                                : 'What ${p.short} gives you',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
@@ -231,7 +251,44 @@ class _PlanGateScreenState extends State<PlanGateScreen>
                               color: muted,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
+                          if (planPurchaseLinkAllowed) ...[
+                            FilledButton.icon(
+                              onPressed: _opening ? null : _openWeb,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: _opening
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.open_in_new_rounded),
+                              label: const Text('Get a plan on the website'),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6, bottom: 4),
+                              child: Text(
+                                'Opens the Eydia website in your browser, '
+                                'signed in. Buy the plan there, then come back '
+                                'here.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.5,
+                                  height: 1.4,
+                                  color: muted,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                          ],
                           OutlinedButton(
                             onPressed: _checking ? null : _check,
                             style: OutlinedButton.styleFrom(

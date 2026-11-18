@@ -55,6 +55,10 @@ class _ProductHubState extends State<ProductHub> with WidgetsBindingObserver {
     PushService.target.addListener(_onPush);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // The plan may have changed since the last look (an admin gave or took
+      // a product): read it again every time the boxes appear, so a box is
+      // never opened on an old plan.
+      _refresh();
       // Notifications: register this phone (and ask once, politely).
       PushService.start(context).then((_) => _onPush(), onError: (_) {});
       _onPush();
