@@ -11,6 +11,7 @@ import '../services/session.dart';
 import '../theme/brand.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/app_top_bar.dart';
+import '../widgets/drawer_swipe.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../widgets/offline_banner.dart';
 import 'ai_studio_screen.dart';
@@ -260,13 +261,16 @@ class _HomeShellState extends State<HomeShell> {
         },
         child: Scaffold(
           key: _scaffoldKey,
+          drawerEdgeDragWidth: drawerSwipeWidth(context),
           backgroundColor: surface,
           appBar: AppTopBar(
             title: _index == kPageWhatsApp
                 ? _waCurrent.value.title
                 : _titles[_index],
             initial: initial,
-            onAvatarTap: () => _scaffoldKey.currentState?.openDrawer(),
+            // The round letter is the person: it opens their profile. The three
+            // lines (and a swipe from the left edge) open the side menu.
+            onAvatarTap: () => _select(kPageAccount),
           ),
           drawer: AppDrawer(
             name: name,

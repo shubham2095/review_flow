@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/session.dart';
+import '../widgets/drawer_swipe.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../theme/brand.dart';
 import 'admin_companies_screen.dart';
@@ -36,6 +37,7 @@ class _AdminShellState extends State<AdminShell> {
   static const _companies = 1;
   static const _plans = 2;
   static const _payments = 5;
+  static const _profile = 8;
 
   final _dashboardKey = GlobalKey<AdminDashboardScreenState>();
 
@@ -182,6 +184,7 @@ class _AdminShellState extends State<AdminShell> {
         },
         child: Scaffold(
         key: _scaffoldKey,
+        drawerEdgeDragWidth: drawerSwipeWidth(context),
         backgroundColor: surface,
         appBar: AppBar(
           backgroundColor: royalIndigo,
@@ -212,6 +215,13 @@ class _AdminShellState extends State<AdminShell> {
               ),
             ),
           ),
+          leading: Builder(
+            builder: (ctx) => IconButton(
+              tooltip: 'Menu',
+              icon: const Icon(Icons.menu_rounded),
+              onPressed: () => Scaffold.of(ctx).openDrawer(),
+            ),
+          ),
           title: AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             transitionBuilder: (child, anim) => FadeTransition(
@@ -235,10 +245,10 @@ class _AdminShellState extends State<AdminShell> {
               padding: const EdgeInsets.only(right: 12),
               child: Semantics(
                 button: true,
-                label: 'Open menu',
+                label: 'Open my profile',
                 child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                onTap: () => _go(_profile),
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(

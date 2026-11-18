@@ -104,7 +104,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
         // 34dp circle inside a 48dp touch area, named for screen readers.
         Semantics(
           button: true,
-          label: 'Open menu',
+          label: 'Open my profile',
           child: InkResponse(
             onTap: onAvatarTap,
             radius: 24,
