@@ -163,82 +163,6 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  Widget _tile({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color color,
-    String? note,
-    VoidCallback? onTap,
-  }) {
-    return Semantics(
-      button: onTap != null,
-      container: true,
-      excludeSemantics: true,
-      label: '$label $value${note == null ? '' : ', $note'}',
-      child: Container(
-        decoration: cardDecoration(),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, size: 20, color: color),
-                  ),
-                  const SizedBox(height: 10),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      value,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 22,
-                        color: ink,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      color: muted,
-                    ),
-                  ),
-                  if (note != null)
-                    Text(
-                      note,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        color: muted,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _heading(String text) => Padding(
     padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
     child: Semantics(
@@ -331,24 +255,16 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
         FadeIn(
-          child: GridView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              mainAxisExtent: MediaQuery.textScalerOf(context).scale(122),
-            ),
+          child: adminTileGrid(
             children: [
-              _tile(
+              AdminStatTile(
                 label: 'Total companies',
                 value: '${o.total}',
                 icon: Icons.business_rounded,
                 color: brand,
                 onTap: () => widget.onOpenCompanies(const AdminCompanyFilter()),
               ),
-              _tile(
+              AdminStatTile(
                 label: 'Active companies',
                 value: '${o.active}',
                 icon: Icons.check_circle_rounded,
@@ -358,21 +274,21 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const AdminCompanyFilter(status: AdminCompanyStatus.active),
                 ),
               ),
-              _tile(
+              AdminStatTile(
                 label: 'Plans',
                 value: '${o.planCount}',
                 icon: Icons.workspace_premium_rounded,
                 color: royalViolet,
                 onTap: widget.onOpenPlans,
               ),
-              _tile(
+              AdminStatTile(
                 label: 'Total users',
                 value: '${o.users}',
                 icon: Icons.groups_rounded,
                 color: warn,
                 onTap: () => widget.onOpenCompanies(const AdminCompanyFilter()),
               ),
-              _tile(
+              AdminStatTile(
                 label: 'Revenue',
                 value: p == null || p.revenue.isEmpty ? '—' : p.revenue,
                 icon: Icons.payments_rounded,
@@ -571,4 +487,122 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
+}
+
+/// One number on the dashboard: an icon, a big value, a label and an optional
+/// note. It is as tall as its content, so it never overflows at large text
+/// sizes.
+class AdminStatTile extends StatelessWidget {
+  const AdminStatTile({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    this.note,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String? note;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: onTap != null,
+      container: true,
+      excludeSemantics: true,
+      label: '$label $value${note == null ? '' : ', $note'}',
+      child: Container(
+        decoration: cardDecoration(),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, size: 20, color: color),
+                  ),
+                  const SizedBox(height: 10),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      value,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                        color: ink,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: muted,
+                    ),
+                  ),
+                  if (note != null)
+                    Text(
+                      note!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        color: muted,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The tiles two to a row. Each row is as tall as its tallest tile, so bigger
+/// text sizes make the tiles taller instead of overflowing.
+Widget adminTileGrid({required List<Widget> children}) {
+  final rows = <Widget>[];
+  for (var i = 0; i < children.length; i += 2) {
+    if (i > 0) rows.add(const SizedBox(height: 12));
+    rows.add(
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: children[i]),
+            const SizedBox(width: 12),
+            Expanded(
+              child: i + 1 < children.length
+                  ? children[i + 1]
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  return Column(children: rows);
 }

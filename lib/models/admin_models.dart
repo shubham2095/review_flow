@@ -96,6 +96,8 @@ class AdminPlan {
     required this.isPublic,
     required this.sortOrder,
     required this.subscribers,
+    this.gstRate = 0,
+    this.gstRateOwn,
   });
 
   factory AdminPlan.fromJson(Map<String, dynamic> j) {
@@ -122,8 +124,16 @@ class AdminPlan {
       isPublic: j['is_public'] == true,
       sortOrder: asInt(j['sort_order']),
       subscribers: asInt(j['subscribers']),
+      gstRate: asInt(j['gst_rate']),
+      gstRateOwn: j['gst_rate_own'] == null ? null : asInt(j['gst_rate_own']),
     );
   }
+
+  /// The GST % that applies to this plan (its own, or the platform's).
+  final int gstRate;
+
+  /// The plan's own GST %, or null when it uses the platform's.
+  final int? gstRateOwn;
 
   final String id;
   final String name;

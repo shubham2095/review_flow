@@ -15,6 +15,7 @@ import 'admin_plans_screen.dart';
 import 'admin_pricing_screen.dart';
 import 'admin_settings_screen.dart';
 import 'admin_support_screen.dart';
+import 'profile_screen.dart';
 
 /// Layout for the platform super admin: a royal drawer with the admin sections.
 class AdminShell extends StatefulWidget {
@@ -64,6 +65,7 @@ class _AdminShellState extends State<AdminShell> {
     ('Payments', 'Every plan invoice', Icons.payments_rounded),
     ('Support', 'Tickets from all companies', Icons.support_agent_rounded),
     ('Settings', 'Invoice details and AI provider', Icons.settings_rounded),
+    ('My profile', 'Your details and password', Icons.person_rounded),
   ];
 
   Future<void> _logout() async {
@@ -152,8 +154,13 @@ class _AdminShellState extends State<AdminShell> {
         return const AdminPaymentsScreen();
       case 6:
         return const AdminSupportScreen();
-      default:
+      case 7:
         return const AdminSettingsScreen();
+      default:
+        return ProfileScreen(
+          onSignedOut: widget.onSignedOut,
+          platformAdmin: true,
+        );
     }
   }
 

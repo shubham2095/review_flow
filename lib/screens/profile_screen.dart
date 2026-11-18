@@ -21,9 +21,17 @@ import 'support_screen.dart';
 /// Your account: details, photo, password, help, policies, sign out and
 /// account deletion.
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.onSignedOut});
+  const ProfileScreen({
+    super.key,
+    required this.onSignedOut,
+    this.platformAdmin = false,
+  });
 
   final VoidCallback onSignedOut;
+
+  /// The platform's super admin: no company support desk to write to, and the
+  /// account is the platform's own, so it cannot be deleted from the app.
+  final bool platformAdmin;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -367,13 +375,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: _changePassword,
                     ),
                     const _NotificationsRow(),
-                    _Row(
-                      icon: Icons.support_agent_rounded,
-                      label: 'Help & support',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(builder: (_) => const SupportScreen()),
+                    if (!widget.platformAdmin)
+                      _Row(
+                        icon: Icons.support_agent_rounded,
+                        label: 'Help & support',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SupportScreen(),
+                          ),
+                        ),
                       ),
-                    ),
                     _Row(
                       icon: Icons.privacy_tip_outlined,
                       label: 'Privacy policy',
@@ -392,12 +403,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: 'Log out',
                       onTap: _signOut,
                     ),
-                    _Row(
-                      icon: Icons.delete_forever_rounded,
-                      label: 'Delete my account',
-                      danger: true,
-                      onTap: _deleteAccount,
-                    ),
+                    if (!widget.platformAdmin)
+                      _Row(
+                        icon: Icons.delete_forever_rounded,
+                        label: 'Delete my account',
+                        danger: true,
+                        onTap: _deleteAccount,
+                      ),
                   ]),
                   const SizedBox(height: 18),
                   // Support asks which version of the app someone is on.

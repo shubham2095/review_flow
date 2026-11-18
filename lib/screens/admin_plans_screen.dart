@@ -255,6 +255,12 @@ class _PlanCard extends StatelessWidget {
                     _Stat(Icons.bolt_rounded, '${p.credits} credits'),
                     _Stat(Icons.extension_rounded, '${p.modules} modules'),
                     _Stat(Icons.people_alt_rounded, '${p.subscribers} subscribers'),
+                    _Stat(
+                      Icons.percent_rounded,
+                      p.gstRateOwn == null
+                          ? 'GST ${p.gstRate}% (platform)'
+                          : 'GST ${p.gstRate}%',
+                    ),
                   ],
                 ),
               ],
@@ -317,6 +323,10 @@ class _PlanFormState extends State<_PlanForm> {
   );
   late final _sort = TextEditingController(text: '${widget.plan?.sortOrder ?? 0}');
   late String _period = widget.plan?.billingPeriod ?? 'monthly';
+  late final _gst = TextEditingController(
+    text: widget.plan?.gstRateOwn == null ? '' : '${widget.plan!.gstRateOwn}',
+  );
+  late String _currency = widget.plan?.currency ?? 'INR';
   late bool _active = widget.plan?.isActive ?? true;
   late bool _public = widget.plan?.isPublic ?? true;
   late final List<String> _limitKeys = {
@@ -347,6 +357,7 @@ class _PlanFormState extends State<_PlanForm> {
     _name.dispose();
     _description.dispose();
     _price.dispose();
+    _gst.dispose();
     _sort.dispose();
     for (final c in _limits.values) {
       c.dispose();
@@ -359,15 +370,16 @@ class _PlanFormState extends State<_PlanForm> {
   }
 
   Future<void> _save() async {
-    if (_name.text.trim().isEmpty) {
-      _message('Plan name is required.');
+    final problem = planFormProblem(
+      name: _name.text,
+      priceText: _price.text,
+      gstText: _gst.text,
+    );
+    if (problem != null) {
+      _message(problem);
       return;
     }
-    final price = double.tryParse(_price.text.trim().isEmpty ? '0' : _price.text.trim());
-    if (price == null || price < 0) {
-      _message('Enter a valid price.');
-      return;
-    }
+    final price = double.parse(_price.text.trim().isEmpty ? '0' : _price.text.trim());
     setState(() => _busy = true);
     try {
       await AdminService.savePlan(widget.plan?.id, {
@@ -375,7 +387,10 @@ class _PlanFormState extends State<_PlanForm> {
         'description': _description.text.trim(),
         'billing_period': _period,
         'price': price,
-        'currency': widget.plan?.currency ?? 'INR',
+        'currency': _currency,
+        // The server resets the plan's own GST to the platform rate when this
+        // is missing, so it is always sent: a number, or null for "platform".
+        'gst_rate': _gst.text.trim().isEmpty ? null : int.parse(_gst.text.trim()),
         // Empty means unlimited; the API stores that as -1.
         'limits': {
           for (final e in _limits.entries)
@@ -438,6 +453,45 @@ class _PlanFormState extends State<_PlanForm> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _gst,
+                      keyboardType: TextInputType.number,
+                      decoration: adminInput(
+                        'GST % (optional)',
+                        hint: widget.plan == null
+                            ? 'Platform rate'
+                            : '${widget.plan!.gstRate}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _currency,
+                      isExpanded: true,
+                      decoration: adminInput('Currency'),
+                      items: [
+                        for (final c in {...planCurrencies, _currency})
+                          DropdownMenuItem(value: c, child: Text(c)),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _currency = v ?? _currency),
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                child: Text(
+                  'Leave GST empty to use the platform rate. The price above '
+                  'includes GST.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -503,4 +557,31 @@ class _PlanFormState extends State<_PlanForm> {
       ),
     );
   }
+}
+
+/// Currencies a plan can be priced in. A plan already saved in another one
+/// keeps it (the form adds it to the list).
+const planCurrencies = ['INR', 'USD', 'EUR', 'GBP', 'AED'];
+
+/// What is wrong with the plan form, or null. [priceText] and [gstText] may be
+/// empty (price 0, platform GST); when given they must be sane.
+String? planFormProblem({
+  required String name,
+  required String priceText,
+  required String gstText,
+}) {
+  if (name.trim().isEmpty) return 'Plan name is required.';
+  final p = priceText.trim();
+  if (p.isNotEmpty) {
+    final price = double.tryParse(p);
+    if (price == null || price < 0) return 'Enter a valid price.';
+  }
+  final g = gstText.trim();
+  if (g.isNotEmpty) {
+    final gst = int.tryParse(g);
+    if (gst == null || gst < 0 || gst > 100) {
+      return 'GST must be a whole number from 0 to 100.';
+    }
+  }
+  return null;
 }
