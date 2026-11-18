@@ -7,6 +7,7 @@ import '../services/session.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../theme/brand.dart';
 import 'admin_companies_screen.dart';
+import 'admin_dashboard_screen.dart';
 import 'admin_packs_screen.dart';
 import 'admin_payments_screen.dart';
 import 'admin_plans_screen.dart';
@@ -29,8 +30,20 @@ class _AdminShellState extends State<AdminShell> {
   int _section = 0;
   final Set<int> _visited = {0};
 
+  static const _dashboard = 0;
+  static const _companies = 1;
+  static const _plans = 2;
+  static const _payments = 5;
+
+  final _dashboardKey = GlobalKey<AdminDashboardScreenState>();
+
   static const _items = [
-    ('Companies', 'Tenants, plans, credits and users', Icons.business_rounded),
+    (
+      'Dashboard',
+      'Companies, plans and revenue at a glance',
+      Icons.dashboard_rounded,
+    ),
+    ('Companies','Tenants, plans, credits and users', Icons.business_rounded),
     ('Plans', 'Pricing, limits and features', Icons.workspace_premium_rounded),
     (
       'Pricing & coupons',
@@ -67,19 +80,25 @@ class _AdminShellState extends State<AdminShell> {
 
   DateTime? _lastBack;
 
-  void _pick(int i) {
-    Navigator.of(context).pop();
+  /// Opens a section without touching the drawer (used by dashboard tiles).
+  void _go(int i) {
     setState(() {
       _section = i;
       _visited.add(i);
     });
+    if (i == _dashboard) _dashboardKey.currentState?.refreshIfStale();
   }
 
-  /// Back returns to Companies first; there, a second press within 2 seconds
-  /// leaves the app. Open sheets and the drawer close before this runs.
+  void _pick(int i) {
+    Navigator.of(context).pop();
+    _go(i);
+  }
+
+  /// Back returns to the Dashboard first; there, a second press within 2
+  /// seconds leaves the app. Open sheets and the drawer close before this runs.
   void _onBack() {
-    if (_section != 0) {
-      setState(() => _section = 0);
+    if (_section != _dashboard) {
+      _go(_dashboard);
       return;
     }
     final now = DateTime.now();
@@ -101,17 +120,24 @@ class _AdminShellState extends State<AdminShell> {
 
   Widget _page(int i) {
     switch (i) {
-      case 0:
-        return const AdminCompaniesScreen();
+      case _dashboard:
+        return AdminDashboardScreen(
+          key: _dashboardKey,
+          onOpenCompanies: () => _go(_companies),
+          onOpenPlans: () => _go(_plans),
+          onOpenPayments: () => _go(_payments),
+        );
       case 1:
-        return const AdminPlansScreen();
+        return const AdminCompaniesScreen();
       case 2:
-        return const AdminPricingScreen();
+        return const AdminPlansScreen();
       case 3:
-        return const AdminPacksScreen();
+        return const AdminPricingScreen();
       case 4:
+        return const AdminPacksScreen();
+      case _payments:
         return const AdminPaymentsScreen();
-      case 5:
+      case 6:
         return const AdminSupportScreen();
       default:
         return const AdminSettingsScreen();
