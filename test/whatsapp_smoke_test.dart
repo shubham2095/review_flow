@@ -8,7 +8,9 @@ import 'package:review_flow/screens/invoice_catalog.dart';
 import 'package:review_flow/screens/invoice_catalog_sheets.dart';
 import 'package:review_flow/screens/invoice_create_screen.dart';
 import 'package:review_flow/screens/invoice_expenses.dart';
+import 'package:review_flow/screens/admin_companies_screen.dart';
 import 'package:review_flow/screens/admin_dashboard_screen.dart';
+import 'package:review_flow/screens/admin_payments_screen.dart';
 import 'package:review_flow/screens/admin_pricing_screen.dart';
 import 'package:review_flow/screens/invoice_profile_screen.dart';
 import 'package:review_flow/screens/invoice_detail_screen.dart';
@@ -179,8 +181,10 @@ final Map<String, Widget Function()> _cases = {
   'InvoiceExpensesTab': () => const InvoiceExpensesTab(),
   'InvoiceProfileScreen': () => const InvoiceProfileScreen(),
   'AdminPricingScreen': () => const AdminPricingScreen(),
+  'AdminCompaniesScreen': () => const AdminCompaniesScreen(),
+  'AdminPaymentsScreen': () => const AdminPaymentsScreen(),
   'AdminDashboardScreen': () => AdminDashboardScreen(
-    onOpenCompanies: () {},
+    onOpenCompanies: (_) {},
     onOpenPlans: () {},
     onOpenPayments: () {},
   ),

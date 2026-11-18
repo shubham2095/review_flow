@@ -9,10 +9,14 @@ import '../widgets/admin_ui.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
+import 'admin_company_filters.dart';
 
 /// All companies (tenants) on the platform.
 class AdminCompaniesScreen extends StatefulWidget {
-  const AdminCompaniesScreen({super.key});
+  const AdminCompaniesScreen({super.key, this.filterRequest});
+
+  /// How the dashboard narrows this list. It is read once, then cleared.
+  final ValueNotifier<AdminCompanyFilter?>? filterRequest;
 
   @override
   State<AdminCompaniesScreen> createState() => _AdminCompaniesScreenState();
@@ -23,13 +27,41 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
   List<AdminPlanOption> _plans = [];
   bool _loading = true;
   String? _error;
-  String _query = '';
+  final _search = TextEditingController();
+  AdminCompanyStatus _status = AdminCompanyStatus.all;
+  String? _plan;
   final Set<String> _busy = {};
 
   @override
   void initState() {
     super.initState();
+    widget.filterRequest?.addListener(_takeRequest);
+    _takeRequest();
     _load();
+  }
+
+  @override
+  void dispose() {
+    widget.filterRequest?.removeListener(_takeRequest);
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Applies a filter sent from the dashboard, once.
+  void _takeRequest() {
+    final f = widget.filterRequest?.value;
+    if (f == null) return;
+    widget.filterRequest!.value = null;
+    _search.text = f.query;
+    if (mounted) {
+      setState(() {
+        _status = f.status;
+        _plan = f.plan;
+      });
+    } else {
+      _status = f.status;
+      _plan = f.plan;
+    }
   }
 
   Future<void> _load() async {
@@ -152,17 +184,41 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     await _run(c, () => AdminService.deleteCompany(c.id), 'Company deleted');
   }
 
-  List<AdminCompany> get _visible {
-    final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return _companies;
-    return _companies
-        .where(
-          (c) =>
-              c.name.toLowerCase().contains(q) ||
-              c.ownerName.toLowerCase().contains(q) ||
-              c.ownerEmail.toLowerCase().contains(q),
-        )
-        .toList();
+  List<AdminCompany> get _visible => filterCompanies(
+    _companies,
+    AdminCompanyFilter(status: _status, plan: _plan, query: _search.text),
+  );
+
+  bool get _filtering =>
+      _status != AdminCompanyStatus.all ||
+      _plan != null ||
+      _search.text.trim().isNotEmpty;
+
+  void _clearFilters() => setState(() {
+    _status = AdminCompanyStatus.all;
+    _plan = null;
+    _search.clear();
+  });
+
+  /// The full details of one company, with every action.
+  Future<void> _details(AdminCompany c) async {
+    final action = await showAdminSheet<String>(
+      context,
+      (_) => _CompanyDetails(company: c),
+    );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case 'edit':
+        await _form(c);
+      case 'plan':
+        await _assignPlan(c);
+      case 'credits':
+        await _addCredits(c);
+      case 'users':
+        await showAdminSheet<void>(context, (_) => _UsersSheet(company: c));
+      case 'toggle':
+        await _toggle(c);
+    }
   }
 
   @override
@@ -188,18 +244,77 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   TextField(
-                    onChanged: (v) => setState(() => _query = v),
+                    controller: _search,
+                    onChanged: (_) => setState(() {}),
                     decoration: adminInput('Search companies or owners').copyWith(
                       prefixIcon: const Icon(Icons.search_rounded),
                       fillColor: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final s in AdminCompanyStatus.values)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(s.label),
+                              selected: _status == s,
+                              onSelected: (_) => setState(() => _status = s),
+                            ),
+                          ),
+                        if (_plans.isNotEmpty)
+                          PopupMenuButton<String?>(
+                            tooltip: 'Filter by plan',
+                            onSelected: (v) => setState(() => _plan = v),
+                            itemBuilder: (_) => [
+                              const PopupMenuItem<String?>(
+                                value: null,
+                                child: Text('Any plan'),
+                              ),
+                              for (final p in _plans)
+                                PopupMenuItem<String?>(
+                                  value: p.name,
+                                  child: Text(p.name),
+                                ),
+                            ],
+                            child: Chip(
+                              avatar: const Icon(
+                                Icons.workspace_premium_rounded,
+                                size: 16,
+                              ),
+                              label: Text(_plan == null ? 'Any plan' : _plan!),
+                              backgroundColor: _plan == null
+                                  ? null
+                                  : brand.withValues(alpha: 0.12),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                    child: Text(
-                      '${_companies.length} companies',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _filtering
+                                ? '${list.length} of ${_companies.length} companies'
+                                : '${_companies.length} companies',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              color: muted,
+                            ),
+                          ),
+                        ),
+                        if (_filtering)
+                          TextButton(
+                            onPressed: _clearFilters,
+                            child: const Text('Clear filters'),
+                          ),
+                      ],
                     ),
                   ),
                   if (_error != null)
@@ -221,6 +336,7 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                         child: _CompanyCard(
                           company: list[i],
                           busy: _busy.contains(list[i].id),
+                          onOpen: () => _details(list[i]),
                           onEdit: () => _form(list[i]),
                           onPlan: () => _assignPlan(list[i]),
                           onCredits: () => _addCredits(list[i]),
@@ -243,6 +359,7 @@ class _CompanyCard extends StatelessWidget {
   const _CompanyCard({
     required this.company,
     required this.busy,
+    required this.onOpen,
     required this.onEdit,
     required this.onPlan,
     required this.onCredits,
@@ -253,6 +370,7 @@ class _CompanyCard extends StatelessWidget {
 
   final AdminCompany company;
   final bool busy;
+  final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onPlan;
   final VoidCallback onCredits;
@@ -263,15 +381,21 @@ class _CompanyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = company;
-    final agents = c.agentsLimit == null || c.agentsLimit! < 0
-        ? '${c.agentsUsed} agents'
-        : '${c.agentsUsed}/${c.agentsLimit} agents';
+    final agents = agentsLabel(c);
+    final trial = trialLabel(c);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       decoration: cardDecoration(),
-      child: Column(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onOpen,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -353,6 +477,8 @@ class _CompanyCard extends StatelessWidget {
                         c.planName == null ? warn : royalIndigo),
                     _Meta(Icons.people_alt_rounded, '${c.usersCount} users', muted),
                     _Meta(Icons.support_agent_rounded, agents, muted),
+                    if (trial != null)
+                      _Meta(Icons.hourglass_bottom_rounded, trial, warn),
                     if (c.createdAt != null)
                       _Meta(Icons.event_rounded, 'Joined ${fmtDate(c.createdAt!)}', muted),
                   ],
@@ -361,6 +487,114 @@ class _CompanyCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Everything about one company in one place, with a button for each thing
+/// that can be done. Pops with the action's name.
+class _CompanyDetails extends StatelessWidget {
+  const _CompanyDetails({required this.company});
+
+  final AdminCompany company;
+
+  Widget _row(String label, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Semantics(
+      container: true,
+      excludeSemantics: true,
+      label: '$label $value',
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 104,
+              child: Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: ink,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = company;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminSheetHeader(c.name),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AdminBadge(c.status, adminStatusColor(c.status)),
+            ),
+            const SizedBox(height: 14),
+            _row('Plan', c.planName ?? 'No plan'),
+            _row('Owner', c.ownerName),
+            _row('Email', c.ownerEmail),
+            _row('Users', '${c.usersCount}'),
+            _row('Agents', agentsLabel(c)),
+            _row('Trial', trialLabel(c) ?? ''),
+            _row('Joined', c.createdAt == null ? '' : fmtDate(c.createdAt!)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'plan'),
+                  icon: const Icon(Icons.workspace_premium_rounded, size: 18),
+                  label: const Text('Change plan'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'credits'),
+                  icon: const Icon(Icons.bolt_rounded, size: 18),
+                  label: const Text('Add credits'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'users'),
+                  icon: const Icon(Icons.people_alt_rounded, size: 18),
+                  label: const Text('Users'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context, 'edit'),
+                  icon: const Icon(Icons.edit_rounded, size: 18),
+                  label: const Text('Edit'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            FilledButton(
+              style: c.suspended
+                  ? null
+                  : FilledButton.styleFrom(backgroundColor: bad),
+              onPressed: () => Navigator.pop(context, 'toggle'),
+              child: Text(c.suspended ? 'Reactivate company' : 'Suspend company'),
+            ),
+          ],
+        ),
       ),
     );
   }

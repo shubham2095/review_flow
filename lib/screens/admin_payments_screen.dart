@@ -9,6 +9,7 @@ import '../widgets/admin_ui.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
+import 'admin_company_filters.dart';
 
 /// Every plan invoice across all companies, newest first.
 class AdminPaymentsScreen extends StatefulWidget {
@@ -22,11 +23,19 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
   AdminPaymentsData? _data;
   bool _loading = true;
   String? _error;
+  final _search = TextEditingController();
+  String? _status;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -42,6 +51,44 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  String _statusLabel(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
+
+  /// The count line, a note about the 500-row limit, and one row per payment
+  /// that passes the search and the status chip.
+  List<Widget> _rows(AdminPaymentsData d) {
+    final shown = filterPayments(
+      d.payments,
+      query: _search.text,
+      status: _status,
+    );
+    final filtering = _search.text.trim().isNotEmpty || _status != null;
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
+        child: Text(
+          filtering
+              ? '${shown.length} of ${d.payments.length} payments'
+              : '${d.payments.length} payments'
+                    '${d.payments.length >= 500 ? ' (latest 500)' : ''}',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+        ),
+      ),
+      if (shown.isEmpty)
+        const AdminMessage(
+          icon: Icons.search_off_rounded,
+          title: 'No payments match',
+          text: 'Try a different search or status.',
+        )
+      else
+        for (var i = 0; i < shown.length; i++)
+          FadeIn(
+            delay: i < 8 ? i * 40 : 0,
+            child: _PaymentRow(payment: shown[i]),
+          ),
+    ];
   }
 
   @override
@@ -84,12 +131,43 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
                         icon: Icons.receipt_long_outlined,
                         title: 'No payments yet',
                       )
-                    else
-                      for (var i = 0; i < d.payments.length; i++)
-                        FadeIn(
-                          delay: i < 8 ? i * 40 : 0,
-                          child: _PaymentRow(payment: d.payments[i]),
+                    else ...[
+                      TextField(
+                        controller: _search,
+                        onChanged: (_) => setState(() {}),
+                        decoration:
+                            adminInput(
+                              'Search by company, number or plan',
+                            ).copyWith(
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              fillColor: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final s in <String?>[
+                              null,
+                              ...paymentStatuses(d.payments),
+                            ])
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    s == null ? 'All' : _statusLabel(s),
+                                  ),
+                                  selected: _status == s,
+                                  onSelected: (_) =>
+                                      setState(() => _status = s),
+                                ),
+                              ),
+                          ],
                         ),
+                      ),
+                      ..._rows(d),
+                    ],
                   ],
                 ],
               ),

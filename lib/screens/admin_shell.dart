@@ -7,6 +7,7 @@ import '../services/session.dart';
 import '../widgets/fade_indexed_stack.dart';
 import '../theme/brand.dart';
 import 'admin_companies_screen.dart';
+import 'admin_company_filters.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_packs_screen.dart';
 import 'admin_payments_screen.dart';
@@ -36,6 +37,15 @@ class _AdminShellState extends State<AdminShell> {
   static const _payments = 5;
 
   final _dashboardKey = GlobalKey<AdminDashboardScreenState>();
+
+  /// How the dashboard narrows the Companies list when it opens it.
+  final _companyFilter = ValueNotifier<AdminCompanyFilter?>(null);
+
+  @override
+  void dispose() {
+    _companyFilter.dispose();
+    super.dispose();
+  }
 
   static const _items = [
     (
@@ -123,12 +133,15 @@ class _AdminShellState extends State<AdminShell> {
       case _dashboard:
         return AdminDashboardScreen(
           key: _dashboardKey,
-          onOpenCompanies: () => _go(_companies),
+          onOpenCompanies: (filter) {
+            _companyFilter.value = filter;
+            _go(_companies);
+          },
           onOpenPlans: () => _go(_plans),
           onOpenPayments: () => _go(_payments),
         );
       case 1:
-        return const AdminCompaniesScreen();
+        return AdminCompaniesScreen(filterRequest: _companyFilter);
       case 2:
         return const AdminPlansScreen();
       case 3:

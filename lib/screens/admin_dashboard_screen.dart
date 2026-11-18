@@ -9,6 +9,7 @@ import '../widgets/admin_ui.dart';
 import '../widgets/date_format.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/skeleton.dart';
+import 'admin_company_filters.dart';
 
 /// The numbers on the admin dashboard, worked out from the companies list
 /// (the same way the web dashboard does it).
@@ -106,7 +107,8 @@ class AdminDashboardScreen extends StatefulWidget {
     required this.onOpenPayments,
   });
 
-  final VoidCallback onOpenCompanies;
+  /// Opens the Companies list, narrowed to what was tapped.
+  final void Function(AdminCompanyFilter filter) onOpenCompanies;
   final VoidCallback onOpenPlans;
   final VoidCallback onOpenPayments;
 
@@ -252,52 +254,69 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
     ),
   );
 
-  Widget _planRow(String plan, int count, int total) {
+  Widget _planRow(String plan, int count, int total, {VoidCallback? onTap}) {
     final share = total == 0 ? 0.0 : count / total;
+    final label = '$plan, $count ${count == 1 ? 'company' : 'companies'}';
     return Semantics(
+      button: onTap != null,
       container: true,
       excludeSemantics: true,
-      label: '$plan, $count ${count == 1 ? 'company' : 'companies'}',
+      label: label,
+      hint: onTap == null ? null : 'Opens these companies',
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    plan,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: ink,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        plan,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: ink,
+                        ),
+                      ),
                     ),
+                    Text(
+                      '$count',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        color: ink,
+                      ),
+                    ),
+                    if (onTap != null)
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: muted,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: share,
+                    minHeight: 8,
+                    color: royalIndigo,
+                    backgroundColor: track,
                   ),
                 ),
-                Text(
-                  '$count',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: ink,
-                  ),
-                ),
+                const SizedBox(height: 4),
               ],
             ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: share,
-                minHeight: 8,
-                color: royalIndigo,
-                backgroundColor: track,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -327,7 +346,7 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 value: '${o.total}',
                 icon: Icons.business_rounded,
                 color: brand,
-                onTap: widget.onOpenCompanies,
+                onTap: () => widget.onOpenCompanies(const AdminCompanyFilter()),
               ),
               _tile(
                 label: 'Active companies',
@@ -335,7 +354,9 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 icon: Icons.check_circle_rounded,
                 color: good,
                 note: o.suspended > 0 ? '${o.suspended} suspended' : null,
-                onTap: widget.onOpenCompanies,
+                onTap: () => widget.onOpenCompanies(
+                  const AdminCompanyFilter(status: AdminCompanyStatus.active),
+                ),
               ),
               _tile(
                 label: 'Plans',
@@ -349,7 +370,7 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 value: '${o.users}',
                 icon: Icons.groups_rounded,
                 color: warn,
-                onTap: widget.onOpenCompanies,
+                onTap: () => widget.onOpenCompanies(const AdminCompanyFilter()),
               ),
               _tile(
                 label: 'Revenue',
@@ -377,7 +398,11 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: widget.onOpenCompanies,
+                    onTap: () => widget.onOpenCompanies(
+                      const AdminCompanyFilter(
+                        status: AdminCompanyStatus.noPlan,
+                      ),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Row(
@@ -420,10 +445,26 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 : Column(
                     children: [
                       for (final e in o.byPlan)
-                        _planRow(e.plan, e.companies, o.total),
+                        _planRow(
+                          e.plan,
+                          e.companies,
+                          o.total,
+                          onTap: () => widget.onOpenCompanies(
+                            AdminCompanyFilter(plan: e.plan),
+                          ),
+                        ),
                       if (o.otherPlan > 0)
                         _planRow('Other plans', o.otherPlan, o.total),
-                      _planRow('No plan', o.noPlan, o.total),
+                      _planRow(
+                        'No plan',
+                        o.noPlan,
+                        o.total,
+                        onTap: () => widget.onOpenCompanies(
+                          const AdminCompanyFilter(
+                            status: AdminCompanyStatus.noPlan,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
           ),
@@ -454,7 +495,9 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    onTap: widget.onOpenCompanies,
+                    onTap: () => widget.onOpenCompanies(
+                      AdminCompanyFilter(query: newest[i].name),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Row(
