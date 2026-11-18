@@ -12,6 +12,7 @@ import 'package:review_flow/screens/admin_companies_screen.dart';
 import 'package:review_flow/screens/admin_dashboard_screen.dart';
 import 'package:review_flow/screens/admin_payments_screen.dart';
 import 'package:review_flow/screens/admin_plans_screen.dart';
+import 'package:review_flow/screens/admin_support_screen.dart';
 import 'package:review_flow/screens/profile_screen.dart';
 import 'package:review_flow/screens/admin_pricing_screen.dart';
 import 'package:review_flow/screens/invoice_profile_screen.dart';
@@ -185,6 +186,7 @@ final Map<String, Widget Function()> _cases = {
   'AdminPricingScreen': () => const AdminPricingScreen(),
   'AdminCompaniesScreen': () => const AdminCompaniesScreen(),
   'AdminPlansScreen': () => const AdminPlansScreen(),
+  'AdminSupportScreen': () => const AdminSupportScreen(),
   'ProfileScreen (platform admin)': () =>
       ProfileScreen(onSignedOut: () {}, platformAdmin: true),
   'AdminPaymentsScreen': () => const AdminPaymentsScreen(),

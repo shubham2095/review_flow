@@ -13,13 +13,13 @@ class AdminService {
   // ---- Companies ----
 
   static Future<({List<AdminCompany> companies, List<AdminPlanOption> plans})>
-      companies() async {
+  companies() async {
     final res = await _api.get('/admin/companies');
     return (
       companies: asMaps(res['companies']).map(AdminCompany.fromJson).toList(),
-      plans: asMaps(res['plans'])
-          .map((p) => AdminPlanOption(asStr(p['id']), asStr(p['name'])))
-          .toList(),
+      plans: asMaps(
+        res['plans'],
+      ).map((p) => AdminPlanOption(asStr(p['id']), asStr(p['name']))).toList(),
     );
   }
 
@@ -27,7 +27,10 @@ class AdminService {
     await _api.post('/admin/companies', body: body);
   }
 
-  static Future<void> updateCompany(String id, Map<String, dynamic> body) async {
+  static Future<void> updateCompany(
+    String id,
+    Map<String, dynamic> body,
+  ) async {
     await _api.put('/admin/companies/$id', body: body);
   }
 
@@ -121,9 +124,10 @@ class AdminService {
     await _api.delete('/admin/coupons/$id');
   }
 
-  static Future<BillingSettings> billingSettings() async => BillingSettings.fromJson(
-    asMap((await _api.get('/admin/billing-settings'))['settings']),
-  );
+  static Future<BillingSettings> billingSettings() async =>
+      BillingSettings.fromJson(
+        asMap((await _api.get('/admin/billing-settings'))['settings']),
+      );
 
   static Future<BillingSettings> saveBillingSettings(
     Map<String, dynamic> body,
@@ -184,7 +188,9 @@ class AdminService {
     return AiSettingsData.fromJson(asMap(res['ai']));
   }
 
-  static Future<AiSettingsData> saveAiSettings(Map<String, dynamic> body) async {
+  static Future<AiSettingsData> saveAiSettings(
+    Map<String, dynamic> body,
+  ) async {
     final res = await _api.put('/admin/ai-settings', body: body);
     return AiSettingsData.fromJson(asMap(res['ai']));
   }
@@ -207,9 +213,14 @@ class AdminService {
 
   // ---- Support (all companies) ----
 
-  static Future<List<SupportTicket>> tickets({String? status}) async {
+  /// Tickets from every company. [search] matches the ticket number and the
+  /// subject on the server.
+  static Future<List<SupportTicket>> tickets({
+    String? status,
+    String search = '',
+  }) async {
     final res = await _api.get(
-      '/support/admin/all${status == null ? '' : '?status=$status'}',
+      supportTicketsPath(status: status, search: search),
     );
     return asMaps(res['tickets']).map(SupportTicket.fromJson).toList();
   }
@@ -225,4 +236,15 @@ class AdminService {
     );
     return SupportTicket.fromJson(asMap(res['ticket']));
   }
+}
+
+/// The URL for the admin ticket list, with the status and search the server
+/// understands. Blank values are left out.
+String supportTicketsPath({String? status, String search = ''}) {
+  final q = <String, String>{
+    if (status != null && status.isNotEmpty) 'status': status,
+    if (search.trim().isNotEmpty) 'search': search.trim(),
+  };
+  if (q.isEmpty) return '/support/admin/all';
+  return '/support/admin/all?${Uri(queryParameters: q).query}';
 }

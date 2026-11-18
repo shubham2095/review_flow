@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -26,6 +28,12 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
   bool _loading = true;
   String? _error;
   String? _filter;
+  final _search = TextEditingController();
+  Timer? _debounce;
+
+  /// Counts requests, so a slow answer to an old search never replaces a
+  /// newer one.
+  int _generation = 0;
 
   @override
   void initState() {
@@ -33,19 +41,42 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final gen = ++_generation;
     try {
-      final t = await AdminService.tickets(status: _filter);
-      if (!mounted) return;
+      final t = await AdminService.tickets(
+        status: _filter,
+        search: _search.text,
+      );
+      if (!mounted || gen != _generation) return;
       setState(() {
         _tickets = t;
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = friendlyException(e).message);
+      if (mounted && gen == _generation) {
+        setState(() => _error = friendlyException(e).message);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && gen == _generation) setState(() => _loading = false);
     }
+  }
+
+  /// Searches the server a moment after typing stops.
+  void _onSearch(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      setState(() => _loading = true);
+      _load();
+    });
   }
 
   void _setFilter(String? f) {
@@ -80,6 +111,29 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            TextField(
+              controller: _search,
+              onChanged: _onSearch,
+              textInputAction: TextInputAction.search,
+              decoration: adminInput('Search by ticket number or subject')
+                  .copyWith(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    fillColor: Colors.white,
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () {
+                              _search.clear();
+                              _debounce?.cancel();
+                              setState(() => _loading = true);
+                              _load();
+                            },
+                          ),
+                  ),
+            ),
+            const SizedBox(height: 10),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -111,9 +165,16 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                 onRetry: _load,
               )
             else if (_tickets.isEmpty)
-              const AdminMessage(
-                icon: Icons.inbox_outlined,
-                title: 'No tickets',
+              AdminMessage(
+                icon: _search.text.trim().isNotEmpty || _filter != null
+                    ? Icons.search_off_rounded
+                    : Icons.inbox_outlined,
+                title: _search.text.trim().isNotEmpty || _filter != null
+                    ? 'No tickets match'
+                    : 'No tickets',
+                text: _search.text.trim().isNotEmpty || _filter != null
+                    ? 'Try a different search or status.'
+                    : '',
               )
             else
               for (var i = 0; i < _tickets.length; i++)
@@ -193,9 +254,12 @@ class _TicketSheet extends StatefulWidget {
 }
 
 class _TicketSheetState extends State<_TicketSheet> {
-  late final _reply = TextEditingController(text: widget.ticket.adminReply ?? '');
-  late String _status =
-      widget.ticket.status == 'open' ? 'in_progress' : widget.ticket.status;
+  late final _reply = TextEditingController(
+    text: widget.ticket.adminReply ?? '',
+  );
+  late String _status = widget.ticket.status == 'open'
+      ? 'in_progress'
+      : widget.ticket.status;
   bool _busy = false;
 
   @override
@@ -230,9 +294,16 @@ class _TicketSheetState extends State<_TicketSheet> {
     final t = widget.ticket;
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.9),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+        ),
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            20 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -249,7 +320,11 @@ class _TicketSheetState extends State<_TicketSheet> {
               const SizedBox(height: 12),
               Text(
                 t.description,
-                style: GoogleFonts.plusJakartaSans(fontSize: 13.5, height: 1.45, color: ink),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13.5,
+                  height: 1.45,
+                  color: ink,
+                ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -276,7 +351,10 @@ class _TicketSheetState extends State<_TicketSheet> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.send_rounded, size: 18),
                 label: Text(t.hasReply ? 'Update reply' : 'Send reply'),
