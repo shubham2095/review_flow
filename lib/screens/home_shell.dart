@@ -249,7 +249,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final user = Session.current;
-    final name = user?.name ?? '';
+    final name = user?.displayName ?? '';
     final initial = name.trim().isEmpty ? 'E' : name.trim()[0].toUpperCase();
     // Pages after the first five live in the drawer only; the bottom bar keeps the last tab.
     final bottomIndex = _index > kPageAiTools ? kPageAiTools : _index;

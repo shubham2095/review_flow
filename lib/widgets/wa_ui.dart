@@ -505,7 +505,10 @@ class StackedBar extends StatelessWidget {
                             child: ColoredBox(color: s.color),
                           ),
                         if (rest > 0)
-                          Expanded(flex: rest, child: const ColoredBox(color: track)),
+                          Expanded(
+                            flex: rest,
+                            child: const ColoredBox(color: track),
+                          ),
                       ],
                     ),
             ),
@@ -515,7 +518,8 @@ class StackedBar extends StatelessWidget {
             spacing: 14,
             runSpacing: 6,
             children: [
-              for (final s in shown) _LegendItem(s.color, '${s.label} ${s.value}'),
+              for (final s in shown)
+                _LegendItem(s.color, '${s.label} ${s.value}'),
               if (rest > 0) _LegendItem(muted, '$restLabel $rest'),
             ],
           ),

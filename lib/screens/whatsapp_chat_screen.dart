@@ -843,7 +843,11 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen>
   @override
   Widget build(BuildContext context) {
     final contact = _c.contact;
-    final label = chatWindowLabel(_c.windowExpiresAt, _c.windowOpen, DateTime.now());
+    final label = chatWindowLabel(
+      _c.windowExpiresAt,
+      _c.windowOpen,
+      DateTime.now(),
+    );
     final closed = label == 'Reply window closed';
     final soon =
         !closed &&
@@ -1379,11 +1383,8 @@ class _AttachmentView extends StatelessWidget {
           child: GestureDetector(
             onTap: () => Navigator.of(context).push<void>(
               MaterialPageRoute(
-                builder: (_) => _FullImage(
-                  url: a.url,
-                  fileName: a.fileName,
-                  mime: a.mime,
-                ),
+                builder: (_) =>
+                    _FullImage(url: a.url, fileName: a.fileName, mime: a.mime),
               ),
             ),
             child: ClipRRect(

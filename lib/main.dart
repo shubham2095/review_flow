@@ -16,7 +16,9 @@ Future<void> main() async {
   // iOS has no Google sign-in in this release (see platform_rules.dart), so its
   // Google setup is never touched there.
   if (googleSignInAvailable) {
-    await GoogleSignIn.instance.initialize(serverClientId: kGoogleServerClientId);
+    await GoogleSignIn.instance.initialize(
+      serverClientId: kGoogleServerClientId,
+    );
   }
   runApp(const ReviewFlowApp());
 }

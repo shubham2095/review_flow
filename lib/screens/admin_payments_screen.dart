@@ -251,14 +251,20 @@ class _PaymentRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   p.number,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    color: muted,
+                  ),
                 ),
                 if (detail.isNotEmpty)
                   Text(
                     detail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      color: muted,
+                    ),
                   ),
               ],
             ),

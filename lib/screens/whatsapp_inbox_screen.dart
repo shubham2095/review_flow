@@ -414,7 +414,8 @@ class _WhatsAppInboxScreenState extends State<WhatsAppInboxScreen>
 
     final visible = _visible;
     final searching = _search.text.trim().isNotEmpty;
-    final narrowing = _filter == InboxFilter.unread || _filter == InboxFilter.hot;
+    final narrowing =
+        _filter == InboxFilter.unread || _filter == InboxFilter.hot;
 
     // Unread and Hot only look at chats already loaded: keep loading older
     // pages until a screenful matches (or there are no more).

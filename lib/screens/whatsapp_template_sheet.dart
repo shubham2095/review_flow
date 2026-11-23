@@ -82,9 +82,7 @@ class _WhatsAppTemplateSheetState extends State<WhatsAppTemplateSheet> {
             children: [
               StatusBadge(s.label, s.color),
               if (t.category.isNotEmpty)
-                InfoChip(
-                  t.category[0] + t.category.substring(1).toLowerCase(),
-                ),
+                InfoChip(t.category[0] + t.category.substring(1).toLowerCase()),
               InfoChip(t.language),
               if (t.quality.isNotEmpty && t.quality.toUpperCase() != 'UNKNOWN')
                 InfoChip('Quality ${t.quality}'),

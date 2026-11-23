@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 /// Tolerant JSON readers: Laravel sends decimals as strings and omits empty fields.
 int asInt(dynamic v) => num.tryParse(v?.toString() ?? '')?.toInt() ?? 0;
-double asDouble(dynamic v) => num.tryParse(v?.toString() ?? '')?.toDouble() ?? 0;
+double asDouble(dynamic v) =>
+    num.tryParse(v?.toString() ?? '')?.toDouble() ?? 0;
 String asStr(dynamic v) => v?.toString() ?? '';
 DateTime? asDate(dynamic v) =>
     v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
@@ -127,13 +128,13 @@ class HealthSub {
   });
 
   factory HealthSub.fromJson(Map<String, dynamic> j) => HealthSub(
-        key: asStr(j['key']),
-        label: asStr(j['label']),
-        icon: asStr(j['icon']),
-        score: asInt(j['score']).clamp(0, 100),
-        detail: asStr(j['detail']),
-        color: _hexColor(j['color']?.toString(), const Color(0xFF4C6FFF)),
-      );
+    key: asStr(j['key']),
+    label: asStr(j['label']),
+    icon: asStr(j['icon']),
+    score: asInt(j['score']).clamp(0, 100),
+    detail: asStr(j['detail']),
+    color: _hexColor(j['color']?.toString(), const Color(0xFF4C6FFF)),
+  );
 
   final String key;
   final String label;
@@ -154,13 +155,13 @@ class HealthAction {
   });
 
   factory HealthAction.fromJson(Map<String, dynamic> j) => HealthAction(
-        priority: asStr(j['priority']),
-        icon: asStr(j['icon']),
-        module: asStr(j['module']),
-        cta: asStr(j['cta']),
-        title: asStr(j['title'] ?? j['text']),
-        why: asStr(j['why']),
-      );
+    priority: asStr(j['priority']),
+    icon: asStr(j['icon']),
+    module: asStr(j['module']),
+    cta: asStr(j['cta']),
+    title: asStr(j['title'] ?? j['text']),
+    why: asStr(j['why']),
+  );
 
   final String priority;
   final String icon;
@@ -179,11 +180,11 @@ class GbpHealth {
   });
 
   factory GbpHealth.fromJson(Map<String, dynamic> j) => GbpHealth(
-        score: asInt(j['score']).clamp(0, 100),
-        grade: asStr(j['grade']),
-        subScores: asMaps(j['sub_scores']).map(HealthSub.fromJson).toList(),
-        actions: asMaps(j['actions']).map(HealthAction.fromJson).toList(),
-      );
+    score: asInt(j['score']).clamp(0, 100),
+    grade: asStr(j['grade']),
+    subScores: asMaps(j['sub_scores']).map(HealthSub.fromJson).toList(),
+    actions: asMaps(j['actions']).map(HealthAction.fromJson).toList(),
+  );
 
   final int score;
   final String grade;
@@ -227,9 +228,9 @@ class GbpOverview {
     }
     return GbpOverview(
       locations: asMaps(j['locations']).map(GbpLocation.fromJson).toList(),
-      hiddenLocations: asMaps(j['hidden_locations'])
-          .map((m) => GbpLocation.fromJson({...m, 'is_hidden': true}))
-          .toList(),
+      hiddenLocations: asMaps(
+        j['hidden_locations'],
+      ).map((m) => GbpLocation.fromJson({...m, 'is_hidden': true})).toList(),
       totalReviews: asInt(stats['total_reviews']),
       averageRating: asDouble(stats['average_rating']),
       replied: asInt(stats['replied']),
@@ -241,8 +242,9 @@ class GbpOverview {
       creditBalance: asInt(summary['credit_balance']),
       plan: asStr(summary['plan']),
       lastSyncedAt: asDate(summary['last_synced_at']),
-      recentReviews:
-          asMaps(j['recent_reviews']).map(GbpReview.fromJson).toList(),
+      recentReviews: asMaps(
+        j['recent_reviews'],
+      ).map(GbpReview.fromJson).toList(),
     );
   }
 
@@ -273,11 +275,11 @@ class GbpSyncResult {
   });
 
   factory GbpSyncResult.fromJson(Map<String, dynamic> j) => GbpSyncResult(
-        synced: asInt(j['synced']),
-        locations: asInt(j['locations']),
-        reviews: asInt(j['reviews']),
-        message: asStr(j['message']),
-      );
+    synced: asInt(j['synced']),
+    locations: asInt(j['locations']),
+    reviews: asInt(j['reviews']),
+    message: asStr(j['message']),
+  );
 
   final int synced;
   final int locations;
@@ -433,9 +435,9 @@ class InsightsData {
       calls: asInt(m['CALL_CLICKS']),
       websiteClicks: asInt(m['WEBSITE_CLICKS']),
       directions: asInt(m['BUSINESS_DIRECTION_REQUESTS']),
-      series: asMaps(j['series'])
-          .map((p) => DailyPoint(asStr(p['date']), asInt(p['value'])))
-          .toList(),
+      series: asMaps(
+        j['series'],
+      ).map((p) => DailyPoint(asStr(p['date']), asInt(p['value']))).toList(),
       message: asStr(j['message']),
       locationName: loc.isEmpty ? null : asStr(loc['name']),
     );
@@ -464,12 +466,12 @@ class OptimizeResult {
   });
 
   factory OptimizeResult.fromJson(Map<String, dynamic> j) => OptimizeResult(
-        source: asStr(j['source']),
-        summary: asStr(j['summary']),
-        actions: asMaps(j['actions']).map(HealthAction.fromJson).toList(),
-        health: GbpHealth.fromJson(asMap(j['health'])),
-        credits: asInt(j['credits']),
-      );
+    source: asStr(j['source']),
+    summary: asStr(j['summary']),
+    actions: asMaps(j['actions']).map(HealthAction.fromJson).toList(),
+    health: GbpHealth.fromJson(asMap(j['health'])),
+    credits: asInt(j['credits']),
+  );
 
   final String source;
   final String summary;
@@ -489,21 +491,26 @@ class HoursRow {
   });
 
   factory HoursRow.fromJson(Map<String, dynamic> j) => HoursRow(
-        day: asStr(j['day']),
-        open: asStr(j['open']).isEmpty ? '09:00' : asStr(j['open']),
-        close: asStr(j['close']).isEmpty ? '18:00' : asStr(j['close']),
-        closed: j['closed'] == true,
-      );
+    day: asStr(j['day']),
+    open: asStr(j['open']).isEmpty ? '09:00' : asStr(j['open']),
+    close: asStr(j['close']).isEmpty ? '18:00' : asStr(j['close']),
+    closed: j['closed'] == true,
+  );
 
   String day;
   String open;
   String close;
   bool closed;
 
-  HoursRow copy() => HoursRow(day: day, open: open, close: close, closed: closed);
+  HoursRow copy() =>
+      HoursRow(day: day, open: open, close: close, closed: closed);
 
-  Map<String, dynamic> toJson() =>
-      {'day': day, 'open': open, 'close': close, 'closed': closed};
+  Map<String, dynamic> toJson() => {
+    'day': day,
+    'open': open,
+    'close': close,
+    'closed': closed,
+  };
 }
 
 class BusinessProfile {
@@ -582,13 +589,15 @@ class PageMeta {
     required this.lastPage,
   });
 
-  factory PageMeta.fromJson(Map<String, dynamic> j, {required int fallbackTotal}) =>
-      PageMeta(
-        total: j.containsKey('total') ? asInt(j['total']) : fallbackTotal,
-        perPage: asInt(j['per_page']),
-        currentPage: j.containsKey('current_page') ? asInt(j['current_page']) : 1,
-        lastPage: j.containsKey('last_page') ? asInt(j['last_page']) : 1,
-      );
+  factory PageMeta.fromJson(
+    Map<String, dynamic> j, {
+    required int fallbackTotal,
+  }) => PageMeta(
+    total: j.containsKey('total') ? asInt(j['total']) : fallbackTotal,
+    perPage: asInt(j['per_page']),
+    currentPage: j.containsKey('current_page') ? asInt(j['current_page']) : 1,
+    lastPage: j.containsKey('last_page') ? asInt(j['last_page']) : 1,
+  );
 
   final int total;
   final int perPage;
@@ -616,13 +625,13 @@ class GbpConnection {
   });
 
   factory GbpConnection.fromJson(Map<String, dynamic> j) => GbpConnection(
-        connected: j['connected'] == true,
-        needsReconnect: j['needs_reconnect'] == true,
-        googleEmail: j['google_email']?.toString(),
-        connectedAt: asDate(j['connected_at']),
-        lastSyncedAt: asDate(j['last_synced_at']),
-        lastError: j['last_error']?.toString(),
-      );
+    connected: j['connected'] == true,
+    needsReconnect: j['needs_reconnect'] == true,
+    googleEmail: j['google_email']?.toString(),
+    connectedAt: asDate(j['connected_at']),
+    lastSyncedAt: asDate(j['last_synced_at']),
+    lastError: j['last_error']?.toString(),
+  );
 
   final bool connected;
 

@@ -804,11 +804,7 @@ class _AiAvatar extends StatelessWidget {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({
-    required this.message,
-    this.onRetry,
-    this.onCopy,
-  });
+  const _Bubble({required this.message, this.onRetry, this.onCopy});
 
   final _ChatMessage message;
   final VoidCallback? onRetry;

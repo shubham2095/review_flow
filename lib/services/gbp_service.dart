@@ -6,7 +6,11 @@ import 'api_service.dart';
 enum GbpConnectStatus { success, cancelled, invalidState, tokenFailed }
 
 class ReplyDraft {
-  ReplyDraft({required this.draft, required this.source, required this.credits});
+  ReplyDraft({
+    required this.draft,
+    required this.source,
+    required this.credits,
+  });
 
   final String draft;
   final String source;
@@ -57,9 +61,8 @@ class GbpService {
   }
 
   /// Pulls locations and reviews from Google. Can take a while on big accounts.
-  static Future<GbpSyncResult> sync() async => GbpSyncResult.fromJson(
-        await _api.post('/gbp/sync', timeout: kAiTimeout),
-      );
+  static Future<GbpSyncResult> sync() async =>
+      GbpSyncResult.fromJson(await _api.post('/gbp/sync', timeout: kAiTimeout));
 
   /// Lightweight location list (the full overview is much heavier). Hidden
   /// locations are included with isHidden set; callers filter as needed.
@@ -126,7 +129,10 @@ class GbpService {
   /// AI draft for a review. Costs credits; the server falls back to a template
   /// when AI is unavailable (source == 'fallback', no credits charged).
   static Future<ReplyDraft> suggestReply(String id) async {
-    final res = await _api.post('/gbp/reviews/$id/suggest', timeout: kAiTimeout);
+    final res = await _api.post(
+      '/gbp/reviews/$id/suggest',
+      timeout: kAiTimeout,
+    );
     return ReplyDraft(
       draft: asStr(res['draft']),
       source: asStr(res['source']),
@@ -158,7 +164,10 @@ class GbpService {
     return GbpPost.fromJson(asMap(res['post']));
   }
 
-  static Future<GbpPost> updatePost(String id, Map<String, dynamic> body) async {
+  static Future<GbpPost> updatePost(
+    String id,
+    Map<String, dynamic> body,
+  ) async {
     final res = await _api.put('/gbp/posts/$id', body: body);
     return GbpPost.fromJson(asMap(res['post']));
   }
@@ -246,8 +255,8 @@ class GbpService {
 
   /// One-click optimization plan. Costs credits when the AI answers.
   static Future<OptimizeResult> optimize() async => OptimizeResult.fromJson(
-        await _api.post('/gbp/optimize', timeout: kAiTimeout),
-      );
+    await _api.post('/gbp/optimize', timeout: kAiTimeout),
+  );
 
   static Future<AiText> assistantChat(String message) async {
     final res = await _api.post(
@@ -271,8 +280,10 @@ class GbpService {
 
   /// Saves in Eydia and, when Google is connected, pushes name, phone, website,
   /// description and hours to Google. [message] says which of the two happened.
-  static Future<({BusinessProfile profile, bool syncedToGoogle, String message})>
-      updateProfile(String? locationId, Map<String, dynamic> body) async {
+  static Future<
+    ({BusinessProfile profile, bool syncedToGoogle, String message})
+  >
+  updateProfile(String? locationId, Map<String, dynamic> body) async {
     final res = await _api.put(
       '/gbp/profile${_locationQuery(locationId)}',
       body: body,
@@ -290,7 +301,10 @@ class GbpService {
   }) async {
     final res = await _api.post(
       '/gbp/profile/ai-rewrite',
-      body: {'location': ?locationId, if (keywords.isNotEmpty) 'keywords': keywords},
+      body: {
+        'location': ?locationId,
+        if (keywords.isNotEmpty) 'keywords': keywords,
+      },
       timeout: kAiTimeout,
     );
     return AiText(
@@ -356,7 +370,9 @@ class GbpService {
       filename: filename,
     );
     final url = asStr(res['url']);
-    if (url.isEmpty) throw ApiException('Image upload failed. Please try again.');
+    if (url.isEmpty) {
+      throw ApiException('Image upload failed. Please try again.');
+    }
     return url;
   }
 }

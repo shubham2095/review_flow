@@ -148,7 +148,7 @@ class _PlanGateScreenState extends State<PlanGateScreen>
   @override
   Widget build(BuildContext context) {
     final user = Session.current;
-    final name = user?.name.trim() ?? '';
+    final name = user?.displayName.trim() ?? '';
     final first = name.isEmpty ? '' : name.split(' ').first;
     final p = widget.product;
     final hasPlan = user?.hasPlan ?? false;

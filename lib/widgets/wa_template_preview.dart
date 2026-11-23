@@ -107,14 +107,11 @@ class WaTemplatePreview extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            switch (headerFormat) {
-                              'VIDEO' => Icons.play_circle_outline_rounded,
-                              'DOCUMENT' => Icons.insert_drive_file_outlined,
-                              _ => Icons.photo_outlined,
-                            },
-                            color: muted,
-                          ),
+                          Icon(switch (headerFormat) {
+                            'VIDEO' => Icons.play_circle_outline_rounded,
+                            'DOCUMENT' => Icons.insert_drive_file_outlined,
+                            _ => Icons.photo_outlined,
+                          }, color: muted),
                           const SizedBox(height: 4),
                           Text(
                             '${headerFormat[0]}${headerFormat.substring(1).toLowerCase()} header',

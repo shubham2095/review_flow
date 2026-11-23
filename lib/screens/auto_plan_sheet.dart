@@ -41,7 +41,9 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(
-        res.message.isNotEmpty ? res.message : '${res.created} posts scheduled.',
+        res.message.isNotEmpty
+            ? res.message
+            : '${res.created} posts scheduled.',
       );
     } catch (e) {
       if (!mounted) return;
@@ -92,12 +94,19 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
             Text(
               'The AI writes a batch of varied posts for your business and '
               'schedules them for you. Posts go live on their date.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted, height: 1.4),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                color: muted,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 18),
             Text(
               'Number of posts: ${_count.round()}',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                color: ink,
+              ),
             ),
             Slider(
               value: _count,
@@ -109,7 +118,10 @@ class _AutoPlanSheetState extends State<AutoPlanSheet> {
             ),
             Text(
               'One post every ${_cadence.round()} ${_cadence.round() == 1 ? 'day' : 'days'}',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                color: ink,
+              ),
             ),
             Slider(
               value: _cadence,

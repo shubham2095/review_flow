@@ -49,7 +49,10 @@ void main() {
 
     test('no user sees nothing, a super admin sees everything', () {
       expect(navAllowed(null, inbox), isFalse);
-      expect(navAllowed(_user(superAdmin: true, permissions: []), analytics), isTrue);
+      expect(
+        navAllowed(_user(superAdmin: true, permissions: []), analytics),
+        isTrue,
+      );
     });
 
     test('a permission is needed only when the server sent the list', () {
@@ -91,7 +94,10 @@ void main() {
         isTrue,
       );
       expect(
-        navAllowedAny(_user(permissions: ['workflows.view'], features: []), rules),
+        navAllowedAny(
+          _user(permissions: ['workflows.view'], features: []),
+          rules,
+        ),
         isFalse,
       );
     });

@@ -9,25 +9,33 @@ import 'package:review_flow/widgets/wa_ui.dart';
 
 import 'test_helpers.dart';
 
-WaCampaign _campaign(String status, {int total = 100, int sent = 0, int failed = 0}) =>
-    WaCampaign.fromJson({
-      'id': 'c1',
-      'name': 'Diwali',
-      'status': status,
-      'total_recipients': total,
-      'sent_count': sent,
-      'failed_count': failed,
-    });
+WaCampaign _campaign(
+  String status, {
+  int total = 100,
+  int sent = 0,
+  int failed = 0,
+}) => WaCampaign.fromJson({
+  'id': 'c1',
+  'name': 'Diwali',
+  'status': status,
+  'total_recipients': total,
+  'sent_count': sent,
+  'failed_count': failed,
+});
 
-WaBulkSend _bulk(String status, {int total = 10, int sent = 0, int failed = 0}) =>
-    WaBulkSend.fromJson({
-      'uuid': 'b1',
-      'template_name': 'order_update',
-      'status': status,
-      'total': total,
-      'sent_count': sent,
-      'failed_count': failed,
-    });
+WaBulkSend _bulk(
+  String status, {
+  int total = 10,
+  int sent = 0,
+  int failed = 0,
+}) => WaBulkSend.fromJson({
+  'uuid': 'b1',
+  'template_name': 'order_update',
+  'status': status,
+  'total': total,
+  'sent_count': sent,
+  'failed_count': failed,
+});
 
 void main() {
   group('parseBulkNumbers', () {
@@ -75,7 +83,10 @@ void main() {
 
   group('stories', () {
     test('campaign story says where it stands', () {
-      expect(campaignStory(_campaign('draft')), contains('Nothing has been sent'));
+      expect(
+        campaignStory(_campaign('draft')),
+        contains('Nothing has been sent'),
+      );
       expect(
         campaignStory(_campaign('running', sent: 30, failed: 5)),
         contains('35 of 100 handled'),
@@ -88,7 +99,10 @@ void main() {
         campaignStory(_campaign('completed', sent: 95, failed: 5)),
         contains('95 of 100 went out, 5 could not be sent'),
       );
-      expect(campaignStory(_campaign('completed', sent: 100)), 'Done. All 100 were sent.');
+      expect(
+        campaignStory(_campaign('completed', sent: 100)),
+        'Done. All 100 were sent.',
+      );
       expect(
         campaignStory(_campaign('cancelled', sent: 10)),
         contains('Cancelled after 10 of 100'),
@@ -96,8 +110,14 @@ void main() {
     });
 
     test('bulk story says sending, done, or done with failures', () {
-      expect(bulkStory(_bulk('processing', sent: 3)), contains('3 of 10 handled'));
-      expect(bulkStory(_bulk('completed', sent: 10)), 'Done. All 10 were sent.');
+      expect(
+        bulkStory(_bulk('processing', sent: 3)),
+        contains('3 of 10 handled'),
+      );
+      expect(
+        bulkStory(_bulk('completed', sent: 10)),
+        'Done. All 10 were sent.',
+      );
       expect(
         bulkStory(_bulk('completed', sent: 7, failed: 3)),
         contains('7 of 10 went out, 3 failed'),

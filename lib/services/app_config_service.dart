@@ -16,12 +16,12 @@ class AppConfig {
   });
 
   factory AppConfig.fromJson(Map<String, dynamic> j) => AppConfig(
-        minSupportedVersion: asStr(j['min_supported_version']),
-        latestVersion: asStr(j['latest_version']),
-        updateUrl: asStr(j['update_url']),
-        maintenance: j['maintenance'] == true,
-        maintenanceMessage: asStr(j['maintenance_message']),
-      );
+    minSupportedVersion: asStr(j['min_supported_version']),
+    latestVersion: asStr(j['latest_version']),
+    updateUrl: asStr(j['update_url']),
+    maintenance: j['maintenance'] == true,
+    maintenanceMessage: asStr(j['maintenance_message']),
+  );
 
   final String minSupportedVersion;
   final String latestVersion;
@@ -88,7 +88,8 @@ class AppConfigService {
       return serverUrl.isNotEmpty ? serverUrl : defaultUpdateUrl;
     }
     final fromServer = serverUrl.toLowerCase();
-    final isStoreLink = fromServer.contains('apps.apple.com') ||
+    final isStoreLink =
+        fromServer.contains('apps.apple.com') ||
         fromServer.startsWith('itms-apps://');
     return isStoreLink ? serverUrl : iosUpdateUrl;
   }

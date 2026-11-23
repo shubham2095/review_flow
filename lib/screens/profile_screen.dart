@@ -7,7 +7,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../services/account_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/otp_login.dart';
 import '../services/platform_rules.dart';
+import '../services/profile_rules.dart';
 import '../services/push_service.dart';
 import '../services/session.dart';
 import '../services/web_handoff.dart';
@@ -25,9 +27,14 @@ class ProfileScreen extends StatefulWidget {
     super.key,
     required this.onSignedOut,
     this.platformAdmin = false,
+    this.loadUser,
   });
 
   final VoidCallback onSignedOut;
+
+  /// Where the page gets the account from; the server by default. A test
+  /// passes its own, since there is no server there.
+  final Future<AppUser> Function()? loadUser;
 
   /// The platform's super admin: no company support desk to write to, and the
   /// account is the platform's own, so it cannot be deleted from the app.
@@ -41,12 +48,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _name = TextEditingController();
   final _phone = TextEditingController();
   final _address = TextEditingController();
+  final _company = TextEditingController();
+  final _email = TextEditingController();
   bool _loading = true;
   bool _saving = false;
   bool _uploadingPhoto = false;
   AppUser? _user;
   String? _nameError;
   String? _phoneError;
+  String? _companyError;
+  String? _emailError;
 
   @override
   void initState() {
@@ -58,6 +69,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _phone.addListener(() {
       if (_phoneError != null) setState(() => _phoneError = null);
     });
+    _company.addListener(() {
+      if (_companyError != null) setState(() => _companyError = null);
+    });
+    _email.addListener(() {
+      if (_emailError != null) setState(() => _emailError = null);
+    });
     _load();
   }
 
@@ -66,8 +83,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _name.dispose();
     _phone.dispose();
     _address.dispose();
+    _company.dispose();
+    _email.dispose();
     super.dispose();
   }
+
+  // A mobile-number account starts with stand-in details: the form shows them
+  // empty (never "New User"), and the email box appears only while the email
+  // is still a stand-in. Only the owner can rename the business.
+  String _baseName(AppUser u) => u.hasStandInName ? '' : u.name;
+  String _baseCompany(AppUser u) =>
+      u.hasStandInBusiness ? '' : (u.businessName ?? '');
+  bool _showEmail(AppUser u) => u.hasStandInEmail;
+  bool _showCompany(AppUser u) =>
+      !widget.platformAdmin &&
+      u.businessName != null &&
+      (u.roles.isEmpty || u.roles.contains('owner'));
 
   void _message(String text) {
     if (!mounted) return;
@@ -76,19 +107,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _fill(AppUser u) {
     _user = u;
-    _name.text = u.name;
+    _name.text = _baseName(u);
     _phone.text = u.phone ?? '';
     _address.text = u.address ?? '';
+    _company.text = _baseCompany(u);
+    _email.clear();
   }
 
   Future<void> _load() async {
     try {
-      final u = await Session.refresh();
+      final u = await (widget.loadUser ?? Session.refresh)();
       if (!mounted) return;
       setState(() => _fill(u));
     } catch (e) {
       final cached = Session.current;
-      if (cached != null && mounted && _user == null) setState(() => _fill(cached));
+      if (cached != null && mounted && _user == null) {
+        setState(() => _fill(cached));
+      }
       _message(friendlyException(e).message);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -129,47 +164,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _fill(u);
       _nameError = null;
       _phoneError = null;
+      _companyError = null;
+      _emailError = null;
     });
   }
 
   bool get _dirty {
     final u = _user;
     if (u == null) return false;
-    return _name.text.trim() != u.name ||
+    return _name.text.trim() != _baseName(u) ||
         _phone.text.trim() != (u.phone ?? '') ||
-        _address.text.trim() != (u.address ?? '');
+        _address.text.trim() != (u.address ?? '') ||
+        (_showEmail(u) && _email.text.trim().isNotEmpty) ||
+        (_showCompany(u) && _company.text.trim() != _baseCompany(u));
   }
 
   Future<void> _save() async {
+    final u = _user;
+    if (u == null) return;
     final name = _name.text.trim();
     final phone = _phone.text.trim();
+    final email = _email.text.trim();
+    final company = _company.text.trim();
     final digits = phone.replaceAll(RegExp(r'\D'), '');
-    final nameError = name.isEmpty ? 'Your name cannot be empty.' : null;
-    final phoneError = phone.isNotEmpty &&
+    // A stand-in left blank is just "not filled in yet": nothing is sent for
+    // it. A real value cannot be emptied.
+    final nameError = name.isEmpty && !u.hasStandInName
+        ? 'Your name cannot be empty.'
+        : null;
+    final phoneError =
+        phone.isNotEmpty &&
             (!RegExp(r'^[+\d\s\-()]+$').hasMatch(phone) ||
                 digits.length < 7 ||
                 digits.length > 15)
         ? 'Enter a valid mobile number, like +91 98765 43210.'
         : null;
-    if (nameError != null || phoneError != null) {
+    final emailError =
+        _showEmail(u) && email.isNotEmpty && !looksLikeEmail(email)
+        ? 'Enter a valid email, like name@example.com.'
+        : null;
+    final companyError =
+        _showCompany(u) && company.isEmpty && !u.hasStandInBusiness
+        ? 'Your business name cannot be empty.'
+        : null;
+    if (nameError != null ||
+        phoneError != null ||
+        emailError != null ||
+        companyError != null) {
       HapticFeedback.mediumImpact();
       setState(() {
         _nameError = nameError;
         _phoneError = phoneError;
+        _emailError = emailError;
+        _companyError = companyError;
       });
       return;
     }
     setState(() => _saving = true);
     try {
       await AccountService.updateProfile(
-        name: name,
+        name: name.isEmpty ? null : name,
         phone: _phone.text.trim(),
         address: _address.text.trim(),
+        email: _showEmail(u) && email.isNotEmpty ? email : null,
+        companyName:
+            _showCompany(u) && company.isNotEmpty && company != _baseCompany(u)
+            ? company
+            : null,
       );
-      final u = await Session.refresh();
+      final fresh = await Session.refresh();
       if (!mounted) return;
-      setState(() => _fill(u));
+      setState(() => _fill(fresh));
       _message('Profile saved');
+    } on ApiException catch (e) {
+      // "The given data was invalid." says nothing: the field's own message
+      // (for example "email has already been taken") sits under the field.
+      final fields = profileFieldErrors(e);
+      if (mounted) {
+        setState(() {
+          _nameError = fields['name'];
+          _phoneError = fields['phone'];
+          _emailError = fields['email'];
+          _companyError = fields['company_name'];
+        });
+      }
+      const mine = {'name', 'phone', 'email', 'company_name'};
+      if (!fields.keys.any(mine.contains)) _message(profileErrorMessage(e));
     } catch (e) {
       _message(friendlyException(e).message);
     } finally {
@@ -186,7 +266,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageQuality: 80,
       );
     } catch (_) {
-      _message('Could not open your photos. Check the photo permission for Eydia.');
+      _message(
+        'Could not open your photos. Check the photo permission for Eydia.',
+      );
       return;
     }
     if (picked == null) return;
@@ -256,14 +338,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-      );
+    labelText: label,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -279,7 +361,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 physics: const AlwaysScrollableScrollPhysics(),
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
                   if (u != null)
                     FadeIn(
@@ -290,13 +373,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   const SizedBox(height: 16),
+                  if (u != null &&
+                      !widget.platformAdmin &&
+                      u.missingProfileParts.isNotEmpty) ...[
+                    FadeIn(
+                      delay: 40,
+                      child: _SetupBanner(
+                        text:
+                            'Add ${joinParts(u.missingProfileParts)} to '
+                            'finish setting up your account.',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   FadeIn(
                     delay: 80,
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: cardDecoration(),
                       child: ListenableBuilder(
-                        listenable: Listenable.merge([_name, _phone, _address]),
+                        listenable: Listenable.merge([
+                          _name,
+                          _phone,
+                          _address,
+                          _company,
+                          _email,
+                        ]),
                         builder: (context, _) => Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -314,15 +416,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               textInputAction: TextInputAction.next,
                               textCapitalization: TextCapitalization.words,
                               autofillHints: const [AutofillHints.name],
-                              decoration: _dec('Full name').copyWith(errorText: _nameError),
+                              decoration: _dec(
+                                'Full name',
+                              ).copyWith(errorText: _nameError),
                             ),
                             const SizedBox(height: 12),
+                            if (u != null && _showCompany(u)) ...[
+                              TextField(
+                                controller: _company,
+                                textInputAction: TextInputAction.next,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: _dec(
+                                  'Business name',
+                                ).copyWith(errorText: _companyError),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            if (u != null && _showEmail(u)) ...[
+                              TextField(
+                                controller: _email,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.email],
+                                decoration: _dec('Email address').copyWith(
+                                  errorText: _emailError,
+                                  helperText:
+                                      'Optional. To sign in with email, set a '
+                                      'password below.',
+                                  helperMaxLines: 2,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             TextField(
                               controller: _phone,
                               keyboardType: TextInputType.phone,
                               textInputAction: TextInputAction.next,
-                              autofillHints: const [AutofillHints.telephoneNumber],
-                              decoration: _dec('Mobile number').copyWith(errorText: _phoneError),
+                              autofillHints: const [
+                                AutofillHints.telephoneNumber,
+                              ],
+                              decoration: _dec(
+                                'Mobile number',
+                              ).copyWith(errorText: _phoneError),
                             ),
                             const SizedBox(height: 12),
                             TextField(
@@ -347,7 +482,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ],
                                 Expanded(
                                   child: FilledButton(
-                                    onPressed: (_dirty && !_saving) ? _save : null,
+                                    onPressed: (_dirty && !_saving)
+                                        ? _save
+                                        : null,
                                     child: _saving
                                         ? const SizedBox(
                                             width: 18,
@@ -368,49 +505,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ProfileGroup(children: [
-                    ProfileRow(
-                      icon: Icons.lock_reset_rounded,
-                      label: 'Change password',
-                      onTap: _changePassword,
-                    ),
-                    const _NotificationsRow(),
-                    if (!widget.platformAdmin)
+                  ProfileGroup(
+                    children: [
                       ProfileRow(
-                        icon: Icons.support_agent_rounded,
-                        label: 'Help & support',
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const SupportScreen(),
+                        icon: Icons.lock_reset_rounded,
+                        label: u != null && u.hasStandInEmail
+                            ? 'Set a password'
+                            : 'Change password',
+                        onTap: _changePassword,
+                      ),
+                      const _NotificationsRow(),
+                      if (!widget.platformAdmin)
+                        ProfileRow(
+                          icon: Icons.support_agent_rounded,
+                          label: 'Help & support',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SupportScreen(),
+                            ),
                           ),
                         ),
-                      ),
-                    ProfileRow(
-                      icon: Icons.privacy_tip_outlined,
-                      label: 'Privacy policy',
-                      onTap: () => openPublicPage('/privacy-policy'),
-                    ),
-                    ProfileRow(
-                      icon: Icons.description_outlined,
-                      label: 'Terms and conditions',
-                      onTap: () => openPublicPage('/terms-and-conditions'),
-                    ),
-                  ]),
-                  const SizedBox(height: 16),
-                  ProfileGroup(children: [
-                    ProfileRow(
-                      icon: Icons.logout_rounded,
-                      label: 'Log out',
-                      onTap: _signOut,
-                    ),
-                    if (!widget.platformAdmin)
                       ProfileRow(
-                        icon: Icons.delete_forever_rounded,
-                        label: 'Delete my account',
-                        danger: true,
-                        onTap: _deleteAccount,
+                        icon: Icons.privacy_tip_outlined,
+                        label: 'Privacy policy',
+                        onTap: () => openPublicPage('/privacy-policy'),
                       ),
-                  ]),
+                      ProfileRow(
+                        icon: Icons.description_outlined,
+                        label: 'Terms and conditions',
+                        onTap: () => openPublicPage('/terms-and-conditions'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ProfileGroup(
+                    children: [
+                      ProfileRow(
+                        icon: Icons.logout_rounded,
+                        label: 'Log out',
+                        onTap: _signOut,
+                      ),
+                      if (!widget.platformAdmin)
+                        ProfileRow(
+                          icon: Icons.delete_forever_rounded,
+                          label: 'Delete my account',
+                          danger: true,
+                          onTap: _deleteAccount,
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 18),
                   // Support asks which version of the app someone is on.
                   const _VersionFooter(),
@@ -443,7 +586,11 @@ class _VersionFooter extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.user, required this.uploading, required this.onPhoto});
+  const _Header({
+    required this.user,
+    required this.uploading,
+    required this.onPhoto,
+  });
 
   final AppUser user;
   final bool uploading;
@@ -465,12 +612,25 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = user.name.trim().isEmpty ? 'E' : user.name.trim()[0].toUpperCase();
+    final initial = user.displayName.trim().isEmpty
+        ? 'E'
+        : user.displayName.trim()[0].toUpperCase();
+    // A mobile-number account has no email yet: show the number instead.
+    final phone = (user.phone ?? '').trim();
+    final shownPhone = () {
+      final full = normalizeOtpPhone(phone);
+      return full == null ? phone : formatOtpPhone(full);
+    }();
+    final contact = user.hasStandInEmail
+        ? (phone.isEmpty ? 'Add your email below' : shownPhone)
+        : user.email;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [royalNavy, royalIndigo, royalViolet]),
+        gradient: const LinearGradient(
+          colors: [royalNavy, royalIndigo, royalViolet],
+        ),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -493,7 +653,10 @@ class _Header extends StatelessWidget {
                         ? const SizedBox(
                             width: 22,
                             height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : Text(
                             initial,
@@ -514,7 +677,11 @@ class _Header extends StatelessWidget {
                       color: royalGold,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.photo_camera_rounded, size: 14, color: royalNavy),
+                    child: const Icon(
+                      Icons.photo_camera_rounded,
+                      size: 14,
+                      color: royalNavy,
+                    ),
                   ),
                 ),
               ],
@@ -526,7 +693,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.name,
+                  user.displayName.isEmpty ? 'Add your name' : user.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
@@ -537,18 +704,25 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  user.email,
+                  contact,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 12.5),
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white70,
+                    fontSize: 12.5,
+                  ),
                 ),
-                if ((user.businessName ?? '').isNotEmpty) ...[
+                if ((user.businessName ?? '').isNotEmpty &&
+                    !user.hasStandInBusiness) ...[
                   const SizedBox(height: 2),
                   Text(
                     user.businessName!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(color: royalGold, fontSize: 12),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: royalGold,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -556,14 +730,66 @@ class _Header extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _Pill(user.planName ?? (user.hasPlan ? 'Plan active' : 'No plan')),
-                    _Pill(user.emailVerified ? 'Email verified' : 'Email not verified'),
+                    _Pill(
+                      user.planName ??
+                          (user.hasPlan ? 'Plan active' : 'No plan'),
+                    ),
+                    // The number was proved with a code at sign-up; there is no
+                    // email to verify yet.
+                    if (user.hasStandInEmail) ...[
+                      if (phone.isNotEmpty) const _Pill('Mobile verified'),
+                    ] else
+                      _Pill(
+                        user.emailVerified
+                            ? 'Email verified'
+                            : 'Email not verified',
+                      ),
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Add your name, business name and email to finish setting up."
+class _SetupBanner extends StatelessWidget {
+  const _SetupBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: brand.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: brand.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.info_outline_rounded, size: 18, color: brand),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  height: 1.4,
+                  color: ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -637,7 +863,10 @@ class ProfileRow extends StatelessWidget {
       leading: Icon(icon, color: color),
       title: Text(
         label,
-        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: color),
+        style: GoogleFonts.plusJakartaSans(
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
       trailing: Icon(Icons.chevron_right_rounded, color: danger ? bad : muted),
     );
@@ -669,7 +898,9 @@ class _PasswordSheetState extends State<_PasswordSheet> {
     super.initState();
     for (final c in [_current, _next, _confirm]) {
       c.addListener(() {
-        if (_currentError != null || _nextError != null || _confirmError != null) {
+        if (_currentError != null ||
+            _nextError != null ||
+            _confirmError != null) {
           setState(() {
             _currentError = null;
             _nextError = null;
@@ -689,21 +920,21 @@ class _PasswordSheetState extends State<_PasswordSheet> {
   }
 
   Future<void> _submit() async {
-    String? current;
+    // The current password is optional: someone who signed up with a mobile
+    // number has none, and the server does not ask for it.
     String? next;
     String? confirm;
-    if (_current.text.isEmpty) current = 'Enter your current password.';
     final rule = PasswordRules.problem(_next.text);
     if (rule != null) {
       next = rule;
-    } else if (_next.text == _current.text) {
+    } else if (_current.text.isNotEmpty && _next.text == _current.text) {
       next = 'Choose a password different from the current one.';
     }
     if (_confirm.text != _next.text) confirm = 'The passwords do not match.';
-    if (current != null || next != null || confirm != null) {
+    if (next != null || confirm != null) {
       HapticFeedback.mediumImpact();
       setState(() {
-        _currentError = current;
+        _currentError = null;
         _nextError = next;
         _confirmError = confirm;
         _notice = null;
@@ -716,7 +947,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
     });
     try {
       await AccountService.changePassword(
-        current: _current.text,
+        current: _current.text.isEmpty ? null : _current.text,
         password: _next.text,
       );
       if (mounted) Navigator.of(context).pop(true);
@@ -731,15 +962,15 @@ class _PasswordSheetState extends State<_PasswordSheet> {
   }
 
   InputDecoration _dec(String label, {String? errorText}) => InputDecoration(
-        labelText: label,
-        errorText: errorText,
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-      );
+    labelText: label,
+    errorText: errorText,
+    filled: true,
+    fillColor: surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide.none,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -756,7 +987,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Change password',
+              'Change or set password',
               style: GoogleFonts.plusJakartaSans(
                 fontWeight: FontWeight.w800,
                 fontSize: 18,
@@ -769,16 +1000,25 @@ class _PasswordSheetState extends State<_PasswordSheet> {
               obscureText: !_show,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.password],
-              decoration: _dec('Current password', errorText: _currentError).copyWith(
-                suffixIcon: IconButton(
-                  tooltip: _show ? 'Hide passwords' : 'Show passwords',
-                  icon: Icon(
-                    _show ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                    color: muted,
+              decoration:
+                  _dec(
+                    'Current password (optional)',
+                    errorText: _currentError,
+                  ).copyWith(
+                    helperText:
+                        'Signed up with your mobile number? Leave this empty.',
+                    helperMaxLines: 2,
+                    suffixIcon: IconButton(
+                      tooltip: _show ? 'Hide passwords' : 'Show passwords',
+                      icon: Icon(
+                        _show
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
+                        color: muted,
+                      ),
+                      onPressed: () => setState(() => _show = !_show),
+                    ),
                   ),
-                  onPressed: () => setState(() => _show = !_show),
-                ),
-              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -801,7 +1041,10 @@ class _PasswordSheetState extends State<_PasswordSheet> {
               obscureText: !_show,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _busy ? null : _submit(),
-              decoration: _dec('Confirm new password', errorText: _confirmError),
+              decoration: _dec(
+                'Confirm new password',
+                errorText: _confirmError,
+              ),
             ),
             const SizedBox(height: 16),
             SheetNotice(_notice),
@@ -811,7 +1054,10 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text('Update password'),
             ),
@@ -921,7 +1167,11 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
               'synced data. If you are the only member of your workspace, the '
               'workspace is deleted too. Invoices and payment records are kept '
               'only as long as the law requires.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted, height: 1.45),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                color: muted,
+                height: 1.45,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -943,7 +1193,9 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
               controller: _password,
               obscureText: _hide,
               onChanged: (_) {
-                if (_passwordError != null) setState(() => _passwordError = null);
+                if (_passwordError != null) {
+                  setState(() => _passwordError = null);
+                }
               },
               decoration: InputDecoration(
                 labelText: 'Your password',
@@ -953,7 +1205,9 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 suffixIcon: IconButton(
                   tooltip: _hide ? 'Show password' : 'Hide password',
                   icon: Icon(
-                    _hide ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                    _hide
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
                     color: muted,
                   ),
                   onPressed: () => setState(() => _hide = !_hide),
@@ -973,7 +1227,10 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text('Delete my account'),
             ),
@@ -985,7 +1242,9 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
               TextButton.icon(
                 onPressed: (_busy || !_confirmed) ? null : _withGoogle,
                 icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
-                label: const Text('I signed in with Google: confirm with Google'),
+                label: const Text(
+                  'I signed in with Google: confirm with Google',
+                ),
               )
             else
               Padding(
@@ -993,7 +1252,10 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
                 child: Text(
                   'Signed up with Google and never set a password? Use "Forgot password" on the sign-in screen to set one first.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    color: muted,
+                  ),
                 ),
               ),
             TextButton(
@@ -1068,7 +1330,10 @@ class _NotificationsRowState extends State<_NotificationsRow> {
       secondary: const Icon(Icons.notifications_active_outlined, color: ink),
       title: Text(
         'Notifications',
-        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: ink),
+        style: GoogleFonts.plusJakartaSans(
+          fontWeight: FontWeight.w700,
+          color: ink,
+        ),
       ),
       subtitle: Text(
         'New customer messages and Google reviews',

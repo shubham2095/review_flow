@@ -36,15 +36,12 @@ void main() {
     });
 
     test('only the four main tabs are tabs', () {
-      expect(
-        WaDestination.values.where((d) => d.isTab).toList(),
-        [
-          WaDestination.home,
-          WaDestination.inbox,
-          WaDestination.contacts,
-          WaDestination.campaigns,
-        ],
-      );
+      expect(WaDestination.values.where((d) => d.isTab).toList(), [
+        WaDestination.home,
+        WaDestination.inbox,
+        WaDestination.contacts,
+        WaDestination.campaigns,
+      ]);
     });
   });
 

@@ -50,14 +50,21 @@ class _AdminPacksScreenState extends State<AdminPacksScreen> {
   }
 
   Future<void> _form([AdminCreditPack? pack]) async {
-    final saved = await showAdminSheet<bool>(context, (_) => _PackForm(pack: pack));
+    final saved = await showAdminSheet<bool>(
+      context,
+      (_) => _PackForm(pack: pack),
+    );
     if (saved == true) {
       _snack(pack == null ? 'Pack created' : 'Pack updated');
       await _load();
     }
   }
 
-  Future<void> _run(AdminCreditPack p, Future<void> Function() action, String done) async {
+  Future<void> _run(
+    AdminCreditPack p,
+    Future<void> Function() action,
+    String done,
+  ) async {
     setState(() => _busy.add(p.id));
     try {
       await action();
@@ -131,7 +138,10 @@ class _AdminPacksScreenState extends State<AdminPacksScreen> {
                                   color: star.withValues(alpha: 0.14),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: const Icon(Icons.bolt_rounded, color: star),
+                                child: const Icon(
+                                  Icons.bolt_rounded,
+                                  color: star,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -168,7 +178,9 @@ class _AdminPacksScreenState extends State<AdminPacksScreen> {
                                   child: SizedBox(
                                     width: 18,
                                     height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   ),
                                 )
                               else
@@ -180,22 +192,36 @@ class _AdminPacksScreenState extends State<AdminPacksScreen> {
                                       case 'toggle':
                                         _run(
                                           _packs[i],
-                                          () => AdminService.togglePack(_packs[i].id),
-                                          _packs[i].isActive ? 'Pack paused' : 'Pack activated',
+                                          () => AdminService.togglePack(
+                                            _packs[i].id,
+                                          ),
+                                          _packs[i].isActive
+                                              ? 'Pack paused'
+                                              : 'Pack activated',
                                         );
                                       case 'delete':
                                         _delete(_packs[i]);
                                     }
                                   },
                                   itemBuilder: (_) => [
-                                    const PopupMenuItem(value: 'edit', child: Text('Edit pack')),
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Text('Edit pack'),
+                                    ),
                                     PopupMenuItem(
                                       value: 'toggle',
-                                      child: Text(_packs[i].isActive ? 'Pause' : 'Activate'),
+                                      child: Text(
+                                        _packs[i].isActive
+                                            ? 'Pause'
+                                            : 'Activate',
+                                      ),
                                     ),
                                     const PopupMenuItem(
                                       value: 'delete',
-                                      child: Text('Delete', style: TextStyle(color: bad)),
+                                      child: Text(
+                                        'Delete',
+                                        style: TextStyle(color: bad),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -227,10 +253,16 @@ class _PackFormState extends State<_PackForm> {
   late final _price = TextEditingController(
     text: widget.pack == null
         ? ''
-        : widget.pack!.price.toStringAsFixed(widget.pack!.price % 1 == 0 ? 0 : 2),
+        : widget.pack!.price.toStringAsFixed(
+            widget.pack!.price % 1 == 0 ? 0 : 2,
+          ),
   );
-  late final _gst = TextEditingController(text: '${widget.pack?.gstRate ?? 18}');
-  late final _sort = TextEditingController(text: '${widget.pack?.sortOrder ?? 0}');
+  late final _gst = TextEditingController(
+    text: '${widget.pack?.gstRate ?? 18}',
+  );
+  late final _sort = TextEditingController(
+    text: '${widget.pack?.sortOrder ?? 0}',
+  );
   late bool _active = widget.pack?.isActive ?? true;
   bool _busy = false;
 
@@ -251,7 +283,11 @@ class _PackFormState extends State<_PackForm> {
   Future<void> _save() async {
     final credits = int.tryParse(_credits.text.trim());
     final price = double.tryParse(_price.text.trim());
-    if (_name.text.trim().isEmpty || credits == null || credits < 1 || price == null || price < 0) {
+    if (_name.text.trim().isEmpty ||
+        credits == null ||
+        credits < 1 ||
+        price == null ||
+        price < 0) {
       _message('Enter a name, credits (1 or more) and a price.');
       return;
     }
@@ -278,12 +314,19 @@ class _PackFormState extends State<_PackForm> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AdminSheetHeader(widget.pack == null ? 'New credit pack' : 'Edit credit pack'),
+            AdminSheetHeader(
+              widget.pack == null ? 'New credit pack' : 'Edit credit pack',
+            ),
             TextField(controller: _name, decoration: adminInput('Name')),
             const SizedBox(height: 12),
             Row(
@@ -299,7 +342,9 @@ class _PackFormState extends State<_PackForm> {
                 Expanded(
                   child: TextField(
                     controller: _price,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: adminInput('Price (incl. GST)'),
                   ),
                 ),
@@ -339,7 +384,10 @@ class _PackFormState extends State<_PackForm> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(widget.pack == null ? 'Create pack' : 'Save pack'),
             ),

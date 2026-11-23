@@ -13,5 +13,7 @@ Future<void> openInWeb({String? next}) async {
 }
 
 /// Opens a public page (policies, account deletion) in the browser.
-Future<void> openPublicPage(String path) =>
-    launchUrl(Uri.parse('https://eydia.in$path'), mode: LaunchMode.externalApplication);
+Future<void> openPublicPage(String path) => launchUrl(
+  Uri.parse('https://eydia.in$path'),
+  mode: LaunchMode.externalApplication,
+);

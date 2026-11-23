@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 import 'location_store.dart';
 import 'offline_cache.dart';
+import 'profile_rules.dart';
 
 /// The signed-in user as returned by GET /auth/me.
 class AppUser {
@@ -76,6 +77,23 @@ class AppUser {
 
   /// Role names such as `owner`, `admin` or `agent`.
   final List<String> roles;
+
+  /// An account made by signing up with a mobile number starts with stand-in
+  /// details (see profile_rules.dart). These say which ones are still stand-ins.
+  bool get hasStandInEmail => isStandInEmail(email);
+  bool get hasStandInName => isStandInName(name);
+  bool get hasStandInBusiness => isStandInBusiness(businessName);
+
+  /// The name to greet and label the person with: empty while it is a
+  /// stand-in, so screens fall back to their no-name wording.
+  String get displayName => hasStandInName ? '' : name;
+
+  /// Parts of the profile still to fill in, in plain words.
+  List<String> get missingProfileParts => [
+    if (hasStandInName) 'your name',
+    if (businessName != null && hasStandInBusiness) 'your business name',
+    if (hasStandInEmail) 'your email',
+  ];
 
   /// Mirrors the backend rule: only an active or trialing subscription unlocks
   /// the workspace. Super admins are never gated.

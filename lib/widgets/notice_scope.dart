@@ -25,7 +25,9 @@ class NoticeScope extends StatefulWidget {
       state._show(text, error);
       return;
     }
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override
@@ -88,7 +90,9 @@ class _NoticeScopeState extends State<NoticeScope> {
                           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: tone.withValues(alpha: 0.35)),
+                            border: Border.all(
+                              color: tone.withValues(alpha: 0.35),
+                            ),
                             color: tone.withValues(alpha: 0.06),
                           ),
                           child: Row(

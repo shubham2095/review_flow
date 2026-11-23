@@ -180,7 +180,7 @@ class _ProductHubState extends State<ProductHub> with WidgetsBindingObserver {
             child: ValueListenableBuilder<AppUser?>(
               valueListenable: Session.user,
               builder: (context, user, _) {
-                final name = user?.name.trim() ?? '';
+                final name = user?.displayName.trim() ?? '';
                 final first = name.isEmpty ? '' : name.split(' ').first;
                 final hasPlan = user?.hasPlan ?? false;
                 final plan = user?.planName?.trim() ?? '';

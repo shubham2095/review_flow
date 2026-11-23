@@ -85,7 +85,11 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
     NoticeScope.show(context, text);
   }
 
-  Future<void> _run(AdminCompany c, Future<void> Function() action, String done) async {
+  Future<void> _run(
+    AdminCompany c,
+    Future<void> Function() action,
+    String done,
+  ) async {
     setState(() => _busy.add(c.id));
     try {
       await action();
@@ -121,7 +125,8 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AdminSheetHeader('Plan for ${c.name}'),
-              if (_plans.isEmpty) const Text('No active plans. Create one first.'),
+              if (_plans.isEmpty)
+                const Text('No active plans. Create one first.'),
               for (final p in _plans)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -141,16 +146,15 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
   }
 
   Future<void> _addCredits(AdminCompany c) async {
-    final amount = await showAdminSheet<int>(context, (_) => _CreditsSheet(name: c.name));
-    if (amount == null) return;
-    await _run(
-      c,
-      () async {
-        final balance = await AdminService.addCredits(c.id, amount);
-        _snack('Added $amount credits. Balance: $balance');
-      },
-      '',
+    final amount = await showAdminSheet<int>(
+      context,
+      (_) => _CreditsSheet(name: c.name),
     );
+    if (amount == null) return;
+    await _run(c, () async {
+      final balance = await AdminService.addCredits(c.id, amount);
+      _snack('Added $amount credits. Balance: $balance');
+    }, '');
   }
 
   Future<void> _toggle(AdminCompany c) async {
@@ -246,10 +250,11 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                   TextField(
                     controller: _search,
                     onChanged: (_) => setState(() {}),
-                    decoration: adminInput('Search companies or owners').copyWith(
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      fillColor: Colors.white,
-                    ),
+                    decoration: adminInput('Search companies or owners')
+                        .copyWith(
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          fillColor: Colors.white,
+                        ),
                   ),
                   const SizedBox(height: 10),
                   SingleChildScrollView(
@@ -295,7 +300,10 @@ class _AdminCompaniesScreenState extends State<AdminCompaniesScreen> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 4,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -396,98 +404,126 @@ class _CompanyCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
             child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  c.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    color: ink,
-                  ),
-                ),
-              ),
-              AdminBadge(c.status, adminStatusColor(c.status)),
-              if (busy)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              else
-                PopupMenuButton<String>(
-                  onSelected: (v) {
-                    switch (v) {
-                      case 'edit':
-                        onEdit();
-                      case 'plan':
-                        onPlan();
-                      case 'credits':
-                        onCredits();
-                      case 'users':
-                        onUsers();
-                      case 'toggle':
-                        onToggle();
-                      case 'delete':
-                        onDelete();
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('Edit details')),
-                    const PopupMenuItem(value: 'plan', child: Text('Change plan')),
-                    const PopupMenuItem(value: 'credits', child: Text('Add credits')),
-                    const PopupMenuItem(value: 'users', child: Text('Users and passwords')),
-                    PopupMenuItem(
-                      value: 'toggle',
-                      child: Text(c.suspended ? 'Reactivate' : 'Suspend'),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Delete', style: TextStyle(color: bad)),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  c.ownerName.isEmpty ? c.ownerEmail : '${c.ownerName}  ·  ${c.ownerEmail}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
+                Row(
                   children: [
-                    _Meta(Icons.workspace_premium_rounded, c.planName ?? 'No plan',
-                        c.planName == null ? warn : royalIndigo),
-                    _Meta(Icons.people_alt_rounded, '${c.usersCount} users', muted),
-                    _Meta(Icons.support_agent_rounded, agents, muted),
-                    if (trial != null)
-                      _Meta(Icons.hourglass_bottom_rounded, trial, warn),
-                    if (c.createdAt != null)
-                      _Meta(Icons.event_rounded, 'Joined ${fmtDate(c.createdAt!)}', muted),
+                    Expanded(
+                      child: Text(
+                        c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: ink,
+                        ),
+                      ),
+                    ),
+                    AdminBadge(c.status, adminStatusColor(c.status)),
+                    if (busy)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else
+                      PopupMenuButton<String>(
+                        onSelected: (v) {
+                          switch (v) {
+                            case 'edit':
+                              onEdit();
+                            case 'plan':
+                              onPlan();
+                            case 'credits':
+                              onCredits();
+                            case 'users':
+                              onUsers();
+                            case 'toggle':
+                              onToggle();
+                            case 'delete':
+                              onDelete();
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Edit details'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'plan',
+                            child: Text('Change plan'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'credits',
+                            child: Text('Add credits'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'users',
+                            child: Text('Users and passwords'),
+                          ),
+                          PopupMenuItem(
+                            value: 'toggle',
+                            child: Text(c.suspended ? 'Reactivate' : 'Suspend'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete', style: TextStyle(color: bad)),
+                          ),
+                        ],
+                      ),
                   ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.ownerName.isEmpty
+                            ? c.ownerEmail
+                            : '${c.ownerName}  ·  ${c.ownerEmail}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: muted,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _Meta(
+                            Icons.workspace_premium_rounded,
+                            c.planName ?? 'No plan',
+                            c.planName == null ? warn : royalIndigo,
+                          ),
+                          _Meta(
+                            Icons.people_alt_rounded,
+                            '${c.usersCount} users',
+                            muted,
+                          ),
+                          _Meta(Icons.support_agent_rounded, agents, muted),
+                          if (trial != null)
+                            _Meta(Icons.hourglass_bottom_rounded, trial, warn),
+                          if (c.createdAt != null)
+                            _Meta(
+                              Icons.event_rounded,
+                              'Joined ${fmtDate(c.createdAt!)}',
+                              muted,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
           ),
         ),
       ),
@@ -591,7 +627,9 @@ class _CompanyDetails extends StatelessWidget {
                   ? null
                   : FilledButton.styleFrom(backgroundColor: bad),
               onPressed: () => Navigator.pop(context, 'toggle'),
-              child: Text(c.suspended ? 'Reactivate company' : 'Suspend company'),
+              child: Text(
+                c.suspended ? 'Reactivate company' : 'Suspend company',
+              ),
             ),
           ],
         ),
@@ -639,8 +677,12 @@ class _CompanyForm extends StatefulWidget {
 
 class _CompanyFormState extends State<_CompanyForm> {
   late final _company = TextEditingController(text: widget.company?.name ?? '');
-  late final _owner = TextEditingController(text: widget.company?.ownerName ?? '');
-  late final _email = TextEditingController(text: widget.company?.ownerEmail ?? '');
+  late final _owner = TextEditingController(
+    text: widget.company?.ownerName ?? '',
+  );
+  late final _email = TextEditingController(
+    text: widget.company?.ownerEmail ?? '',
+  );
   final _phone = TextEditingController();
   final _password = TextEditingController();
   String? _planId;
@@ -705,13 +747,21 @@ class _CompanyFormState extends State<_CompanyForm> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AdminSheetHeader(_editing ? 'Edit company' : 'New company'),
-            TextField(controller: _company, decoration: adminInput('Company name')),
+            TextField(
+              controller: _company,
+              decoration: adminInput('Company name'),
+            ),
             const SizedBox(height: 12),
             TextField(controller: _owner, decoration: adminInput('Owner name')),
             const SizedBox(height: 12),
@@ -731,7 +781,9 @@ class _CompanyFormState extends State<_CompanyForm> {
               controller: _password,
               obscureText: true,
               decoration: adminInput(
-                _editing ? 'New password (leave empty to keep)' : 'Password (min 8)',
+                _editing
+                    ? 'New password (leave empty to keep)'
+                    : 'Password (min 8)',
               ),
             ),
             if (!_editing && widget.plans.isNotEmpty) ...[
@@ -754,7 +806,10 @@ class _CompanyFormState extends State<_CompanyForm> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(_editing ? 'Save changes' : 'Create company'),
             ),
@@ -796,7 +851,12 @@ class _CreditsSheetState extends State<_CreditsSheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -874,7 +934,10 @@ class _UsersSheetState extends State<_UsersSheet> {
           decoration: const InputDecoration(labelText: 'New password (min 8)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
             child: const Text('Reset'),
@@ -889,7 +952,11 @@ class _UsersSheetState extends State<_UsersSheet> {
       return;
     }
     try {
-      final msg = await AdminService.resetUserPassword(widget.company.id, u.id, password);
+      final msg = await AdminService.resetUserPassword(
+        widget.company.id,
+        u.id,
+        password,
+      );
       if (mounted) {
         NoticeScope.show(context, msg.isEmpty ? 'Password updated' : msg);
       }
@@ -904,7 +971,9 @@ class _UsersSheetState extends State<_UsersSheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           child: Column(
@@ -934,7 +1003,9 @@ class _UsersSheetState extends State<_UsersSheet> {
                           contentPadding: EdgeInsets.zero,
                           title: Text(
                             u.name,
-                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           subtitle: Text('${u.email}  ·  ${u.role}'),
                           trailing: TextButton(

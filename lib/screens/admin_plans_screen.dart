@@ -56,7 +56,11 @@ class _AdminPlansScreenState extends State<AdminPlansScreen> {
     if (d == null) return;
     final saved = await showAdminSheet<bool>(
       context,
-      (_) => _PlanForm(plan: plan, limitKeys: d.limitKeys, featureKeys: d.featureKeys),
+      (_) => _PlanForm(
+        plan: plan,
+        limitKeys: d.limitKeys,
+        featureKeys: d.featureKeys,
+      ),
     );
     if (saved == true) {
       _snack(plan == null ? 'Plan created' : 'Plan updated');
@@ -64,7 +68,11 @@ class _AdminPlansScreenState extends State<AdminPlansScreen> {
     }
   }
 
-  Future<void> _run(AdminPlan p, Future<void> Function() action, String done) async {
+  Future<void> _run(
+    AdminPlan p,
+    Future<void> Function() action,
+    String done,
+  ) async {
     setState(() => _busy.add(p.id));
     try {
       await action();
@@ -81,7 +89,8 @@ class _AdminPlansScreenState extends State<AdminPlansScreen> {
     final ok = await adminConfirm(
       context,
       title: 'Delete ${p.name}?',
-      text: 'Plans assigned to companies cannot be deleted. Deactivate those instead.',
+      text:
+          'Plans assigned to companies cannot be deleted. Deactivate those instead.',
       action: 'Delete',
       danger: true,
     );
@@ -135,7 +144,9 @@ class _AdminPlansScreenState extends State<AdminPlansScreen> {
                           onToggle: () => _run(
                             plans[i],
                             () => AdminService.togglePlan(plans[i].id),
-                            plans[i].isActive ? 'Plan deactivated' : 'Plan activated',
+                            plans[i].isActive
+                                ? 'Plan deactivated'
+                                : 'Plan activated',
                           ),
                           onDelete: () => _delete(plans[i]),
                         ),
@@ -186,7 +197,10 @@ class _PlanCard extends StatelessWidget {
                   ),
                 ),
               ),
-              AdminBadge(p.isActive ? 'Active' : 'Inactive', p.isActive ? good : muted),
+              AdminBadge(
+                p.isActive ? 'Active' : 'Inactive',
+                p.isActive ? good : muted,
+              ),
               if (!p.isPublic) ...[
                 const SizedBox(width: 6),
                 const AdminBadge('Hidden', warn),
@@ -213,7 +227,10 @@ class _PlanCard extends StatelessWidget {
                     }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'edit', child: Text('Edit plan')),
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Text('Edit plan'),
+                    ),
                     PopupMenuItem(
                       value: 'toggle',
                       child: Text(p.isActive ? 'Deactivate' : 'Activate'),
@@ -244,7 +261,10 @@ class _PlanCard extends StatelessWidget {
                     p.description,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: muted,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 10),
@@ -254,7 +274,10 @@ class _PlanCard extends StatelessWidget {
                   children: [
                     _Stat(Icons.bolt_rounded, '${p.credits} credits'),
                     _Stat(Icons.extension_rounded, '${p.modules} modules'),
-                    _Stat(Icons.people_alt_rounded, '${p.subscribers} subscribers'),
+                    _Stat(
+                      Icons.people_alt_rounded,
+                      '${p.subscribers} subscribers',
+                    ),
                     _Stat(
                       Icons.percent_rounded,
                       p.gstRateOwn == null
@@ -315,13 +338,19 @@ class _PlanForm extends StatefulWidget {
 
 class _PlanFormState extends State<_PlanForm> {
   late final _name = TextEditingController(text: widget.plan?.name ?? '');
-  late final _description = TextEditingController(text: widget.plan?.description ?? '');
+  late final _description = TextEditingController(
+    text: widget.plan?.description ?? '',
+  );
   late final _price = TextEditingController(
     text: widget.plan == null
         ? ''
-        : widget.plan!.price.toStringAsFixed(widget.plan!.price % 1 == 0 ? 0 : 2),
+        : widget.plan!.price.toStringAsFixed(
+            widget.plan!.price % 1 == 0 ? 0 : 2,
+          ),
   );
-  late final _sort = TextEditingController(text: '${widget.plan?.sortOrder ?? 0}');
+  late final _sort = TextEditingController(
+    text: '${widget.plan?.sortOrder ?? 0}',
+  );
   late String _period = widget.plan?.billingPeriod ?? 'monthly';
   late final _gst = TextEditingController(
     text: widget.plan?.gstRateOwn == null ? '' : '${widget.plan!.gstRateOwn}',
@@ -348,7 +377,9 @@ class _PlanFormState extends State<_PlanForm> {
     super.initState();
     for (final k in _limitKeys) {
       final v = widget.plan?.limits[k];
-      _limits[k] = TextEditingController(text: (v == null || v < 0) ? '' : '$v');
+      _limits[k] = TextEditingController(
+        text: (v == null || v < 0) ? '' : '$v',
+      );
     }
   }
 
@@ -379,7 +410,9 @@ class _PlanFormState extends State<_PlanForm> {
       _message(problem);
       return;
     }
-    final price = double.parse(_price.text.trim().isEmpty ? '0' : _price.text.trim());
+    final price = double.parse(
+      _price.text.trim().isEmpty ? '0' : _price.text.trim(),
+    );
     setState(() => _busy = true);
     try {
       await AdminService.savePlan(widget.plan?.id, {
@@ -390,11 +423,15 @@ class _PlanFormState extends State<_PlanForm> {
         'currency': _currency,
         // The server resets the plan's own GST to the platform rate when this
         // is missing, so it is always sent: a number, or null for "platform".
-        'gst_rate': _gst.text.trim().isEmpty ? null : int.parse(_gst.text.trim()),
+        'gst_rate': _gst.text.trim().isEmpty
+            ? null
+            : int.parse(_gst.text.trim()),
         // Empty means unlimited; the API stores that as -1.
         'limits': {
           for (final e in _limits.entries)
-            e.key: e.value.text.trim().isEmpty ? -1 : (int.tryParse(e.value.text.trim()) ?? -1),
+            e.key: e.value.text.trim().isEmpty
+                ? -1
+                : (int.tryParse(e.value.text.trim()) ?? -1),
         },
         'features': _features,
         'is_active': _active,
@@ -414,9 +451,16 @@ class _PlanFormState extends State<_PlanForm> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+        ),
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            20 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -436,7 +480,9 @@ class _PlanFormState extends State<_PlanForm> {
                   Expanded(
                     child: TextField(
                       controller: _price,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: adminInput('Price (incl. GST)'),
                     ),
                   ),
@@ -446,10 +492,17 @@ class _PlanFormState extends State<_PlanForm> {
                       initialValue: _period,
                       decoration: adminInput('Billing'),
                       items: const [
-                        DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                        DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                        DropdownMenuItem(
+                          value: 'monthly',
+                          child: Text('Monthly'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'yearly',
+                          child: Text('Yearly'),
+                        ),
                       ],
-                      onChanged: (v) => setState(() => _period = v ?? 'monthly'),
+                      onChanged: (v) =>
+                          setState(() => _period = v ?? 'monthly'),
                     ),
                   ),
                 ],
@@ -490,7 +543,10 @@ class _PlanFormState extends State<_PlanForm> {
                 child: Text(
                   'Leave GST empty to use the platform rate. The price above '
                   'includes GST.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    color: muted,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -515,7 +571,10 @@ class _PlanFormState extends State<_PlanForm> {
               const SizedBox(height: 8),
               Text(
                 'Limits (empty = unlimited)',
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
               ),
               const SizedBox(height: 10),
               for (final k in _limitKeys)
@@ -530,7 +589,10 @@ class _PlanFormState extends State<_PlanForm> {
               const SizedBox(height: 6),
               Text(
                 'Features',
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: ink),
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  color: ink,
+                ),
               ),
               for (final k in _featureKeys)
                 SwitchListTile(
@@ -547,7 +609,10 @@ class _PlanFormState extends State<_PlanForm> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : Text(widget.plan == null ? 'Create plan' : 'Save plan'),
               ),

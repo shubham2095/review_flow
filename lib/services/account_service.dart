@@ -15,7 +15,9 @@ class AccountService {
   static Future<AutomationData> automation() async =>
       AutomationData.fromJson(await _api.get('/gbp/automation'));
 
-  static Future<AutomationData> updateAutomation(Map<String, dynamic> body) async =>
+  static Future<AutomationData> updateAutomation(
+    Map<String, dynamic> body,
+  ) async =>
       AutomationData.fromJson(await _api.put('/gbp/automation', body: body));
 
   // ---- Billing (payment itself happens on the web) ----
@@ -41,6 +43,8 @@ class AccountService {
     String? phone,
     String? address,
     String? avatarDataUrl,
+    String? email,
+    String? companyName,
   }) async {
     await _api.put(
       '/auth/profile',
@@ -49,6 +53,9 @@ class AccountService {
         'phone': ?phone,
         'address': ?address,
         'avatar_url': ?avatarDataUrl,
+        'email': ?email,
+        // Renames the workspace (the server added this for mobile sign-ups).
+        'company_name': ?companyName,
       },
     );
   }
@@ -56,14 +63,17 @@ class AccountService {
   static String avatarDataUrl(List<int> bytes, {String mime = 'image/jpeg'}) =>
       'data:$mime;base64,${base64Encode(bytes)}';
 
+  /// [current] is optional: a mobile-number account has no password yet, and
+  /// the server does not ask for the current one (the signed-in session is the
+  /// proof).
   static Future<void> changePassword({
-    required String current,
+    String? current,
     required String password,
   }) async {
     await _api.post(
       '/auth/change-password',
       body: {
-        'current_password': current,
+        'current_password': ?current,
         'password': password,
         'password_confirmation': password,
       },

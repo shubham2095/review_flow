@@ -209,7 +209,10 @@ class _Blocked extends StatelessWidget {
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
-                      child: FilledButton(onPressed: onPressed, child: Text(button)),
+                      child: FilledButton(
+                        onPressed: onPressed,
+                        child: Text(button),
+                      ),
                     ),
                   ],
                 ),

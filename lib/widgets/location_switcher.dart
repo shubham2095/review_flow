@@ -29,39 +29,46 @@ class LocationSwitcher extends StatelessWidget {
             label: 'Location: $label. Tap to change.',
             excludeSemantics: true,
             child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () => _openSheet(context),
-            child: Container(
-              // At least 44dp tall so it is easy to hit.
-              constraints: const BoxConstraints(maxWidth: 130, minHeight: 44),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: brand.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.place_rounded, size: 15, color: brand),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: brand,
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _openSheet(context),
+              child: Container(
+                // At least 44dp tall so it is easy to hit.
+                constraints: const BoxConstraints(maxWidth: 130, minHeight: 44),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: brand.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.place_rounded, size: 15, color: brand),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: brand,
+                        ),
                       ),
                     ),
-                  ),
-                  const Icon(Icons.expand_more_rounded, size: 16, color: brand),
-                ],
+                    const Icon(
+                      Icons.expand_more_rounded,
+                      size: 16,
+                      color: brand,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         );
       },
@@ -99,18 +106,16 @@ class _LocationSheetState extends State<_LocationSheet> {
     final shown = q.isEmpty
         ? all
         : all
-            .where(
-              (l) =>
-                  l.name.toLowerCase().contains(q) ||
-                  l.address.toLowerCase().contains(q),
-            )
-            .toList();
+              .where(
+                (l) =>
+                    l.name.toLowerCase().contains(q) ||
+                    l.address.toLowerCase().contains(q),
+              )
+              .toList();
 
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: maxHeight,
-        ),
+        constraints: BoxConstraints(maxHeight: maxHeight),
         child: ListView(
           shrinkWrap: true,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -171,7 +176,10 @@ class _LocationSheetState extends State<_LocationSheet> {
                 child: Center(
                   child: Text(
                     'No location matches "$_query".',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: muted),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      color: muted,
+                    ),
                   ),
                 ),
               ),
@@ -216,9 +224,7 @@ class _Tile extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected ? brand.withValues(alpha: 0.08) : Colors.transparent,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: selected ? brand : const Color(0xFFE6EAF2),
-        ),
+        border: Border.all(color: selected ? brand : const Color(0xFFE6EAF2)),
       ),
       child: ListTile(
         onTap: onTap,

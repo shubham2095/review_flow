@@ -17,19 +17,19 @@ class AdminCompany {
   });
 
   factory AdminCompany.fromJson(Map<String, dynamic> j) => AdminCompany(
-        id: asStr(j['id']),
-        name: asStr(j['name']),
-        status: asStr(j['status']),
-        usersCount: asInt(j['users_count']),
-        ownerName: asStr(j['owner_name']),
-        ownerEmail: asStr(j['owner_email']),
-        planId: j['plan_id']?.toString(),
-        planName: j['plan_name']?.toString(),
-        agentsUsed: asInt(j['agents_used']),
-        agentsLimit: j['agents_limit'] == null ? null : asInt(j['agents_limit']),
-        trialEndsAt: asDate(j['trial_ends_at']),
-        createdAt: asDate(j['created_at']),
-      );
+    id: asStr(j['id']),
+    name: asStr(j['name']),
+    status: asStr(j['status']),
+    usersCount: asInt(j['users_count']),
+    ownerName: asStr(j['owner_name']),
+    ownerEmail: asStr(j['owner_email']),
+    planId: j['plan_id']?.toString(),
+    planName: j['plan_name']?.toString(),
+    agentsUsed: asInt(j['agents_used']),
+    agentsLimit: j['agents_limit'] == null ? null : asInt(j['agents_limit']),
+    trialEndsAt: asDate(j['trial_ends_at']),
+    createdAt: asDate(j['created_at']),
+  );
 
   final String id;
   final String name;
@@ -66,12 +66,12 @@ class AdminUser {
   });
 
   factory AdminUser.fromJson(Map<String, dynamic> j) => AdminUser(
-        id: asStr(j['id']),
-        name: asStr(j['name']),
-        email: asStr(j['email']),
-        status: asStr(j['status']),
-        role: asStr(j['role']),
-      );
+    id: asStr(j['id']),
+    name: asStr(j['name']),
+    email: asStr(j['email']),
+    status: asStr(j['status']),
+    role: asStr(j['role']),
+  );
 
   final String id;
   final String name;
@@ -173,14 +173,14 @@ class AdminCreditPack {
   });
 
   factory AdminCreditPack.fromJson(Map<String, dynamic> j) => AdminCreditPack(
-        id: asStr(j['id']),
-        name: asStr(j['name']),
-        credits: asInt(j['credits']),
-        price: asDouble(j['price']),
-        gstRate: asInt(j['gst_rate']),
-        sortOrder: asInt(j['sort_order']),
-        isActive: j['is_active'] == true,
-      );
+    id: asStr(j['id']),
+    name: asStr(j['name']),
+    credits: asInt(j['credits']),
+    price: asDouble(j['price']),
+    gstRate: asInt(j['gst_rate']),
+    sortOrder: asInt(j['sort_order']),
+    isActive: j['is_active'] == true,
+  );
 
   final String id;
   final String name;
@@ -204,15 +204,15 @@ class AdminPayment {
   });
 
   factory AdminPayment.fromJson(Map<String, dynamic> j) => AdminPayment(
-        number: asStr(j['number']),
-        company: asStr(j['company']),
-        status: asStr(j['status']),
-        total: asStr(j['total']),
-        customer: j['customer']?.toString(),
-        plan: j['plan']?.toString(),
-        gateway: j['gateway']?.toString(),
-        issuedAt: asDate(j['issued_at']),
-      );
+    number: asStr(j['number']),
+    company: asStr(j['company']),
+    status: asStr(j['status']),
+    total: asStr(j['total']),
+    customer: j['customer']?.toString(),
+    plan: j['plan']?.toString(),
+    gateway: j['gateway']?.toString(),
+    issuedAt: asDate(j['issued_at']),
+  );
 
   final String number;
   final String company;
@@ -321,15 +321,15 @@ class InvoiceSettings {
   });
 
   factory InvoiceSettings.fromJson(Map<String, dynamic> j) => InvoiceSettings(
-        companyName: asStr(j['company_name']),
-        address: asStr(j['address']),
-        gstin: asStr(j['gstin']),
-        email: asStr(j['email']),
-        phone: asStr(j['phone']),
-        taxDetails: asStr(j['tax_details']),
-        invoicePrefix: asStr(j['invoice_prefix']),
-        gstRate: asInt(j['gst_rate']),
-      );
+    companyName: asStr(j['company_name']),
+    address: asStr(j['address']),
+    gstin: asStr(j['gstin']),
+    email: asStr(j['email']),
+    phone: asStr(j['phone']),
+    taxDetails: asStr(j['tax_details']),
+    invoicePrefix: asStr(j['invoice_prefix']),
+    gstRate: asInt(j['gst_rate']),
+  );
 
   final String companyName;
   final String address;

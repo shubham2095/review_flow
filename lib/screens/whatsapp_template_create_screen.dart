@@ -370,7 +370,8 @@ class _WhatsAppTemplateCreateScreenState
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Semantics(
-        label: 'Step ${_step + 1} of ${_stepNames.length}: ${_stepNames[_step]}',
+        label:
+            'Step ${_step + 1} of ${_stepNames.length}: ${_stepNames[_step]}',
         excludeSemantics: true,
         child: Column(
           children: [
@@ -767,10 +768,15 @@ class _WhatsAppTemplateCreateScreenState
             _summaryRow('Language', _languages[_language] ?? _language),
             _summaryRow('Category', _categories[_category] ?? _category),
             _summaryRow('Header', header),
-            _summaryRow('Fields', _variables.isEmpty ? 'None' : '${_variables.length}'),
+            _summaryRow(
+              'Fields',
+              _variables.isEmpty ? 'None' : '${_variables.length}',
+            ),
             _summaryRow(
               'Buttons',
-              _buttons.isEmpty ? 'None' : _buttons.map((b) => b.text).join(', '),
+              _buttons.isEmpty
+                  ? 'None'
+                  : _buttons.map((b) => b.text).join(', '),
             ),
           ],
         ),

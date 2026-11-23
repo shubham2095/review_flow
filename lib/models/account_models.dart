@@ -45,13 +45,13 @@ class AutomationData {
   });
 
   factory AutomationData.fromJson(Map<String, dynamic> j) => AutomationData(
-        settings: AutomationSettings.fromJson(asMap(j['automation'])),
-        business: asStr(j['business']),
-        hasLocation: j['has_location'] == true,
-        reviewUrl: asStr(j['review_url']),
-        assistUrl: asStr(j['assist_url']),
-        assistUrlPreview: asStr(j['assist_url_preview']),
-      );
+    settings: AutomationSettings.fromJson(asMap(j['automation'])),
+    business: asStr(j['business']),
+    hasLocation: j['has_location'] == true,
+    reviewUrl: asStr(j['review_url']),
+    assistUrl: asStr(j['assist_url']),
+    assistUrlPreview: asStr(j['assist_url_preview']),
+  );
 
   final AutomationSettings settings;
   final String business;
@@ -101,13 +101,13 @@ class CreditEntry {
   });
 
   factory CreditEntry.fromJson(Map<String, dynamic> j) => CreditEntry(
-        delta: asInt(j['delta']),
-        description: asStr(j['description']).isEmpty
-            ? asStr(j['action'])
-            : asStr(j['description']),
-        balanceAfter: asInt(j['balance_after']),
-        at: asDate(j['at']),
-      );
+    delta: asInt(j['delta']),
+    description: asStr(j['description']).isEmpty
+        ? asStr(j['action'])
+        : asStr(j['description']),
+    balanceAfter: asInt(j['balance_after']),
+    at: asDate(j['at']),
+  );
 
   final int delta;
   final String description;
@@ -124,11 +124,11 @@ class CreditsInfo {
   });
 
   factory CreditsInfo.fromJson(Map<String, dynamic> j) => CreditsInfo(
-        balance: asInt(j['balance']),
-        allowance: asInt(j['allowance']),
-        resetAt: asDate(j['reset_at']),
-        ledger: asMaps(j['ledger']).map(CreditEntry.fromJson).toList(),
-      );
+    balance: asInt(j['balance']),
+    allowance: asInt(j['allowance']),
+    resetAt: asDate(j['reset_at']),
+    ledger: asMaps(j['ledger']).map(CreditEntry.fromJson).toList(),
+  );
 
   final int balance;
   final int allowance;
@@ -146,12 +146,12 @@ class BillingInvoice {
   });
 
   factory BillingInvoice.fromJson(Map<String, dynamic> j) => BillingInvoice(
-        number: asStr(j['number']),
-        status: asStr(j['status']),
-        total: asStr(j['total']),
-        issuedAt: asDate(j['issued_at']),
-        paidAt: asDate(j['paid_at']),
-      );
+    number: asStr(j['number']),
+    status: asStr(j['status']),
+    total: asStr(j['total']),
+    issuedAt: asDate(j['issued_at']),
+    paidAt: asDate(j['paid_at']),
+  );
 
   final String number;
   final String status;
@@ -178,20 +178,20 @@ class SupportTicket {
   });
 
   factory SupportTicket.fromJson(Map<String, dynamic> j) => SupportTicket(
-        id: asStr(j['id']),
-        ticketId: asStr(j['ticket_id']),
-        subject: asStr(j['subject']),
-        description: asStr(j['description']),
-        status: asStr(j['status']),
-        priority: asStr(j['priority']),
-        category: j['category']?.toString(),
-        adminReply: j['admin_reply']?.toString(),
-        createdAt: asDate(j['created_at']),
-        repliedAt: asDate(j['replied_at']),
-        userName: j['user_name']?.toString(),
-        userEmail: j['user_email']?.toString(),
-        tenantName: j['tenant_name']?.toString(),
-      );
+    id: asStr(j['id']),
+    ticketId: asStr(j['ticket_id']),
+    subject: asStr(j['subject']),
+    description: asStr(j['description']),
+    status: asStr(j['status']),
+    priority: asStr(j['priority']),
+    category: j['category']?.toString(),
+    adminReply: j['admin_reply']?.toString(),
+    createdAt: asDate(j['created_at']),
+    repliedAt: asDate(j['replied_at']),
+    userName: j['user_name']?.toString(),
+    userEmail: j['user_email']?.toString(),
+    tenantName: j['tenant_name']?.toString(),
+  );
 
   final String id;
   final String ticketId;

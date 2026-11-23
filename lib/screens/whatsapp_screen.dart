@@ -231,7 +231,9 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     final next = done.indexOf(false);
 
     return [
-      FadeIn(child: _HeroCard(overview: d, number: _heroNumber(d))),
+      FadeIn(
+        child: _HeroCard(overview: d, number: _heroNumber(d)),
+      ),
       if (next != -1) ...[
         const SizedBox(height: 14),
         FadeIn(
@@ -387,7 +389,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     ];
   }
 
-  WaNumber? _heroNumber(WaOverview d) => d.hasNumbers ? _defaultNumber(d) : null;
+  WaNumber? _heroNumber(WaOverview d) =>
+      d.hasNumbers ? _defaultNumber(d) : null;
 }
 
 class _HeroCard extends StatelessWidget {

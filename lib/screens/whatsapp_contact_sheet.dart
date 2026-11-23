@@ -227,9 +227,7 @@ class _WhatsAppContactSheetState extends State<WhatsAppContactSheet> {
   Widget build(BuildContext context) {
     final c = widget.contact;
     return AppSheet(
-      title: _isNew
-          ? 'Add a contact'
-          : (_editing ? 'Edit contact' : c!.title),
+      title: _isNew ? 'Add a contact' : (_editing ? 'Edit contact' : c!.title),
       child: _editing ? _form() : _view(c!),
     );
   }
@@ -482,16 +480,14 @@ class _WhatsAppContactSheetState extends State<WhatsAppContactSheet> {
           enabled: !_busy,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _addTagsFromInput(),
-          decoration: waInputDecoration(
-            'Add a tag',
-            hint: 'vip, delhi, lead',
-          ).copyWith(
-            suffixIcon: IconButton(
-              tooltip: 'Add tag',
-              icon: const Icon(Icons.add_circle_rounded, color: brand),
-              onPressed: _busy ? null : _addTagsFromInput,
-            ),
-          ),
+          decoration: waInputDecoration('Add a tag', hint: 'vip, delhi, lead')
+              .copyWith(
+                suffixIcon: IconButton(
+                  tooltip: 'Add tag',
+                  icon: const Icon(Icons.add_circle_rounded, color: brand),
+                  onPressed: _busy ? null : _addTagsFromInput,
+                ),
+              ),
         ),
         if (!_isNew) ...[
           SwitchListTile(

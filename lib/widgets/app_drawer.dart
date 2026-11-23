@@ -54,30 +54,30 @@ class AppDrawer extends StatelessWidget {
     return [
       for (final (title, all) in waDrawerGroups)
         if (all.any((d) => d.allows(_user))) ...[
-        _SectionLabel(title),
-        for (final d in all.where((d) => d.allows(_user)))
-          ValueListenableBuilder<WaDestination>(
-            valueListenable: waCurrent ?? ValueNotifier(WaDestination.home),
-            builder: (context, current, _) => ValueListenableBuilder<int>(
-              valueListenable: waUnread ?? ValueNotifier(0),
-              builder: (context, unread, _) => _NavItem(
-                icon: d.icon,
-                label: d.label,
-                subtitle: d.subtitle,
-                // Numbers shares the Home tab, so only Home is highlighted.
-                selected:
-                    selectedIndex == kPageWhatsApp &&
-                    current == d &&
-                    d != WaDestination.numbers,
-                badge: d == WaDestination.inbox ? unread : 0,
-                onTap: () {
-                  onSelect(kPageWhatsApp);
-                  onWhatsApp?.call(d);
-                },
+          _SectionLabel(title),
+          for (final d in all.where((d) => d.allows(_user)))
+            ValueListenableBuilder<WaDestination>(
+              valueListenable: waCurrent ?? ValueNotifier(WaDestination.home),
+              builder: (context, current, _) => ValueListenableBuilder<int>(
+                valueListenable: waUnread ?? ValueNotifier(0),
+                builder: (context, unread, _) => _NavItem(
+                  icon: d.icon,
+                  label: d.label,
+                  subtitle: d.subtitle,
+                  // Numbers shares the Home tab, so only Home is highlighted.
+                  selected:
+                      selectedIndex == kPageWhatsApp &&
+                      current == d &&
+                      d != WaDestination.numbers,
+                  badge: d == WaDestination.inbox ? unread : 0,
+                  onTap: () {
+                    onSelect(kPageWhatsApp);
+                    onWhatsApp?.call(d);
+                  },
+                ),
               ),
             ),
-          ),
-      ],
+        ],
     ];
   }
 
@@ -112,74 +112,73 @@ class AppDrawer extends StatelessWidget {
             onTap: onHub,
           ),
           if (product == Product.gbp) ...[
-          _SectionLabel('WORKSPACE'),
-          _NavItem(
-            icon: Icons.dashboard_rounded,
-            label: 'Overview',
-            subtitle: 'Health score and what to do next',
-            selected: selectedIndex == kPageOverview,
-            onTap: () => onSelect(kPageOverview),
-          ),
-          _NavItem(
-            icon: Icons.rate_review_rounded,
-            label: 'Reviews',
-            subtitle: 'Reviews, replies and sync',
-            selected: selectedIndex == kPageReviews,
-            onTap: () => onSelect(kPageReviews),
-          ),
-          _NavItem(
-            icon: Icons.photo_library_rounded,
-            label: 'Posts & Photos',
-            subtitle: 'Google posts, offers and photos',
-            selected: selectedIndex == kPagePosts,
-            onTap: () => onSelect(kPagePosts),
-          ),
-          _NavItem(
-            icon: Icons.insights_rounded,
-            label: 'Insights',
-            subtitle: 'Searches, calls, clicks and directions',
-            selected: selectedIndex == kPageInsights,
-            onTap: () => onSelect(kPageInsights),
-          ),
-          _NavItem(
-            icon: Icons.auto_awesome_rounded,
-            label: 'AI Tools',
-            subtitle: 'Audit, optimize and AI assistant',
-            selected: selectedIndex == kPageAiTools,
-            onTap: () => onSelect(kPageAiTools),
-          ),
-          _NavItem(
-            icon: Icons.storefront_rounded,
-            label: 'Business profile',
-            subtitle: 'Hours, contact and description',
-            selected: selectedIndex == kPageBusinessProfile,
-            onTap: () => onSelect(kPageBusinessProfile),
-          ),
-          _NavItem(
-            icon: Icons.bolt_rounded,
-            label: 'Automation',
-            subtitle: 'Auto replies and scheduled posts',
-            selected: selectedIndex == kPageAutomation,
-            onTap: () => onSelect(kPageAutomation),
-          ),
-          if (navAllowed(_user, NavRules.seo))
+            _SectionLabel('WORKSPACE'),
             _NavItem(
-              icon: Icons.search_rounded,
-              label: 'SEO',
-              subtitle: 'Keywords, rank checks and competitors',
-              selected: selectedIndex == kPageSeo,
-              onTap: () => onSelect(kPageSeo),
+              icon: Icons.dashboard_rounded,
+              label: 'Overview',
+              subtitle: 'Health score and what to do next',
+              selected: selectedIndex == kPageOverview,
+              onTap: () => onSelect(kPageOverview),
             ),
-          _NavItem(
-            icon: Icons.image_rounded,
-            label: 'AI Studio',
-            subtitle: 'Make images with AI',
-            selected: selectedIndex == kPageAiStudio,
-            onTap: () => onSelect(kPageAiStudio),
-          ),
+            _NavItem(
+              icon: Icons.rate_review_rounded,
+              label: 'Reviews',
+              subtitle: 'Reviews, replies and sync',
+              selected: selectedIndex == kPageReviews,
+              onTap: () => onSelect(kPageReviews),
+            ),
+            _NavItem(
+              icon: Icons.photo_library_rounded,
+              label: 'Posts & Photos',
+              subtitle: 'Google posts, offers and photos',
+              selected: selectedIndex == kPagePosts,
+              onTap: () => onSelect(kPagePosts),
+            ),
+            _NavItem(
+              icon: Icons.insights_rounded,
+              label: 'Insights',
+              subtitle: 'Searches, calls, clicks and directions',
+              selected: selectedIndex == kPageInsights,
+              onTap: () => onSelect(kPageInsights),
+            ),
+            _NavItem(
+              icon: Icons.auto_awesome_rounded,
+              label: 'AI Tools',
+              subtitle: 'Audit, optimize and AI assistant',
+              selected: selectedIndex == kPageAiTools,
+              onTap: () => onSelect(kPageAiTools),
+            ),
+            _NavItem(
+              icon: Icons.storefront_rounded,
+              label: 'Business profile',
+              subtitle: 'Hours, contact and description',
+              selected: selectedIndex == kPageBusinessProfile,
+              onTap: () => onSelect(kPageBusinessProfile),
+            ),
+            _NavItem(
+              icon: Icons.bolt_rounded,
+              label: 'Automation',
+              subtitle: 'Auto replies and scheduled posts',
+              selected: selectedIndex == kPageAutomation,
+              onTap: () => onSelect(kPageAutomation),
+            ),
+            if (navAllowed(_user, NavRules.seo))
+              _NavItem(
+                icon: Icons.search_rounded,
+                label: 'SEO',
+                subtitle: 'Keywords, rank checks and competitors',
+                selected: selectedIndex == kPageSeo,
+                onTap: () => onSelect(kPageSeo),
+              ),
+            _NavItem(
+              icon: Icons.image_rounded,
+              label: 'AI Studio',
+              subtitle: 'Make images with AI',
+              selected: selectedIndex == kPageAiStudio,
+              onTap: () => onSelect(kPageAiStudio),
+            ),
           ],
-          if (product == Product.whatsapp)
-            ..._whatsAppItems(),
+          if (product == Product.whatsapp) ..._whatsAppItems(),
           _SectionLabel('ACCOUNT'),
           if (navAllowed(_user, NavRules.team))
             _NavItem(
@@ -221,7 +220,12 @@ class AppDrawer extends StatelessWidget {
             onTap: onLogout,
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.paddingOf(context).bottom + 16),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              8,
+              20,
+              MediaQuery.paddingOf(context).bottom + 16,
+            ),
             // The real version, so support can ask "which version are you on?".
             child: FutureBuilder<PackageInfo>(
               future: PackageInfo.fromPlatform(),
@@ -231,7 +235,10 @@ class AppDrawer extends StatelessWidget {
                   info == null
                       ? 'Eydia'
                       : 'Eydia  ·  v${info.version} (${info.buildNumber})',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: muted,
+                  ),
                 );
               },
             ),
@@ -243,7 +250,11 @@ class AppDrawer extends StatelessWidget {
 }
 
 class _DrawerHeader extends StatelessWidget {
-  const _DrawerHeader({required this.name, required this.email, required this.initial});
+  const _DrawerHeader({
+    required this.name,
+    required this.email,
+    required this.initial,
+  });
 
   final String name;
   final String email;
@@ -263,7 +274,11 @@ class _DrawerHeader extends StatelessWidget {
         ),
         borderRadius: BorderRadius.only(bottomRight: Radius.circular(28)),
         boxShadow: [
-          BoxShadow(color: Color(0x332B3FBF), blurRadius: 18, offset: Offset(0, 6)),
+          BoxShadow(
+            color: Color(0x332B3FBF),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
         ],
       ),
       child: Column(
@@ -349,11 +364,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 8),
       child: Row(
         children: [
-          Container(
-            width: 14,
-            height: 1.5,
-            color: royalGold,
-          ),
+          Container(width: 14, height: 1.5, color: royalGold),
           const SizedBox(width: 8),
           Text(
             text,
@@ -397,94 +408,116 @@ class _NavItem extends StatelessWidget {
       button: true,
       selected: selected,
       child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: Material(
-        color: selected ? royalIndigo.withValues(alpha: 0.07) : Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        child: Material(
+          color: selected
+              ? royalIndigo.withValues(alpha: 0.07)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.of(context).pop();
-            onTap();
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: selected && !danger
-                        ? const LinearGradient(colors: [royalIndigo, royalViolet])
-                        : null,
-                    color: selected && !danger ? null : color.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: selected && !danger
-                        ? [BoxShadow(color: royalIndigo.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]
-                        : null,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              Navigator.of(context).pop();
+              onTap();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: selected && !danger
+                          ? const LinearGradient(
+                              colors: [royalIndigo, royalViolet],
+                            )
+                          : null,
+                      color: selected && !danger
+                          ? null
+                          : color.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: selected && !danger
+                          ? [
+                              BoxShadow(
+                                color: royalIndigo.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Icon(
+                      icon,
+                      color: selected && !danger ? Colors.white : color,
+                      size: 20,
+                    ),
                   ),
-                  child: Icon(icon, color: selected && !danger ? Colors.white : color, size: 20),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                        ),
-                      ),
-                      if (subtitle != null)
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          subtitle!,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: muted),
-                        ),
-                    ],
-                  ),
-                ),
-                if (badge > 0)
-                  Semantics(
-                    label: '$badge unread',
-                    child: ExcludeSemantics(
-                      child: Container(
-                        constraints: const BoxConstraints(minWidth: 22),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: royalIndigo,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Text(
-                          badge > 99 ? '99+' : '$badge',
-                          textAlign: TextAlign.center,
+                          label,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                          ),
+                        ),
+                        if (subtitle != null)
+                          Text(
+                            subtitle!,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              color: muted,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (badge > 0)
+                    Semantics(
+                      label: '$badge unread',
+                      child: ExcludeSemantics(
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 22),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: royalIndigo,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Text(
+                            badge > 99 ? '99+' : '$badge',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
+                    )
+                  else if (selected)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: royalGold,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  )
-                else if (selected)
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(color: royalGold, shape: BoxShape.circle),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

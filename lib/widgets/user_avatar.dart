@@ -48,7 +48,7 @@ class _UserAvatarState extends State<UserAvatar> {
     return ValueListenableBuilder<AppUser?>(
       valueListenable: Session.user,
       builder: (context, user, _) {
-        final name = user?.name.trim() ?? '';
+        final name = user?.displayName.trim() ?? '';
         final initial = name.isEmpty ? 'E' : name[0].toUpperCase();
         final image = _providerFor(user?.avatarUrl);
         return CircleAvatar(

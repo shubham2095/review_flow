@@ -60,7 +60,9 @@ Future<UploadedImage?> pickAndUploadImage(BuildContext context) async {
 
   final bytes = await picked.readAsBytes();
   if (bytes.isEmpty) {
-    throw ApiException('That photo could not be read. Please pick another one.');
+    throw ApiException(
+      'That photo could not be read. Please pick another one.',
+    );
   }
   var name = picked.name.isEmpty ? 'photo.jpg' : picked.name;
   if (!name.contains('.')) name = '$name.jpg';

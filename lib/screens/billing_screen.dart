@@ -96,11 +96,17 @@ class _BillingScreenState extends State<BillingScreen> {
                         decoration: BoxDecoration(
                           color: warn.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: warn.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: warn.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.info_outline_rounded, size: 18, color: warn),
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: warn,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -114,15 +120,10 @@ class _BillingScreenState extends State<BillingScreen> {
                           ],
                         ),
                       ),
-                    FadeIn(
-                      child: _PlanCard(subscription: sub),
-                    ),
+                    FadeIn(child: _PlanCard(subscription: sub)),
                     const SizedBox(height: 14),
                     if (credits != null)
-                      FadeIn(
-                        delay: 80,
-                        child: _CreditsCard(credits: credits),
-                      ),
+                      FadeIn(delay: 80, child: _CreditsCard(credits: credits)),
                     if (_invoices.isNotEmpty) ...[
                       const _Title('Payment history'),
                       for (final inv in _invoices) _InvoiceRow(invoice: inv),
@@ -218,7 +219,9 @@ class _PlanCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  sub == null || sub.planName.isEmpty ? 'No active plan' : sub.planName,
+                  sub == null || sub.planName.isEmpty
+                      ? 'No active plan'
+                      : sub.planName,
                   style: GoogleFonts.plusJakartaSans(
                     color: Colors.white,
                     fontSize: 26,
@@ -228,7 +231,10 @@ class _PlanCard extends StatelessWidget {
               ),
               if (sub != null && sub.status.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -247,11 +253,18 @@ class _PlanCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             detail,
-            style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 13),
+            style: GoogleFonts.plusJakartaSans(
+              color: Colors.white70,
+              fontSize: 13,
+            ),
           ),
           // A plan that has run out should say what to do, not just a date.
           if (sub != null &&
-              const {'past_due', 'expired', 'cancelled'}.contains(sub.status)) ...[
+              const {
+                'past_due',
+                'expired',
+                'cancelled',
+              }.contains(sub.status)) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
@@ -261,7 +274,11 @@ class _PlanCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, size: 18, color: royalGold),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 18,
+                    color: royalGold,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -390,7 +407,10 @@ class _CreditsCard extends StatelessWidget {
                         e.description,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: muted,
+                        ),
                       ),
                     ),
                     Text(
@@ -441,7 +461,10 @@ class _InvoiceRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   invoice.issuedAt == null ? '' : fmtDate(invoice.issuedAt!),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    color: muted,
+                  ),
                 ),
               ],
             ),

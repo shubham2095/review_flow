@@ -54,26 +54,34 @@ void main() {
       final link = parts.firstWhere((p) => p.kind == LinkKind.url);
       expect(link.text, 'https://eydia.in/plans');
       expect(link.target, 'https://eydia.in/plans');
-      expect(parts.map((p) => p.text).join(), 'Visit https://eydia.in/plans. Thanks!');
+      expect(
+        parts.map((p) => p.text).join(),
+        'Visit https://eydia.in/plans. Thanks!',
+      );
     });
 
     test('www links get https in front', () {
-      final link = splitLinks('go to www.eydia.in now')
-          .firstWhere((p) => p.kind == LinkKind.url);
+      final link = splitLinks(
+        'go to www.eydia.in now',
+      ).firstWhere((p) => p.kind == LinkKind.url);
       expect(link.target, 'https://www.eydia.in');
     });
 
     test('finds phone numbers of 8 to 15 digits', () {
-      final phone = splitLinks('Call +91 98765 43210 today')
-          .firstWhere((p) => p.kind == LinkKind.phone);
+      final phone = splitLinks(
+        'Call +91 98765 43210 today',
+      ).firstWhere((p) => p.kind == LinkKind.phone);
       expect(phone.text, '+91 98765 43210');
       expect(phone.target, 'tel:+919876543210');
     });
 
     test('short numbers (order ids, prices) are not phone links', () {
-      expect(splitLinks('Order 12345 costs 999').every(
-        (p) => p.kind == LinkKind.text,
-      ), isTrue);
+      expect(
+        splitLinks(
+          'Order 12345 costs 999',
+        ).every((p) => p.kind == LinkKind.text),
+        isTrue,
+      );
     });
 
     test('pieces always join back to the original text', () {
@@ -95,7 +103,10 @@ void main() {
       ),
     );
     final rich = tester.widget<RichText>(find.byType(RichText).first);
-    expect(rich.text.toPlainText(), 'Pay at https://eydia.in or call +919876543210');
+    expect(
+      rich.text.toPlainText(),
+      'Pay at https://eydia.in or call +919876543210',
+    );
     expectNoRealErrors(tester);
   });
 
@@ -123,25 +134,28 @@ void main() {
       expect(await WaDrafts.read('', 'chatA'), isNull);
     });
 
-    test('prune drops drafts older than 30 days and keeps the newest 50', () async {
-      await WaDrafts.save('u1', 'old', 'stale');
-      await WaDrafts.save('u1', 'fresh', 'recent');
-      // 31 days later only the draft saved "now" would still count, so move the
-      // clock forward for the old one by pruning with a later "now".
-      final later = DateTime.now().add(const Duration(days: 31));
-      await WaDrafts.prune(now: later);
-      expect(await WaDrafts.read('u1', 'old'), isNull);
-      expect(await WaDrafts.read('u1', 'fresh'), isNull);
+    test(
+      'prune drops drafts older than 30 days and keeps the newest 50',
+      () async {
+        await WaDrafts.save('u1', 'old', 'stale');
+        await WaDrafts.save('u1', 'fresh', 'recent');
+        // 31 days later only the draft saved "now" would still count, so move the
+        // clock forward for the old one by pruning with a later "now".
+        final later = DateTime.now().add(const Duration(days: 31));
+        await WaDrafts.prune(now: later);
+        expect(await WaDrafts.read('u1', 'old'), isNull);
+        expect(await WaDrafts.read('u1', 'fresh'), isNull);
 
-      for (var i = 0; i < 55; i++) {
-        await WaDrafts.save('u1', 'c$i', 'draft $i');
-      }
-      await WaDrafts.prune();
-      var left = 0;
-      for (var i = 0; i < 55; i++) {
-        if (await WaDrafts.read('u1', 'c$i') != null) left++;
-      }
-      expect(left, 50);
-    });
+        for (var i = 0; i < 55; i++) {
+          await WaDrafts.save('u1', 'c$i', 'draft $i');
+        }
+        await WaDrafts.prune();
+        var left = 0;
+        for (var i = 0; i < 55; i++) {
+          if (await WaDrafts.read('u1', 'c$i') != null) left++;
+        }
+        expect(left, 50);
+      },
+    );
   });
 }

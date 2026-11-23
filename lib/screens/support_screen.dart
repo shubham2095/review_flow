@@ -120,9 +120,9 @@ class _SupportScreenState extends State<SupportScreen> {
     // No mail app: copy the address so it can be pasted anywhere.
     await Clipboard.setData(const ClipboardData(text: _supportEmail));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email address copied.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Email address copied.')));
     }
   }
 
@@ -133,9 +133,9 @@ class _SupportScreenState extends State<SupportScreen> {
     final done = _tickets.where((t) => _isDone(t.status)).toList();
     var delay = 0;
     Widget card(SupportTicket t) => FadeIn(
-          delay: (delay++ * 50).clamp(0, 400),
-          child: _TicketCard(ticket: t, onTap: () => _open(t)),
-        );
+      delay: (delay++ * 50).clamp(0, 400),
+      child: _TicketCard(ticket: t, onTap: () => _open(t)),
+    );
 
     return Scaffold(
       backgroundColor: surface,
@@ -222,7 +222,8 @@ class _TicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = ticket;
     final color = _statusColor(t.status);
-    final cat = _categories[t.category]?.$2 ?? Icons.confirmation_number_rounded;
+    final cat =
+        _categories[t.category]?.$2 ?? Icons.confirmation_number_rounded;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -370,7 +371,10 @@ class _EmailCard extends StatelessWidget {
                   ),
                   Text(
                     _supportEmail,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: brand),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12.5,
+                      color: brand,
+                    ),
                   ),
                 ],
               ),
@@ -474,7 +478,8 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
     String? descriptionError;
     if (subject.isEmpty) subjectError = 'Add a short subject.';
     if (description.length < 10) {
-      descriptionError = 'Describe the problem in a few words (at least 10 characters).';
+      descriptionError =
+          'Describe the problem in a few words (at least 10 characters).';
     }
     if (subjectError != null || descriptionError != null) {
       HapticFeedback.mediumImpact();
@@ -605,7 +610,10 @@ class _NewTicketSheetState extends State<_NewTicketSheet> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.send_rounded, size: 18),
               label: const Text('Send ticket'),
@@ -659,20 +667,29 @@ class _TicketSheet extends StatelessWidget {
                   Flexible(
                     child: Text(
                       '${t.ticketId}${t.createdAt == null ? '' : '  ·  ${fmtDate(t.createdAt!)}'}',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: muted),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: muted,
+                      ),
                     ),
                   ),
                   // Support asks for the ticket number: one tap to copy it.
                   IconButton(
                     tooltip: 'Copy ticket number',
                     visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.copy_rounded, size: 16, color: muted),
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      size: 16,
+                      color: muted,
+                    ),
                     onPressed: () async {
                       await Clipboard.setData(ClipboardData(text: t.ticketId));
                       if (context.mounted) {
                         HapticFeedback.selectionClick();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Ticket number copied.')),
+                          const SnackBar(
+                            content: Text('Ticket number copied.'),
+                          ),
                         );
                       }
                     },
@@ -699,7 +716,10 @@ class _TicketSheet extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Waiting for a reply from our team.',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: muted),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          color: muted,
+                        ),
                       ),
                     ),
                   ],

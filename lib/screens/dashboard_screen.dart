@@ -613,7 +613,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = Session.current?.name.trim() ?? '';
+    final name = Session.current?.displayName.trim() ?? '';
     final first = name.isEmpty ? '' : name.split(' ').first;
     final count = data.locations.length;
     final needsReconnect = connection?.needsReconnect ?? false;
@@ -1120,7 +1120,10 @@ class _SectionTitle extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               onTap: onAction,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 12,
+                ),
                 child: Text(
                   actionLabel!,
                   style: GoogleFonts.plusJakartaSans(

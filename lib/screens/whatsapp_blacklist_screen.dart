@@ -52,9 +52,7 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
   Future<void> _load() async {
     final gen = ++_generation;
     try {
-      final list = await WhatsAppService.blacklist(
-        search: _search.text.trim(),
-      );
+      final list = await WhatsAppService.blacklist(search: _search.text.trim());
       if (!mounted || gen != _generation) return;
       setState(() {
         _items = list;
@@ -226,49 +224,50 @@ class _WhatsAppBlacklistScreenState extends State<WhatsAppBlacklistScreen> {
                       'Blocked: ${e.name.isEmpty ? e.phone : '${e.name}, ${e.phone}'}'
                       '${e.reason.isEmpty ? '' : ', ${e.reason}'}',
                   child: Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
-                  decoration: cardDecoration(),
-                  child: Row(
-                    children: [
-                      const ExcludeSemantics(
-                        child: Icon(Icons.block_rounded, color: muted),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              e.name.isEmpty
-                                  ? e.phone
-                                  : '${e.name} · ${e.phone}',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.w700,
-                                color: ink,
-                              ),
-                            ),
-                            Text(
-                              [
-                                if (e.reason.isNotEmpty) e.reason,
-                                if (e.createdAt != null) fmtDate(e.createdAt!),
-                              ].join(' · '),
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11.5,
-                                color: muted,
-                              ),
-                            ),
-                          ],
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 6, 12),
+                    decoration: cardDecoration(),
+                    child: Row(
+                      children: [
+                        const ExcludeSemantics(
+                          child: Icon(Icons.block_rounded, color: muted),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Unblock ${e.phone}',
-                        icon: const Icon(Icons.lock_open_rounded),
-                        onPressed: () => _remove(e),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                e.name.isEmpty
+                                    ? e.phone
+                                    : '${e.name} · ${e.phone}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.w700,
+                                  color: ink,
+                                ),
+                              ),
+                              Text(
+                                [
+                                  if (e.reason.isNotEmpty) e.reason,
+                                  if (e.createdAt != null)
+                                    fmtDate(e.createdAt!),
+                                ].join(' · '),
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.5,
+                                  color: muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Unblock ${e.phone}',
+                          icon: const Icon(Icons.lock_open_rounded),
+                          onPressed: () => _remove(e),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 );
               },
             ),

@@ -54,7 +54,10 @@ void main() {
       expect(ruleMatches(_rule('price'), '  What is the PRICE? '), isTrue);
       expect(ruleMatches(_rule('hi', match: 'exact'), 'HI'), isTrue);
       expect(ruleMatches(_rule('hi', match: 'exact'), 'hi there'), isFalse);
-      expect(ruleMatches(_rule('hi', match: 'starts_with'), 'Hi there'), isTrue);
+      expect(
+        ruleMatches(_rule('hi', match: 'starts_with'), 'Hi there'),
+        isTrue,
+      );
       expect(ruleMatches(_rule('hi', match: 'starts_with'), 'oh hi'), isFalse);
     });
 
