@@ -1,4 +1,54 @@
-# Eydia: Play Store release 2.1.0 (versionCode 5)
+# Eydia: Play Store release (2.1.0 versionCode 5, update 2.2.0 versionCode 6)
+
+---------------------------------------------------------------------------
+
+## 0. Update 2.2.0 (6): Mobile OTP login
+
+`pubspec.yaml`: `version: 2.2.0+6`. Neeche ke baaki sections 2.1.0 ke hain; update ke liye wahi steps, bas version naya.
+
+**Naya kya hai:** Mobile OTP se sign in aur sign up (WhatsApp par 6 ank ka code), profile mein naam/business/email bharna, password set karna, aur account delete WhatsApp code se.
+
+**Release notes (2.2.0):**
+```
+New: sign in or sign up with your mobile number. We send a 6-digit code on WhatsApp.
+New: finish your profile (name, business name, email) and set a password any time.
+You can now delete your account with a WhatsApp code.
+Fixes and smoother sign-in on small phones.
+```
+
+**Data safety:** koi badlav nahi. Phone number, name, email pehle se declare hain. Privacy policy mein ye line ho: "Your mobile number is used to sign you in; we send a one-time code to it on WhatsApp."
+
+**Build:**
+```
+flutter build apk --release
+```
+```
+flutter build appbundle --release
+```
+AAB: `build\app\outputs\bundle\release\app-release.aab`. APK: `build\app\outputs\flutter-apk\app-release.apk`.
+
+**Upload se pehle (server):**
+1. Backend deploy ho chuka ho (commit `41c222d` ya usse naya): OTP request/verify, delete with `{code}`, `company_name` profile mein.
+2. Server `.env`: `OTP_WHATSAPP_TEMPLATE`, `OTP_WHATSAPP_LANG=en_US`, `OTP_WHATSAPP_TYPE=authentication`, `OTP_WHATSAPP_PHONE_NUMBER_ID` set ho. Meta par template `heltog_login_code` Approved ho.
+3. Ek asli number par code aata ho (web login se bhi check ho sakta hai).
+4. App access (Play Console): reviewer ko email + password wala account hi do. Reviewer ko WhatsApp code nahi mil sakta.
+
+**Phone par regression (release se pehle):**
+- Email + password login, logout, dobara login.
+- Google login (Android).
+- Mobile OTP login: sahi code, galat code, resend 30 sec, change number, number jo registered nahi.
+- Naya account mobile se: workspace banta hai, hub khulta hai, plan na ho to plan page.
+- Profile: banner, naam, business name, email, "Set a password". Phir email + usi password se login.
+- Account delete: password se, Google se, WhatsApp code se (sirf test account par).
+- Notifications: login ke baad push aata hai, delete fail ho to push chalu rehta hai.
+- Chhota phone, bada font, offline mode, app restart ke baad login bana rahe.
+- Purane 2.1.0 se update karne par user logged in rahe.
+
+**Live hone ke baad:**
+1. Git tag `v2.2.0-live`.
+2. `APP_MIN_SUPPORTED_VERSION` / `APP_LATEST_VERSION` tabhi badhao jab 2.2.0 100% rollout ho jaye.
+3. Pehle 1 se 2 din staged rollout (20%), OTP login ke crash aur support tickets dekho.
+4. Agar WhatsApp code nahi pahunch raha (support complaints), server par MSG91 keys set karo (SMS fallback).
 
 Is file mein: (1) Data safety form ke jawab, (2) baaki Play Console forms, (3) live karne ke steps.
 Jo baat code se pakki hai wo "Pakka" likhi hai. Jo server ya web policy par nirbhar hai wo "Confirm karo" likhi hai.
