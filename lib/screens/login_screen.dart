@@ -331,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                   child: Text(
                                     _signUp
-                                        ? 'or continue with email'
+                                        ? 'or sign up with'
                                         : 'or sign in with',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -349,21 +349,28 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 18),
                         ],
-                        if (!_signUp) ...[
-                          _MethodChips(
-                            otp: _otpMode,
-                            onChanged: _busy
-                                ? null
-                                : (v) => setState(() => _otpMode = v),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        if (!_signUp && _otpMode)
+                        _MethodChips(
+                          otp: _otpMode,
+                          onChanged: _busy
+                              ? null
+                              : (v) => setState(() => _otpMode = v),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_otpMode) ...[
+                          // The same form signs in and signs up; for a new
+                          // number the server makes the account on verify.
                           OtpSignInForm(
-                            key: const ValueKey('otp-sign-in'),
+                            key: ValueKey(
+                              _signUp ? 'otp-sign-up' : 'otp-sign-in',
+                            ),
+                            register: _signUp,
                             onSignedIn: widget.onLoggedIn,
-                          )
-                        else ...[
+                          ),
+                          if (_signUp && isIos) ...[
+                            const SizedBox(height: 12),
+                            const _PlanNote(),
+                          ],
+                        ] else ...[
                           AnimatedSize(
                             duration: const Duration(milliseconds: 240),
                             curve: Curves.easeOut,
@@ -476,16 +483,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           // active plan, instead of ending on a locked screen.
                           if (_signUp && isIos) ...[
                             const SizedBox(height: 10),
-                            Text(
-                              'Eydia is a service for businesses. A new account '
-                              'opens the workspace once a plan is active on it.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11.5,
-                                height: 1.4,
-                                color: muted,
-                              ),
-                            ),
+                            const _PlanNote(),
                           ],
                           const SizedBox(height: 14),
                           _GradientButton(
@@ -591,7 +589,27 @@ class _ModeToggle extends StatelessWidget {
   }
 }
 
-/// "Mobile OTP" or "Email" under the Sign in tab.
+/// iOS: a new account still needs an active plan, said up front instead of
+/// ending on a locked screen.
+class _PlanNote extends StatelessWidget {
+  const _PlanNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Eydia is a service for businesses. A new account '
+      'opens the workspace once a plan is active on it.',
+      textAlign: TextAlign.center,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 11.5,
+        height: 1.4,
+        color: muted,
+      ),
+    );
+  }
+}
+
+/// "Mobile OTP" or "Email" under the Sign in / Create account tabs.
 class _MethodChips extends StatelessWidget {
   const _MethodChips({required this.otp, required this.onChanged});
 

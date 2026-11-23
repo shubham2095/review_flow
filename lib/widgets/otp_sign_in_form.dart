@@ -242,7 +242,11 @@ class _OtpSignInFormState extends State<OtpSignInForm> {
         ),
         const SizedBox(height: 8),
         Text(
-          "We'll send a 6-digit code on WhatsApp. +91 is added for you.",
+          widget.register
+              ? "We'll send a 6-digit code on WhatsApp. +91 is added for you. "
+                    'You can add your business name and email later, from your '
+                    'profile.'
+              : "We'll send a 6-digit code on WhatsApp. +91 is added for you.",
           style: _text(11.5),
         ),
         const SizedBox(height: 14),

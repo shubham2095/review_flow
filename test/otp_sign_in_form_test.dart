@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:review_flow/screens/login_screen.dart';
@@ -362,16 +363,79 @@ void main() {
       expectNoRealErrors(tester);
     });
 
-    testWidgets('Create account is still the email form', (tester) async {
+    testWidgets('Create account starts with the mobile number too', (
+      tester,
+    ) async {
       await pumpLogin(tester);
 
       await tester.tap(find.text('Create account'));
       await tester.pump(const Duration(milliseconds: 400));
 
+      expect(find.text('Mobile OTP'), findsOneWidget);
+      expect(find.text('Mobile number'), findsOneWidget);
+      expect(find.text('Send code'), findsOneWidget);
+      expect(
+        find.textContaining('add your business name and email later'),
+        findsOneWidget,
+      );
+      expect(find.text('Business name'), findsNothing);
+      expect(find.text('or sign up with'), findsOneWidget);
+      expectNoRealErrors(tester);
+    });
+
+    testWidgets('Create account with Email is the form it always was', (
+      tester,
+    ) async {
+      await pumpLogin(tester);
+
+      await tester.tap(find.text('Create account'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Email'));
+      await tester.pump(const Duration(milliseconds: 400));
+
       expect(find.text('Business name'), findsOneWidget);
-      expect(find.text('Mobile OTP'), findsNothing);
+      expect(find.text('Full name'), findsOneWidget);
+      expect(find.text('Password'), findsOneWidget);
       expect(find.text('Send code'), findsNothing);
       expectNoRealErrors(tester);
+    });
+
+    testWidgets('going back to Sign in brings back the sign-in wording', (
+      tester,
+    ) async {
+      await pumpLogin(tester);
+
+      await tester.tap(find.text('Create account'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Sign in'));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('or sign in with'), findsOneWidget);
+      expect(
+        find.textContaining('add your business name and email later'),
+        findsNothing,
+      );
+      expectNoRealErrors(tester);
+    });
+
+    testWidgets('iOS says a plan is needed, under the mobile sign-up', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        await pumpLogin(tester);
+        await tester.tap(find.text('Create account'));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(
+          find.textContaining('Eydia is a service for businesses'),
+          findsOneWidget,
+        );
+        expect(find.text('Send code'), findsOneWidget);
+        expectNoRealErrors(tester);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
   });
 }
