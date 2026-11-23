@@ -8,12 +8,12 @@ import '../services/account_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/otp_login.dart';
-import '../services/platform_rules.dart';
 import '../services/profile_rules.dart';
 import '../services/push_service.dart';
 import '../services/session.dart';
 import '../services/web_handoff.dart';
 import '../theme/brand.dart';
+import 'delete_account_sheet.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/password_rules.dart';
 import '../widgets/sheet_notice.dart';
@@ -332,7 +332,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => const _DeleteAccountSheet(),
+      builder: (_) => const DeleteAccountSheet(),
     );
     if (deleted == true && mounted) widget.onSignedOut();
   }
@@ -1060,207 +1060,6 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                       ),
                     )
                   : const Text('Update password'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DeleteAccountSheet extends StatefulWidget {
-  const _DeleteAccountSheet();
-
-  @override
-  State<_DeleteAccountSheet> createState() => _DeleteAccountSheetState();
-}
-
-class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
-  final _password = TextEditingController();
-  final _confirm = TextEditingController();
-  bool _busy = false;
-  bool _hide = true;
-
-  // Shown inside the sheet: a snack bar would sit behind it.
-  String? _notice;
-  String? _passwordError;
-
-  /// Deleting is permanent: the person has to type the word, not just tap.
-  bool get _confirmed => _confirm.text.trim().toUpperCase() == 'DELETE';
-
-  @override
-  void dispose() {
-    _password.dispose();
-    _confirm.dispose();
-    super.dispose();
-  }
-
-  Future<void> _run(Future<void> Function() action) async {
-    setState(() {
-      _busy = true;
-      _notice = null;
-    });
-    try {
-      await action();
-      if (mounted) Navigator.of(context).pop(true);
-    } on SignInCancelled {
-      // The person closed the Google chooser: nothing happened, nothing to say.
-      if (mounted) setState(() => _busy = false);
-    } catch (e) {
-      if (mounted) {
-        HapticFeedback.lightImpact();
-        setState(() {
-          _busy = false;
-          _notice = friendlyException(e).message;
-        });
-      }
-    }
-  }
-
-  Future<void> _withPassword() async {
-    if (_password.text.isEmpty) {
-      HapticFeedback.mediumImpact();
-      setState(() => _passwordError = 'Enter your password to confirm.');
-      return;
-    }
-    await _run(() => AuthService.deleteAccount(password: _password.text));
-  }
-
-  Future<void> _withGoogle() async {
-    await _run(() async {
-      final idToken = await AuthService.googleIdToken();
-      await AuthService.deleteAccount(idToken: idToken);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: bad),
-                const SizedBox(width: 8),
-                Text(
-                  'Delete your account',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    color: ink,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'This permanently removes your profile, connected Google tokens and '
-              'synced data. If you are the only member of your workspace, the '
-              'workspace is deleted too. Invoices and payment records are kept '
-              'only as long as the law requires.',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                color: muted,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _confirm,
-              textCapitalization: TextCapitalization.characters,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: 'Type DELETE to confirm',
-                filled: true,
-                fillColor: surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: _hide,
-              onChanged: (_) {
-                if (_passwordError != null) {
-                  setState(() => _passwordError = null);
-                }
-              },
-              decoration: InputDecoration(
-                labelText: 'Your password',
-                errorText: _passwordError,
-                filled: true,
-                fillColor: surface,
-                suffixIcon: IconButton(
-                  tooltip: _hide ? 'Show password' : 'Hide password',
-                  icon: Icon(
-                    _hide
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded,
-                    color: muted,
-                  ),
-                  onPressed: () => setState(() => _hide = !_hide),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            SheetNotice(_notice),
-            FilledButton(
-              onPressed: (_busy || !_confirmed) ? null : _withPassword,
-              style: FilledButton.styleFrom(backgroundColor: bad),
-              child: _busy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Delete my account'),
-            ),
-            const SizedBox(height: 4),
-            // Google confirmation exists only where Google sign-in does
-            // (platform_rules.dart). On iOS the password confirms; an account
-            // made with Google can set one through "Forgot password".
-            if (googleSignInAvailable)
-              TextButton.icon(
-                onPressed: (_busy || !_confirmed) ? null : _withGoogle,
-                icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
-                label: const Text(
-                  'I signed in with Google: confirm with Google',
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  'Signed up with Google and never set a password? Use "Forgot password" on the sign-in screen to set one first.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11.5,
-                    color: muted,
-                  ),
-                ),
-              ),
-            TextButton(
-              onPressed: _busy ? null : () => openPublicPage('/delete-account'),
-              child: const Text('Prefer email? See the deletion page'),
             ),
           ],
         ),

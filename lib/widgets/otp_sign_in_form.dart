@@ -10,8 +10,6 @@ import '../services/otp_login.dart';
 import '../theme/brand.dart';
 import 'sheet_notice.dart';
 
-typedef OtpRequest =
-    Future<OtpRequestResult> Function(String phone, {required bool register});
 typedef OtpVerify =
     Future<void> Function(String phone, String code, {required bool register});
 

@@ -108,6 +108,34 @@ String otpErrorMessage(ApiException e) {
   return e.message;
 }
 
+/// Deleting an account is confirmed with a code on WhatsApp first when the
+/// person most likely has no password: the account was made with a mobile
+/// number (its email is still the made-up one) and a number is saved.
+bool deleteWithCodeFirst({
+  required bool hasPhone,
+  required bool standInEmail,
+}) => hasPhone && standInEmail;
+
+/// What to say when a delete-with-code call fails. The server answers
+/// `otp_invalid` for a wrong or expired code and `no_phone` when the account
+/// has no mobile number to send a code to.
+String otpDeleteErrorMessage(ApiException e) {
+  switch (e.code) {
+    case 'otp_invalid':
+      return 'That code is incorrect or has expired. Ask for a new one and '
+          'try again.';
+    case 'no_phone':
+      return 'No mobile number is saved on your account. Add it in your '
+          'profile, or confirm with your password.';
+  }
+  return otpErrorMessage(e);
+}
+
+/// The shape of `AuthService.requestOtp`: screens take one of these so a test
+/// can stand in for the server.
+typedef OtpRequest =
+    Future<OtpRequestResult> Function(String phone, {required bool register});
+
 /// The server's answer to "send me a code".
 class OtpRequestResult {
   const OtpRequestResult({required this.message, this.devCode});

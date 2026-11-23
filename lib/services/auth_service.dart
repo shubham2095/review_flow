@@ -172,13 +172,32 @@ class AuthService {
   }
 
   /// Permanently deletes the account. Email users confirm with their password,
-  /// Google users with a fresh Google ID token. Clears the local session after.
-  static Future<void> deleteAccount({String? password, String? idToken}) async {
+  /// Google users with a fresh Google ID token, mobile-number users with the
+  /// 6-digit [code] sent to their own number by [requestOtp]. Clears the local
+  /// session after.
+  static Future<void> deleteAccount({
+    String? password,
+    String? idToken,
+    String? code,
+  }) async {
+    // Stop notifications first (the token stops working once the account is
+    // gone). If the delete is then refused, for example a mistyped code, turn
+    // them back on: the person is still signed in.
+    final pushWasOn = await PushService.isEnabled();
     await PushService.unregister();
-    await ApiService.instance.delete(
-      '/auth/account',
-      body: {'password': ?password, 'id_token': ?idToken},
-    );
+    try {
+      await ApiService.instance.delete(
+        '/auth/account',
+        body: {'password': ?password, 'id_token': ?idToken, 'code': ?code},
+      );
+    } catch (_) {
+      if (pushWasOn) {
+        try {
+          await PushService.enable();
+        } catch (_) {}
+      }
+      rethrow;
+    }
     await ApiService.instance.clearToken();
     Session.clear();
   }
