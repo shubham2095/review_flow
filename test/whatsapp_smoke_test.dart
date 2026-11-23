@@ -13,6 +13,8 @@ import 'package:review_flow/screens/admin_dashboard_screen.dart';
 import 'package:review_flow/screens/admin_payments_screen.dart';
 import 'package:review_flow/screens/admin_plans_screen.dart';
 import 'package:review_flow/screens/admin_support_screen.dart';
+import 'package:review_flow/screens/login_screen.dart';
+import 'package:review_flow/widgets/otp_sign_in_form.dart';
 import 'package:review_flow/screens/plan_gate_screen.dart';
 import 'package:review_flow/screens/profile_screen.dart';
 import 'package:review_flow/services/products.dart';
@@ -149,7 +151,8 @@ final Map<String, Widget Function()> _cases = {
     media: AiMedia(
       id: 'm1',
       prompt: 'A festive Diwali offer banner',
-      imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      imageData:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       source: 'ai',
     ),
   ),
@@ -162,7 +165,12 @@ final Map<String, Widget Function()> _cases = {
       const InvoiceDetailScreen(invoiceId: 'i1', number: 'INV-0001'),
   'InvoiceLineSheet (new)': () => const InvoiceLineSheet(
     services: [
-      InvoiceServiceItem(id: 's1', name: 'Logo design', price: 500, gstPercent: 18),
+      InvoiceServiceItem(
+        id: 's1',
+        name: 'Logo design',
+        price: 500,
+        gstPercent: 18,
+      ),
     ],
   ),
   'InvoiceLineSheet (edit)': () => const InvoiceLineSheet(
@@ -224,7 +232,10 @@ final Map<String, Widget Function()> _cases = {
   'CategorySheet': () => const CategorySheet(),
   'SeoScreen': () => const SeoScreen(),
   'SeoKeywordSheet': () => const SeoKeywordSheet(
-    places: [SeoPlace(id: 'l1', name: 'Main shop'), SeoPlace(id: 'l2', name: 'Second shop')],
+    places: [
+      SeoPlace(id: 'l1', name: 'Main shop'),
+      SeoPlace(id: 'l2', name: 'Second shop'),
+    ],
     initialKeyword: 'bakery in pune',
     initialCity: 'Pune',
   ),
@@ -255,8 +266,7 @@ final Map<String, Widget Function()> _cases = {
     ),
   ),
   'TeamScreen': () => const TeamScreen(),
-  'TeamMemberSheet (new)': () =>
-      const TeamMemberSheet(features: _teamFeatures),
+  'TeamMemberSheet (new)': () => const TeamMemberSheet(features: _teamFeatures),
   'TeamMemberSheet (edit)': () => const TeamMemberSheet(
     features: _teamFeatures,
     member: TeamMember(
@@ -272,6 +282,9 @@ final Map<String, Widget Function()> _cases = {
   ),
   'AssignAgentSheet': () =>
       const AssignAgentSheet(conversationId: 'c1', currentAgent: 'Asha Rao'),
+  'LoginScreen': () => LoginScreen(onLoggedIn: () {}),
+  'OtpSignInForm': () =>
+      SingleChildScrollView(child: OtpSignInForm(onSignedIn: () {})),
 };
 
 const _teamFeatures = [

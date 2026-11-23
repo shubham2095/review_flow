@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/platform_rules.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/otp_sign_in_form.dart';
 import '../widgets/password_rules.dart';
 import '../widgets/royal_backdrop.dart';
 import '../widgets/sheet_notice.dart';
@@ -35,6 +36,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _signUp = false;
+
+  /// Signing in: a code on WhatsApp (the main way, as on the web) or email
+  /// and password.
+  bool _otpMode = true;
   bool _busy = false;
   bool _hidePassword = true;
 
@@ -151,26 +156,27 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  InputDecoration _dec(String label, {Widget? suffix, String? errorKey}) => InputDecoration(
-    errorText: errorKey == null ? null : _errors[errorKey],
-    errorMaxLines: 2,
-    labelText: label,
-    filled: true,
-    fillColor: surface,
-    suffixIcon: suffix,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide.none,
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: _royal, width: 1.4),
-    ),
-  );
+  InputDecoration _dec(String label, {Widget? suffix, String? errorKey}) =>
+      InputDecoration(
+        errorText: errorKey == null ? null : _errors[errorKey],
+        errorMaxLines: 2,
+        labelText: label,
+        filled: true,
+        fillColor: surface,
+        suffixIcon: suffix,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: _royal, width: 1.4),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -318,15 +324,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               const Expanded(
                                 child: Divider(color: Color(0xFFE6EAF2)),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                ),
-                                child: Text(
-                                  'or continue with email',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    color: muted,
+                              Flexible(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
+                                  child: Text(
+                                    _signUp
+                                        ? 'or continue with email'
+                                        : 'or sign in with',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      color: muted,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -337,119 +349,151 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 18),
                         ],
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 240),
-                          curve: Curves.easeOut,
-                          alignment: Alignment.topCenter,
-                          child: _signUp
-                              ? Column(
-                                  children: [
-                                    TextField(
-                                      controller: _company,
-                                      textInputAction: TextInputAction.next,
-                                      textCapitalization:
-                                          TextCapitalization.words,
-                                      decoration: _dec('Business name', errorKey: 'company'),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    TextField(
-                                      controller: _name,
-                                      textInputAction: TextInputAction.next,
-                                      textCapitalization:
-                                          TextCapitalization.words,
-                                      autofillHints: const [AutofillHints.name],
-                                      decoration: _dec('Full name', errorKey: 'name'),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                )
-                              : const SizedBox(width: double.infinity),
-                        ),
-                        TextField(
-                          controller: _email,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          autofillHints: const [AutofillHints.email],
-                          decoration: _dec('Email address', errorKey: 'email'),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _password,
-                          obscureText: _hidePassword,
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const [AutofillHints.password],
-                          onSubmitted: (_) => _busy ? null : _submit(),
-                          decoration: _dec(
-                            'Password',
-                            errorKey: 'password',
-                            suffix: IconButton(
-                              tooltip: _hidePassword
-                                  ? 'Show password'
-                                  : 'Hide password',
-                              icon: Icon(
-                                _hidePassword
-                                    ? Icons.visibility_off_rounded
-                                    : Icons.visibility_rounded,
-                                color: muted,
-                              ),
-                              onPressed: () => setState(
-                                () => _hidePassword = !_hidePassword,
-                              ),
+                        if (!_signUp) ...[
+                          _MethodChips(
+                            otp: _otpMode,
+                            onChanged: _busy
+                                ? null
+                                : (v) => setState(() => _otpMode = v),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (!_signUp && _otpMode)
+                          OtpSignInForm(
+                            key: const ValueKey('otp-sign-in'),
+                            onSignedIn: widget.onLoggedIn,
+                          )
+                        else ...[
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 240),
+                            curve: Curves.easeOut,
+                            alignment: Alignment.topCenter,
+                            child: _signUp
+                                ? Column(
+                                    children: [
+                                      TextField(
+                                        controller: _company,
+                                        textInputAction: TextInputAction.next,
+                                        textCapitalization:
+                                            TextCapitalization.words,
+                                        decoration: _dec(
+                                          'Business name',
+                                          errorKey: 'company',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: _name,
+                                        textInputAction: TextInputAction.next,
+                                        textCapitalization:
+                                            TextCapitalization.words,
+                                        autofillHints: const [
+                                          AutofillHints.name,
+                                        ],
+                                        decoration: _dec(
+                                          'Full name',
+                                          errorKey: 'name',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                  )
+                                : const SizedBox(width: double.infinity),
+                          ),
+                          TextField(
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.email],
+                            decoration: _dec(
+                              'Email address',
+                              errorKey: 'email',
                             ),
                           ),
-                        ),
-                        // New password: show the rule as it is met. Existing
-                        // account: a way back in when the password is forgotten.
-                        if (_signUp)
-                          ListenableBuilder(
-                            listenable: _password,
-                            builder: (context, _) => Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 4, top: 2),
-                                child: PasswordRulesView(password: _password.text),
-                              ),
-                            ),
-                          )
-                        else
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _busy ? null : _forgotPassword,
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(48, 44),
-                              ),
-                              child: Text(
-                                'Forgot password?',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _royal,
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _password,
+                            obscureText: _hidePassword,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.password],
+                            onSubmitted: (_) => _busy ? null : _submit(),
+                            decoration: _dec(
+                              'Password',
+                              errorKey: 'password',
+                              suffix: IconButton(
+                                tooltip: _hidePassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                icon: Icon(
+                                  _hidePassword
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                  color: muted,
+                                ),
+                                onPressed: () => setState(
+                                  () => _hidePassword = !_hidePassword,
                                 ),
                               ),
                             ),
                           ),
-                        // iOS: say up front that a new account still needs an
-                        // active plan, instead of ending on a locked screen.
-                        if (_signUp && isIos) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            'Eydia is a service for businesses. A new account '
-                            'opens the workspace once a plan is active on it.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11.5,
-                              height: 1.4,
-                              color: muted,
+                          // New password: show the rule as it is met. Existing
+                          // account: a way back in when the password is forgotten.
+                          if (_signUp)
+                            ListenableBuilder(
+                              listenable: _password,
+                              builder: (context, _) => Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 4,
+                                    top: 2,
+                                  ),
+                                  child: PasswordRulesView(
+                                    password: _password.text,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _busy ? null : _forgotPassword,
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(48, 44),
+                                ),
+                                child: Text(
+                                  'Forgot password?',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: _royal,
+                                  ),
+                                ),
+                              ),
                             ),
+                          // iOS: say up front that a new account still needs an
+                          // active plan, instead of ending on a locked screen.
+                          if (_signUp && isIos) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              'Eydia is a service for businesses. A new account '
+                              'opens the workspace once a plan is active on it.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                height: 1.4,
+                                color: muted,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          _GradientButton(
+                            label: _signUp ? 'Create account' : 'Sign in',
+                            busy: _busy,
+                            onTap: _busy ? null : _submit,
                           ),
                         ],
-                        const SizedBox(height: 14),
-                        _GradientButton(
-                          label: _signUp ? 'Create account' : 'Sign in',
-                          busy: _busy,
-                          onTap: _busy ? null : _submit,
-                        ),
                       ],
                     ),
                   ),
@@ -543,6 +587,71 @@ class _ModeToggle extends StatelessWidget {
       child: Row(
         children: [tab('Sign in', false), tab('Create account', true)],
       ),
+    );
+  }
+}
+
+/// "Mobile OTP" or "Email" under the Sign in tab.
+class _MethodChips extends StatelessWidget {
+  const _MethodChips({required this.otp, required this.onChanged});
+
+  final bool otp;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(String label, IconData icon, bool value) {
+      final selected = otp == value;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: label,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onChanged == null ? null : () => onChanged!(value),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 44),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected ? _royal : const Color(0xFFDDE2EE),
+                  width: selected ? 1.4 : 1,
+                ),
+                color: selected ? _royal.withValues(alpha: 0.06) : null,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 17, color: selected ? _royal : muted),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? _royal : muted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        chip('Mobile OTP', Icons.sms_outlined, true),
+        const SizedBox(width: 10),
+        chip('Email', Icons.mail_outline_rounded, false),
+      ],
     );
   }
 }
