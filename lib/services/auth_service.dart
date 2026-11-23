@@ -1,6 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_service.dart';
+import 'otp_login.dart';
 import 'platform_rules.dart';
 import 'push_service.dart';
 import 'session.dart';
@@ -53,6 +54,40 @@ class AuthService {
     await _store(data);
   }
 
+  /// Asks the server to send a login code to [phone] (full number with country
+  /// code, see `normalizeOtpPhone`). With [register] a new number gets a code
+  /// too; without it the server answers the same for unknown numbers, so this
+  /// never reveals who is registered.
+  static Future<OtpRequestResult> requestOtp(
+    String phone, {
+    bool register = false,
+  }) async {
+    final data = await ApiService.instance.post(
+      '/auth/otp/request',
+      body: {'phone': phone, if (register) 'register': true},
+      auth: false,
+    );
+    return OtpRequestResult(
+      message: data['message']?.toString() ?? '',
+      devCode: data['dev_code']?.toString(),
+    );
+  }
+
+  /// Checks the code and signs in. With [register] a new number gets a new
+  /// workspace (named and filled in later from the profile).
+  static Future<void> verifyOtp(
+    String phone,
+    String code, {
+    bool register = false,
+  }) async {
+    final data = await ApiService.instance.post(
+      '/auth/otp/verify',
+      body: {'phone': phone, 'code': code, if (register) 'register': true},
+      auth: false,
+    );
+    await _store(data);
+  }
+
   /// Emails a password reset link. The server answers the same way whether or
   /// not the address has an account, so this never reveals who is registered.
   static Future<void> forgotPassword(String email) async {
@@ -97,7 +132,9 @@ class AuthService {
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
-        throw ApiException('Google did not return a sign-in token. Please try again.');
+        throw ApiException(
+          'Google did not return a sign-in token. Please try again.',
+        );
       }
       return idToken;
     } on GoogleSignInException catch (e) {
@@ -105,14 +142,18 @@ class AuthService {
         case GoogleSignInExceptionCode.canceled:
           throw SignInCancelled();
         case GoogleSignInExceptionCode.interrupted:
-          throw ApiException('Google sign-in was interrupted. Please try again.');
+          throw ApiException(
+            'Google sign-in was interrupted. Please try again.',
+          );
         case GoogleSignInExceptionCode.clientConfigurationError:
         case GoogleSignInExceptionCode.providerConfigurationError:
           throw ApiException(
             'Google sign-in is not set up correctly on this build. Please update the app or contact support.',
           );
         case GoogleSignInExceptionCode.uiUnavailable:
-          throw ApiException('Google sign-in could not open. Please try again.');
+          throw ApiException(
+            'Google sign-in could not open. Please try again.',
+          );
         default:
           throw ApiException('Google sign-in failed. Please try again.');
       }
