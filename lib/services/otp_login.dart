@@ -67,6 +67,28 @@ String formatOtpPhone(String full) {
   return '+$digits';
 }
 
+/// The number as it is shown while typing: ten digits in two groups of five
+/// ("98765 43210"). The field has a fixed +91 in front, so a number pasted with
+/// "+91", "91", "00" or a leading "0" in front is cleaned to the ten digits.
+/// [pasted] is false for ordinary typing, where a number may genuinely begin
+/// with 91 and must not be cut.
+String formatPhoneInput(String input, {bool pasted = false}) {
+  var digits = input.replaceAll(RegExp(r'\D'), '');
+  if (pasted) {
+    if (digits.startsWith('00')) digits = digits.substring(2);
+    // A leading 0 (trunk prefix) first, then the country code behind it.
+    if (digits.length > 10 && digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+    if (digits.length > 10 && digits.startsWith('91')) {
+      digits = digits.substring(2);
+    }
+  }
+  if (digits.length > 10) digits = digits.substring(0, 10);
+  if (digits.length <= 5) return digits;
+  return '${digits.substring(0, 5)} ${digits.substring(5)}';
+}
+
 /// Keeps only digits and cuts to the code length, for the code box.
 String cleanOtpCode(String input) {
   final digits = input.replaceAll(RegExp(r'\D'), '');

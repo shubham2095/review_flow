@@ -54,6 +54,40 @@ void main() {
     });
   });
 
+  group('formatPhoneInput', () {
+    test('ten digits in two groups of five', () {
+      expect(formatPhoneInput(''), '');
+      expect(formatPhoneInput('98765'), '98765');
+      expect(formatPhoneInput('987654'), '98765 4');
+      expect(formatPhoneInput('9876543210'), '98765 43210');
+      expect(formatPhoneInput('98765 43210'), '98765 43210');
+    });
+
+    test('more than ten digits are cut', () {
+      expect(formatPhoneInput('98765432109999'), '98765 43210');
+    });
+
+    test('a number typed that begins with 91 is kept whole', () {
+      expect(formatPhoneInput('9123456789'), '91234 56789');
+      // Typing an eleventh digit adds nothing (it is not read as a prefix).
+      expect(formatPhoneInput('91234567890'), '91234 56789');
+    });
+
+    test('a pasted prefix is removed', () {
+      expect(formatPhoneInput('+91 98765 43210', pasted: true), '98765 43210');
+      expect(formatPhoneInput('919876543210', pasted: true), '98765 43210');
+      expect(formatPhoneInput('00919876543210', pasted: true), '98765 43210');
+      expect(formatPhoneInput('09876543210', pasted: true), '98765 43210');
+      expect(formatPhoneInput('0919876543210', pasted: true), '98765 43210');
+      // A pasted ten-digit number that begins with 91 is not cut.
+      expect(formatPhoneInput('9123456789', pasted: true), '91234 56789');
+    });
+
+    test('what it shows is what normalizeOtpPhone expects', () {
+      expect(normalizeOtpPhone(formatPhoneInput('9876543210')), '919876543210');
+    });
+  });
+
   group('display and code box', () {
     test('formatOtpPhone', () {
       expect(formatOtpPhone('919876543210'), '+91 98765 43210');

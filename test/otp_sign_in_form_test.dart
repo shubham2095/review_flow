@@ -246,8 +246,48 @@ void main() {
     expect(find.text('Verify & sign in'), findsNothing);
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      '9876543210',
+      '98765 43210',
     );
+  });
+
+  testWidgets('the number is grouped as it is typed, a pasted +91 is cleaned', (
+    tester,
+  ) async {
+    final calls = _Calls();
+    await _pump(tester, calls);
+    TextEditingController field() =>
+        tester.widget<TextField>(find.byType(TextField)).controller!;
+
+    await tester.enterText(find.byType(TextField), '9876543210');
+    expect(field().text, '98765 43210');
+
+    await tester.enterText(find.byType(TextField), '+91 98765-43210');
+    expect(field().text, '98765 43210');
+
+    await tester.enterText(find.byType(TextField), '0919876543210');
+    expect(field().text, '98765 43210');
+
+    // The +91 is drawn in front of the field.
+    expect(find.text('+91'), findsOneWidget);
+    // Typing into a full field adds nothing.
+    await tester.enterText(find.byType(TextField), '98765432109');
+    expect(field().text, '98765 43210');
+  });
+
+  testWidgets('the code shows in six boxes, one digit each', (tester) async {
+    final calls = _Calls();
+    await _pump(tester, calls);
+    await _sendTo(tester, '9876543210');
+
+    await tester.enterText(find.byType(TextField), '482');
+    await tester.pump();
+
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('8'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    // Still one real text field underneath, so autofill and paste work.
+    expect(find.byType(TextField), findsOneWidget);
+    expectNoRealErrors(tester);
   });
 
   testWidgets('a development server code is shown as a test code', (
@@ -339,28 +379,53 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     }
 
-    testWidgets('Mobile OTP is the first way to sign in', (tester) async {
+    testWidgets('the mobile number is the first way to sign in', (
+      tester,
+    ) async {
       await pumpLogin(tester);
 
-      expect(find.text('Mobile OTP'), findsOneWidget);
-      expect(find.text('Email'), findsOneWidget);
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.text('Sign in with a code sent on WhatsApp'), findsOneWidget);
       expect(find.text('Mobile number'), findsOneWidget);
       expect(find.text('Send code'), findsOneWidget);
+      expect(find.text('Use email and password instead'), findsOneWidget);
+      // Google sits under the form, after an "or".
+      expect(find.text('or'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsOneWidget);
       expect(find.text('Password'), findsNothing);
       expectNoRealErrors(tester);
     });
 
-    testWidgets('Email brings back email and password', (tester) async {
+    testWidgets('the terms and privacy links are under the card', (
+      tester,
+    ) async {
       await pumpLogin(tester);
 
-      await tester.tap(find.text('Email'));
+      expect(find.text('Terms'), findsOneWidget);
+      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(find.textContaining('By continuing you agree'), findsOneWidget);
+    });
+
+    testWidgets('email and password is one tap away, and back again', (
+      tester,
+    ) async {
+      await pumpLogin(tester);
+
+      await tester.tap(find.text('Use email and password instead'));
       await tester.pump(const Duration(milliseconds: 400));
 
+      expect(find.text('Sign in with your email and password'), findsOneWidget);
       expect(find.text('Email address'), findsOneWidget);
       expect(find.text('Password'), findsOneWidget);
       expect(find.text('Forgot password?'), findsOneWidget);
       expect(find.text('Send code'), findsNothing);
+      expect(find.text('Use mobile number instead'), findsOneWidget);
       expectNoRealErrors(tester);
+
+      await tester.tap(find.text('Use mobile number instead'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Send code'), findsOneWidget);
+      expect(find.text('Password'), findsNothing);
     });
 
     testWidgets('Create account starts with the mobile number too', (
@@ -371,7 +436,11 @@ void main() {
       await tester.tap(find.text('Create account'));
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('Mobile OTP'), findsOneWidget);
+      expect(find.text('Create your account'), findsOneWidget);
+      expect(
+        find.text('Just your mobile number to get started'),
+        findsOneWidget,
+      );
       expect(find.text('Mobile number'), findsOneWidget);
       expect(find.text('Send code'), findsOneWidget);
       expect(
@@ -379,7 +448,6 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Business name'), findsNothing);
-      expect(find.text('or sign up with'), findsOneWidget);
       expectNoRealErrors(tester);
     });
 
@@ -390,7 +458,7 @@ void main() {
 
       await tester.tap(find.text('Create account'));
       await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.text('Email'));
+      await tester.tap(find.text('Use email and password instead'));
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.text('Business name'), findsOneWidget);
@@ -410,7 +478,7 @@ void main() {
       await tester.tap(find.text('Sign in'));
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('or sign in with'), findsOneWidget);
+      expect(find.text('Welcome back'), findsOneWidget);
       expect(
         find.textContaining('add your business name and email later'),
         findsNothing,

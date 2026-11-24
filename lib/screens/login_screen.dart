@@ -7,8 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/platform_rules.dart';
+import '../services/web_handoff.dart';
 import '../theme/brand.dart';
 import '../widgets/fade_in.dart';
+import '../widgets/gradient_button.dart';
 import '../widgets/otp_sign_in_form.dart';
 import '../widgets/password_rules.dart';
 import '../widgets/royal_backdrop.dart';
@@ -16,7 +18,6 @@ import '../widgets/sheet_notice.dart';
 
 const _navy = Color(0xFF0E1530);
 const _royal = Color(0xFF1E2A6B);
-const _violet = Color(0xFF3B2A8C);
 const _gold = Color(0xFFD4AF37);
 
 /// Native login and sign-up. Google login uses the phone's Google account,
@@ -178,6 +179,220 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
+  String get _title => _signUp ? 'Create your account' : 'Welcome back';
+
+  String get _subtitle {
+    if (_signUp) {
+      return _otpMode
+          ? 'Just your mobile number to get started'
+          : 'Start managing your business presence in minutes';
+    }
+    return _otpMode
+        ? 'Sign in with a code sent on WhatsApp'
+        : 'Sign in with your email and password';
+  }
+
+  /// Email and password: sign in, or sign up with the business name.
+  Widget _emailForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _signUp
+              ? Column(
+                  children: [
+                    TextField(
+                      controller: _company,
+                      textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: _dec('Business name', errorKey: 'company'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _name,
+                      textInputAction: TextInputAction.next,
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.name],
+                      decoration: _dec('Full name', errorKey: 'name'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+        TextField(
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          decoration: _dec('Email address', errorKey: 'email'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _password,
+          obscureText: _hidePassword,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.password],
+          onSubmitted: (_) => _busy ? null : _submit(),
+          decoration: _dec(
+            'Password',
+            errorKey: 'password',
+            suffix: IconButton(
+              tooltip: _hidePassword ? 'Show password' : 'Hide password',
+              icon: Icon(
+                _hidePassword
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                color: muted,
+              ),
+              onPressed: () => setState(() => _hidePassword = !_hidePassword),
+            ),
+          ),
+        ),
+        // New password: show the rule as it is met. Existing account: a way
+        // back in when the password is forgotten.
+        if (_signUp)
+          ListenableBuilder(
+            listenable: _password,
+            builder: (context, _) => Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4, top: 2),
+                child: PasswordRulesView(password: _password.text),
+              ),
+            ),
+          )
+        else
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _busy ? null : _forgotPassword,
+              style: TextButton.styleFrom(minimumSize: const Size(48, 44)),
+              child: Text(
+                'Forgot password?',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: _royal,
+                ),
+              ),
+            ),
+          ),
+        if (_signUp && isIos) ...[
+          const SizedBox(height: 10),
+          const _PlanNote(),
+        ],
+        const SizedBox(height: 14),
+        GradientButton(
+          label: _signUp ? 'Create account' : 'Sign in',
+          icon: Icons.arrow_forward_rounded,
+          busy: _busy,
+          onPressed: _busy ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  /// "or", then Google. Google sign-in is Android-only for now
+  /// (platform_rules.dart).
+  List<Widget> _googleBlock() {
+    return [
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          const Expanded(child: Divider(color: Color(0xFFE6EAF2))),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'or',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: muted,
+              ),
+            ),
+          ),
+          const Expanded(child: Divider(color: Color(0xFFE6EAF2))),
+        ],
+      ),
+      const SizedBox(height: 16),
+      OutlinedButton.icon(
+        onPressed: _busy ? null : _google,
+        icon: const Icon(Icons.g_mobiledata_rounded, size: 30),
+        label: Text(
+          'Continue with Google',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+        ),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          foregroundColor: ink,
+          side: const BorderSide(color: Color(0xFFDDE2EE)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'New to Eydia? Google creates your account automatically.',
+        textAlign: TextAlign.center,
+        style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: muted),
+      ),
+    ];
+  }
+
+  /// Under the form: switch between a code on WhatsApp and email and password.
+  Widget _methodSwitch() {
+    return Center(
+      child: TextButton.icon(
+        onPressed: _busy ? null : () => setState(() => _otpMode = !_otpMode),
+        icon: Icon(
+          _otpMode ? Icons.mail_outline_rounded : Icons.sms_outlined,
+          size: 18,
+        ),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          foregroundColor: _royal,
+        ),
+        label: Text(
+          _otpMode
+              ? 'Use email and password instead'
+              : 'Use mobile number instead',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: _royal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _legalLink(String label, String path) {
+    return TextButton(
+      onPressed: () => openPublicPage(path),
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        foregroundColor: Colors.white,
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: Colors.white70,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.white54,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -185,342 +400,207 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(22, 24, 22, 28),
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                FadeIn(
-                  child: Container(
-                    width: 88,
-                    height: 88,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(26),
-                      border: Border.all(
-                        color: _gold.withValues(alpha: 0.6),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _gold.withValues(alpha: 0.25),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Image.asset(
-                        'assets/images/eydia_logo.png',
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                FadeIn(
-                  delay: 80,
-                  child: Column(
-                    children: [
-                      Text(
-                        'EYDIA',
-                        style: GoogleFonts.cinzel(
-                          color: _gold,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: Text(
-                          _signUp ? 'Create your account' : 'Welcome back',
-                          key: ValueKey(_signUp),
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _signUp
-                            ? 'Start managing your Google presence in minutes'
-                            : 'Sign in to manage your business presence',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 26),
-                FadeIn(
-                  delay: 160,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.25),
-                          blurRadius: 40,
-                          offset: const Offset(0, 16),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _ModeToggle(
-                          signUp: _signUp,
-                          onChanged: _busy
-                              ? null
-                              : (v) => setState(() => _signUp = v),
-                        ),
-                        const SizedBox(height: 18),
-                        // Google sign-in is Android-only for now (platform_rules.dart).
-                        if (googleSignInAvailable) ...[
-                          OutlinedButton.icon(
-                            onPressed: _busy ? null : _google,
-                            icon: const Icon(
-                              Icons.g_mobiledata_rounded,
-                              size: 30,
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    FadeIn(
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 88,
+                            height: 88,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(26),
+                              border: Border.all(
+                                color: _gold.withValues(alpha: 0.6),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _gold.withValues(alpha: 0.28),
+                                  blurRadius: 28,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
-                            label: Text(
-                              'Continue with Google',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.w700,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: Image.asset(
+                                'assets/images/eydia_logo.png',
+                                fit: BoxFit.cover,
                               ),
                             ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(52),
-                              foregroundColor: ink,
-                              side: const BorderSide(color: Color(0xFFDDE2EE)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            'EYDIA',
+                            style: GoogleFonts.cinzel(
+                              color: _gold,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 6,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'AUTOMATE · ENGAGE · GROW',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: Colors.white54,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 2.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    FadeIn(
+                      delay: 80,
+                      child: Column(
+                        children: [
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: Text(
+                              _title,
+                              key: ValueKey(_title),
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                height: 1.15,
                               ),
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            'New to Eydia? Google creates your account automatically.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11.5,
-                              color: muted,
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: Text(
+                              _subtitle,
+                              key: ValueKey(_subtitle),
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13.5,
+                                color: Colors.white70,
+                                height: 1.4,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Divider(color: Color(0xFFE6EAF2)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    FadeIn(
+                      delay: 160,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(22, 22, 22, 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.28),
+                              blurRadius: 44,
+                              offset: const Offset(0, 18),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _ModeToggle(
+                              signUp: _signUp,
+                              onChanged: _busy
+                                  ? null
+                                  : (v) => setState(() => _signUp = v),
+                            ),
+                            const SizedBox(height: 22),
+                            if (_otpMode) ...[
+                              // The same form signs in and signs up; for a new
+                              // number the server makes the account on verify.
+                              OtpSignInForm(
+                                key: ValueKey(
+                                  _signUp ? 'otp-sign-up' : 'otp-sign-in',
+                                ),
+                                register: _signUp,
+                                onSignedIn: widget.onLoggedIn,
                               ),
+                              if (_signUp && isIos) ...[
+                                const SizedBox(height: 12),
+                                const _PlanNote(),
+                              ],
+                            ] else
+                              _emailForm(),
+                            if (googleSignInAvailable) ..._googleBlock(),
+                            const SizedBox(height: 4),
+                            _methodSwitch(),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    FadeIn(
+                      delay: 260,
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.lock_rounded,
+                                size: 13,
+                                color: Colors.white54,
+                              ),
+                              const SizedBox(width: 6),
                               Flexible(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  child: Text(
-                                    _signUp
-                                        ? 'or sign up with'
-                                        : 'or sign in with',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12,
-                                      color: muted,
-                                    ),
+                                child: Text(
+                                  'Secure sign-in for your Eydia account',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    color: Colors.white54,
                                   ),
                                 ),
-                              ),
-                              const Expanded(
-                                child: Divider(color: Color(0xFFE6EAF2)),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 18),
-                        ],
-                        _MethodChips(
-                          otp: _otpMode,
-                          onChanged: _busy
-                              ? null
-                              : (v) => setState(() => _otpMode = v),
-                        ),
-                        const SizedBox(height: 16),
-                        if (_otpMode) ...[
-                          // The same form signs in and signs up; for a new
-                          // number the server makes the account on verify.
-                          OtpSignInForm(
-                            key: ValueKey(
-                              _signUp ? 'otp-sign-up' : 'otp-sign-in',
-                            ),
-                            register: _signUp,
-                            onSignedIn: widget.onLoggedIn,
-                          ),
-                          if (_signUp && isIos) ...[
-                            const SizedBox(height: 12),
-                            const _PlanNote(),
-                          ],
-                        ] else ...[
-                          AnimatedSize(
-                            duration: const Duration(milliseconds: 240),
-                            curve: Curves.easeOut,
-                            alignment: Alignment.topCenter,
-                            child: _signUp
-                                ? Column(
-                                    children: [
-                                      TextField(
-                                        controller: _company,
-                                        textInputAction: TextInputAction.next,
-                                        textCapitalization:
-                                            TextCapitalization.words,
-                                        decoration: _dec(
-                                          'Business name',
-                                          errorKey: 'company',
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      TextField(
-                                        controller: _name,
-                                        textInputAction: TextInputAction.next,
-                                        textCapitalization:
-                                            TextCapitalization.words,
-                                        autofillHints: const [
-                                          AutofillHints.name,
-                                        ],
-                                        decoration: _dec(
-                                          'Full name',
-                                          errorKey: 'name',
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                  )
-                                : const SizedBox(width: double.infinity),
-                          ),
-                          TextField(
-                            controller: _email,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            autofillHints: const [AutofillHints.email],
-                            decoration: _dec(
-                              'Email address',
-                              errorKey: 'email',
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _password,
-                            obscureText: _hidePassword,
-                            textInputAction: TextInputAction.done,
-                            autofillHints: const [AutofillHints.password],
-                            onSubmitted: (_) => _busy ? null : _submit(),
-                            decoration: _dec(
-                              'Password',
-                              errorKey: 'password',
-                              suffix: IconButton(
-                                tooltip: _hidePassword
-                                    ? 'Show password'
-                                    : 'Hide password',
-                                icon: Icon(
-                                  _hidePassword
-                                      ? Icons.visibility_off_rounded
-                                      : Icons.visibility_rounded,
-                                  color: muted,
-                                ),
-                                onPressed: () => setState(
-                                  () => _hidePassword = !_hidePassword,
+                          const SizedBox(height: 2),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                'By continuing you agree to our',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.5,
+                                  color: Colors.white54,
                                 ),
                               ),
-                            ),
-                          ),
-                          // New password: show the rule as it is met. Existing
-                          // account: a way back in when the password is forgotten.
-                          if (_signUp)
-                            ListenableBuilder(
-                              listenable: _password,
-                              builder: (context, _) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: 4,
-                                    top: 2,
-                                  ),
-                                  child: PasswordRulesView(
-                                    password: _password.text,
-                                  ),
+                              _legalLink('Terms', '/terms-and-conditions'),
+                              Text(
+                                'and',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11.5,
+                                  color: Colors.white54,
                                 ),
                               ),
-                            )
-                          else
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _busy ? null : _forgotPassword,
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(48, 44),
-                                ),
-                                child: Text(
-                                  'Forgot password?',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: _royal,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          // iOS: say up front that a new account still needs an
-                          // active plan, instead of ending on a locked screen.
-                          if (_signUp && isIos) ...[
-                            const SizedBox(height: 10),
-                            const _PlanNote(),
-                          ],
-                          const SizedBox(height: 14),
-                          _GradientButton(
-                            label: _signUp ? 'Create account' : 'Sign in',
-                            busy: _busy,
-                            onTap: _busy ? null : _submit,
+                              _legalLink('Privacy Policy', '/privacy-policy'),
+                            ],
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 22),
-                FadeIn(
-                  delay: 260,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.lock_rounded,
-                        size: 13,
-                        color: Colors.white54,
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          'Secure sign-in for your Eydia account',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            color: Colors.white54,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -604,132 +684,6 @@ class _PlanNote extends StatelessWidget {
         fontSize: 11.5,
         height: 1.4,
         color: muted,
-      ),
-    );
-  }
-}
-
-/// "Mobile OTP" or "Email" under the Sign in / Create account tabs.
-class _MethodChips extends StatelessWidget {
-  const _MethodChips({required this.otp, required this.onChanged});
-
-  final bool otp;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget chip(String label, IconData icon, bool value) {
-      final selected = otp == value;
-      return Expanded(
-        child: Semantics(
-          button: true,
-          selected: selected,
-          label: label,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: onChanged == null ? null : () => onChanged!(value),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 44),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: selected ? _royal : const Color(0xFFDDE2EE),
-                  width: selected ? 1.4 : 1,
-                ),
-                color: selected ? _royal.withValues(alpha: 0.06) : null,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 17, color: selected ? _royal : muted),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: selected ? _royal : muted,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        chip('Mobile OTP', Icons.sms_outlined, true),
-        const SizedBox(width: 10),
-        chip('Email', Icons.mail_outline_rounded, false),
-      ],
-    );
-  }
-}
-
-class _GradientButton extends StatelessWidget {
-  const _GradientButton({
-    required this.label,
-    required this.busy,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool busy;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null && !busy ? 0.6 : 1,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_royal, _violet]),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: _royal.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: onTap,
-            child: Center(
-              child: busy
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(
-                      label,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-            ),
-          ),
-        ),
       ),
     );
   }
