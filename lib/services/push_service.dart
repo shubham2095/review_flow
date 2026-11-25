@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../firebase_options.dart';
 import 'api_service.dart';
+import 'platform_rules.dart';
 
 /// Where a tapped notification should take the person.
 class PushTarget {
@@ -62,6 +63,9 @@ class PushService {
       defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
 
   static Future<bool> _init() async {
+    // Push is not offered on iOS yet (platform_rules.dart), so Firebase is
+    // never started there. Every other method then stops at this check.
+    if (!pushNotificationsAvailable) return false;
     if (_ready) return true;
     if (_failed) return false;
     try {

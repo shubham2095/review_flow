@@ -19,3 +19,10 @@ bool get planPurchaseLinkAllowed => !isIos;
 
 /// Google sign-in (chooser, ID token, delete-account confirm with Google).
 bool get googleSignInAvailable => !isIos;
+
+/// Push notifications. Off on iOS for now: the iPhone build is not set up for
+/// them yet (no Push Notifications capability or APNs key, and the App Store
+/// privacy label does not list the push token). On iOS Firebase is never
+/// started, the "Allow notifications" prompt is never shown and the
+/// Notifications switch in My Profile stays hidden. Android is unchanged.
+bool get pushNotificationsAvailable => !isIos;

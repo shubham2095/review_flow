@@ -37,6 +37,23 @@ was changed.
   should sign out and sign in with that account. No buy link, no web link.
 - Android: both screens unchanged.
 
+### 4. `lib/services/platform_rules.dart` and `lib/services/push_service.dart` (2.2.0: push notifications off on iPhone)
+- Why: the iPhone build has no Push Notifications capability or APNs key, so
+  push could not work there, yet the app would still ask "Allow notifications".
+  The App Store privacy label also does not list the push token yet.
+- `platform_rules.dart`: new `pushNotificationsAvailable => !isIos`.
+- `push_service.dart`: `_init()` returns false first thing when
+  `!pushNotificationsAvailable`. On iOS this means Firebase is never started,
+  the "Stay on top of your business" prompt is never shown (`start` stops at
+  `_init`), the Notifications switch in My Profile stays hidden (it already
+  hides itself when push is not supported), and no token is registered.
+- Android: `pushNotificationsAvailable` is true, so the old code runs unchanged.
+- Test: `test/push_ios_off_test.dart` (iOS is off, Android stays on).
+- To turn push on for iPhone later: add the Push Notifications capability and
+  Background Modes (Remote notifications) in Xcode, upload an APNs key in
+  Firebase, add the push token to the App Store privacy label, then change
+  `pushNotificationsAvailable` to `true`.
+
 ## Not changed, and why
 
 - **Risk 1 (plans sold on the website):** cannot be fixed in code. Use the review
